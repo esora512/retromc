@@ -13,8 +13,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	log.Printf("Login Request: %+v", p)
 
 	sendLoginResponse(connection)
-	sendPreChunk(connection)
-	sendMapChunk(connection)
+	sendChunks(connection)
 	sendSpawnPosition(connection)
 	sendInventory(connection)
 	sendPlayerPositionAndLook(connection)
@@ -33,38 +32,36 @@ func sendLoginResponse(connection net.Conn) {
 	connection.Write(outData)
 }
 
-func sendPreChunk(connection net.Conn) {
-	// create pre chunk packet
-	preChunkPacket := packets.PreChunkOutPacket{
-		X:    0,
-		Z:    0,
-		Mode: true,
+// sendChunks sends a 3x3 grid of chunks around the spawn point.
+// Each chunk needs a PreChunk (init) followed by its MapChunk (data).
+func sendChunks(connection net.Conn) {
+	for cx := int32(-1); cx <= 1; cx++ {
+		for cz := int32(-1); cz <= 1; cz++ {
+			// pre-chunk: uses chunk coordinates
+			preChunkPacket := packets.PreChunkOutPacket{
+				X:    cx,
+				Z:    cz,
+				Mode: true,
+			}
+			connection.Write(preChunkPacket.Serialize())
+
+			// map-chunk: X/Z are block coordinates of the chunk's origin
+			chunk := level.NewChunk()
+			chunk.X = cx * level.CHUNK_SIZE_X
+			chunk.Z = cz * level.CHUNK_SIZE_Z
+
+			mapChunkPacket := packets.MapChunkOutPacket{}
+			mapChunkPacket.Apply(chunk)
+			connection.Write(mapChunkPacket.Serialize())
+		}
 	}
-	outData := preChunkPacket.Serialize()
-
-	// write pre chunk packet
-	connection.Write(outData)
-}
-
-func sendMapChunk(connection net.Conn) {
-	// create a new chunk
-	chunk := level.NewChunk()
-
-	// create map chunk packet
-	mapChunkPacket := packets.MapChunkOutPacket{}
-	mapChunkPacket.Apply(chunk)
-
-	outData := mapChunkPacket.Serialize()
-
-	// write map chunk packet
-	connection.Write(outData)
 }
 
 func sendSpawnPosition(connection net.Conn) {
 	// create spawn position packet
 	spawnPositionPacket := packets.SpawnPositionOutPacket{
 		X: 0,
-		Y: 0,
+		Y: 64,
 		Z: 0,
 	}
 	outData := spawnPositionPacket.Serialize()
@@ -104,12 +101,12 @@ func sendPlayerPositionAndLook(connection net.Conn) {
 	// create new player position and look out packet
 	packet := packets.PlayerPositionAndLookOutPacket{
 		X:        0,
-		Y:        0,
+		Y:        80.0,  // feet on top of stone (Y=63)
+		Stance:   65.62, // eyes = Y + 1.62 (player eye height)
 		Z:        0,
-		Stance:   0,
 		Yaw:      0,
 		Pitch:    0,
-		OnGround: false,
+		OnGround: true,
 	}
 	outData := packet.Serialize()
 

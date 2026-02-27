@@ -12,8 +12,11 @@ func (item *Item) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 
 	writer.WriteShort(uint16(item.TypeId))
-	writer.WriteByte(item.Count)
-	writer.WriteShort(uint16(item.Uses))
+	// Per protocol: count and uses are only present when the item is not empty (-1)
+	if item.TypeId != -1 {
+		writer.WriteByte(item.Count)
+		writer.WriteShort(uint16(item.Uses))
+	}
 
 	return writer.Bytes()
 }

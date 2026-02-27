@@ -30,44 +30,54 @@ func (c *Chunk) CompressData() []byte {
 	return buf.Bytes()
 }
 
-// fill the chunk with air blocks
-func (c *Chunk) fillAir() {
-	// calculate amount of blocks in a chunk
+const GROUND_LEVEL = 64
+
+// generate fills the chunk: stone below GROUND_LEVEL, air above.
+// Blocks are stored in XZY order so y = blockIndex % CHUNK_SIZE_Y.
+// Nibble arrays pack two 4-bit values per byte: even index → lower nibble (bits 0-3),
+// odd index → upper nibble (bits 4-7).
+func (c *Chunk) generate() {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	nibbleCount := blocksAmount / 2
 
 	blockTypes := make([]byte, blocksAmount)
-	blockMetadata := make([]byte, divEvenOrRoundUp(blocksAmount, 2))
-	blockLight := make([]byte, divEvenOrRoundUp(blocksAmount, 2))
-	blockSkyLight := make([]byte, divEvenOrRoundUp(blocksAmount, 2))
+	blockMetadata := make([]byte, nibbleCount)
+	blockLight := make([]byte, nibbleCount)
+	blockSkyLight := make([]byte, nibbleCount)
 
-	metaIndex := 0
-	for blockIndex := 0; blockIndex < blocksAmount; blockIndex++ {
-		// create new air block
-		block := NewAirBlock()
+	for i := 0; i < blocksAmount; i++ {
+		y := i % CHUNK_SIZE_Y
 
-		// set block type id
-		blockTypes[blockIndex] = block.TypeId // set block type
+		var block Block
+		if y < GROUND_LEVEL {
+			block = NewStoneBlock()
+			// The top stone layer is exposed to sky, so it must receive full skylight.
+			// Without this, the surface renders pitch black (skylight=0, blocklight=0).
+			if y == GROUND_LEVEL-1 {
+				block.SkyLight = 0x0f
+			}
+		} else {
+			block = NewAirBlock()
+		}
 
-		if blockIndex%2 == 0 { // lower bits
-			blockMetadata[metaIndex/2] = block.Metadata
-			blockLight[metaIndex/2] = block.Light
-			blockSkyLight[metaIndex/2] = block.SkyLight
-		} else { // upper bits
-			blockMetadata[metaIndex] = mergeNibbles(blockMetadata[metaIndex], block.Metadata)
-			blockLight[metaIndex] = mergeNibbles(blockLight[metaIndex], block.Light)
-			blockSkyLight[metaIndex] = mergeNibbles(blockSkyLight[metaIndex], block.SkyLight)
-			metaIndex++
+		blockTypes[i] = block.TypeId
+
+		ni := i / 2
+		if i%2 == 0 { // lower nibble (bits 0-3)
+			blockMetadata[ni] = block.Metadata & 0x0f
+			blockLight[ni] = block.Light & 0x0f
+			blockSkyLight[ni] = block.SkyLight & 0x0f
+		} else { // upper nibble (bits 4-7)
+			blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
+			blockLight[ni] |= (block.Light & 0x0f) << 4
+			blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
 		}
 	}
 
-	// concat data
-	data := blockTypes
-	data = append(data, blockMetadata...)
-	data = append(data, blockLight...)
-	data = append(data, blockSkyLight...)
-
-	// update chunk data
-	c.Data = data
+	c.Data = blockTypes
+	c.Data = append(c.Data, blockMetadata...)
+	c.Data = append(c.Data, blockLight...)
+	c.Data = append(c.Data, blockSkyLight...)
 }
 
 func NewChunk() Chunk {
@@ -79,6 +89,6 @@ func NewChunk() Chunk {
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
 	}
-	chunk.fillAir()
+	chunk.generate()
 	return chunk
 }

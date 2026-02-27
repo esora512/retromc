@@ -9,20 +9,13 @@ type Inventory struct {
 
 // serialize the inventory data
 // see Window items (0x68): https://wiki.vg/index.php?title=Protocol&oldid=483
+// Each slot: itemId (short), and only if itemId != -1: count (byte) + uses (short)
 func (inv *Inventory) Serialize() []byte {
-	itemIds := packet.NewPacketWriter()
-	countAndUses := packet.NewPacketWriter()
+	writer := packet.NewPacketWriter()
 
 	for i := range inv.Items {
-		itemIds.WriteShort(uint16(inv.Items[i].TypeId))    // write type id
-		countAndUses.WriteByte(inv.Items[i].Count)         // write item count
-		countAndUses.WriteShort(uint16(inv.Items[i].Uses)) // write item uses
+		writer.Write(inv.Items[i].Serialize())
 	}
-
-	// concat itemIds and countAndUses
-	writer := packet.NewPacketWriter()
-	writer.Write(itemIds.Bytes())
-	writer.Write(countAndUses.Bytes())
 
 	return writer.Bytes()
 }

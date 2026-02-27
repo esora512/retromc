@@ -35,6 +35,6 @@ func HandlePacket(connection net.Conn, data *[]byte) {
 		handlePlayerPositionInPacket(connection, packet)
 		break
 	default:
-		log.Fatalf("Received unknown packet id: %x", p.PacketId)
+		log.Printf("Ignoring unknown packet id: %x", p.PacketId)
 	}
 }

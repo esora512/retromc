@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"net"
+	"time"
 
+	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
 )
 
@@ -38,16 +40,35 @@ func main() {
 }
 
 func handleConnection(connection net.Conn) {
-	// create buffer to hold incoming data
-	var buf []byte
+	done := make(chan struct{})
 
+	// send keep-alive every 10s so the client doesn't time out
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		keepAlive := packets.KeepAliveOutPacket{}
+		for {
+			select {
+			case <-ticker.C:
+				_, err := connection.Write(keepAlive.Serialize())
+				if err != nil {
+					return
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	var buf []byte
 	for {
 		buf = make([]byte, 1024)
 
-		// read incoming data
 		_, err := connection.Read(buf)
 		if err != nil {
-			log.Fatalln("Failed to read packet: ", err.Error())
+			log.Println("Connection closed:", err.Error())
+			close(done)
+			connection.Close()
 			return
 		}
 
