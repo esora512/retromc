@@ -18,6 +18,15 @@ func NewAirBlock() Block {
 
 func NewStoneBlock() Block {
 	return Block{
+		TypeId:   0x01,
+		Metadata: 0x00,
+		Light:    0x00,
+		SkyLight: 0x00,
+	}
+}
+
+func NewDirtBlock() Block {
+	return Block{
 		TypeId:   0x03,
 		Metadata: 0x00,
 		Light:    0x00,

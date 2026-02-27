@@ -85,11 +85,11 @@ func sendInventory(connection net.Conn) {
 	// write window items out packet
 	connection.Write(outData)
 
-	// create new set slot out packet
+	// put a stone block in the first hotbar slot (slot 36 = leftmost hotbar cell)
 	setSlotPacket := packets.SetSlotOutPacket{
-		WindowId: 0x81,
-		Slot:     -1,
-		Item:     player.NewItem(-1, 1),
+		WindowId: 0,                     // 0 = player inventory
+		Slot:     36,                    // slots 36-44 are the hotbar; 36 is the first
+		Item:     player.NewItem(1, 64), // item 1 = stone, count 64
 	}
 	outData = setSlotPacket.Serialize()
 
@@ -98,11 +98,12 @@ func sendInventory(connection net.Conn) {
 }
 
 func sendPlayerPositionAndLook(connection net.Conn) {
+	const spawnY = 64.0
 	// create new player position and look out packet
 	packet := packets.PlayerPositionAndLookOutPacket{
 		X:        0,
-		Y:        80.0,  // feet on top of stone (Y=63)
-		Stance:   65.62, // eyes = Y + 1.62 (player eye height)
+		Y:        spawnY,
+		Stance:   spawnY + 1.62, // Stance MUST be Y + eye height; if Stance < Y client looks up
 		Z:        0,
 		Yaw:      0,
 		Pitch:    0,
