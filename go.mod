@@ -1,5 +1,5 @@
 module github.com/leNicDev/retromc
 
-go 1.16
+go 1.25
 
-require golang.org/x/text v0.3.5 // indirect
+require golang.org/x/text v0.3.5
