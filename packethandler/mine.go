@@ -3,8 +3,11 @@ package packethandler
 import (
 	"net"
 
+	"log"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
+	"github.com/leNicDev/retromc/player"
 )
 
 // handleMineInPacket handles block-break events.
@@ -14,6 +17,8 @@ func handleMineInPacket(connection net.Conn, p packets.MineInPacket, world *leve
 		return
 	}
 
+	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
+	log.Printf("Mined block: %+v", oldBlock)
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 
@@ -25,5 +30,12 @@ func handleMineInPacket(connection net.Conn, p packets.MineInPacket, world *leve
 		BlockMeta: air.Metadata,
 	}
 	connection.Write(blockChange.Serialize())
-}
 
+	//TODO: Refine this; check for empty slots; check for existing same block and increase count
+	setSlot := packets.SetSlotOutPacket{
+		WindowId: 0,
+		Slot:     9,
+		Item:     player.Item{TypeId: int16(oldBlock.TypeId), Count: 1, Uses: 0},
+	}
+	connection.Write(setSlot.Serialize())
+}

@@ -25,12 +25,9 @@ func ReadPlaceInPacket(data *[]byte) PlaceInPacket {
 	packet.X = reader.ReadInt32()
 	packet.Y = reader.ReadByte()
 	packet.Z = reader.ReadInt32()
-	packet.Face = reader.ReadByte()
+	packet.Face = reader.ReadByte() // Direction
 	packet.ItemId = int16(reader.ReadShort())
 	packet.Amount = reader.ReadByte()
 	packet.Damage = int16(reader.ReadShort())
-
-	//log.Printf("Place: %+v", packet)
-
 	return packet
 }

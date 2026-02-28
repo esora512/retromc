@@ -41,6 +41,12 @@ func handlePlaceInPacket(connection net.Conn, p packets.PlaceInPacket, world *le
 		return
 	}
 
+	// // Only place into air — don't overwrite existing blocks.
+	existing := world.GetBlock(newX, byte(newY), newZ)
+	if existing.TypeId != 0x00 {
+		return
+	}
+
 	block := level.NewBlockById(p.ItemId)
 	world.SetBlock(newX, byte(newY), newZ, block)
 
