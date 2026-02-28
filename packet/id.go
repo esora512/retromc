@@ -21,4 +21,5 @@ const (
 	EntityAction          byte = 0x13
 	PlayerAnimation       byte = 0x12
 	HoldingChange         byte = 0x10
+	BlockChange           byte = 0x35
 )

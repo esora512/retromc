@@ -33,3 +33,16 @@ func NewDirtBlock() Block {
 		SkyLight: 0x00,
 	}
 }
+
+func NewBlockById(id int16) Block {
+	switch id {
+	case 0x00:
+		return NewAirBlock()
+	case 0x01:
+		return NewStoneBlock()
+	case 0x03:
+		return NewDirtBlock()
+	default:
+		return NewAirBlock()
+	}
+}

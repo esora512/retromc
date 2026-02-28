@@ -9,11 +9,11 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket) {
+func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World) {
 	log.Printf("Login Request: %+v", p)
 
 	sendLoginResponse(connection)
-	sendChunks(connection)
+	sendChunks(connection, world)
 	//sendSpawnPosition(connection)
 	sendInventory(connection)
 	sendPlayerPositionAndLook(connection)
@@ -32,9 +32,10 @@ func sendLoginResponse(connection net.Conn) {
 	connection.Write(outData)
 }
 
-// sendChunks sends a 3x3 grid of chunks around the spawn point.
+// sendChunks sends a 2x2 grid of chunks around the spawn point.
 // Each chunk needs a PreChunk (init) followed by its MapChunk (data).
-func sendChunks(connection net.Conn) {
+// Chunks are fetched from the world so any already-mutated state is preserved.
+func sendChunks(connection net.Conn, world *level.World) {
 	for cx := int32(-1); cx <= 0; cx++ {
 		for cz := int32(-1); cz <= 0; cz++ {
 			// pre-chunk: uses chunk coordinates
@@ -46,12 +47,10 @@ func sendChunks(connection net.Conn) {
 			connection.Write(preChunkPacket.Serialize())
 
 			// map-chunk: X/Z are block coordinates of the chunk's origin
-			chunk := level.NewChunk()
-			chunk.X = cx * level.CHUNK_SIZE_X
-			chunk.Z = cz * level.CHUNK_SIZE_Z
+			chunk := world.GetOrCreateChunk(cx, cz)
 
 			mapChunkPacket := packets.MapChunkOutPacket{}
-			mapChunkPacket.Apply(chunk)
+			mapChunkPacket.Apply(*chunk)
 			connection.Write(mapChunkPacket.Serialize())
 		}
 	}

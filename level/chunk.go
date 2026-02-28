@@ -80,6 +80,34 @@ func (c *Chunk) generate() {
 	c.Data = append(c.Data, blockSkyLight...)
 }
 
+// SetBlock mutates a single block inside an already-generated chunk.
+// lx, ly, lz are local (0-based) coordinates within the chunk.
+// The Data layout mirrors generate(): blockTypes | blockMetadata | blockLight | blockSkyLight,
+// with nibble arrays packed two 4-bit values per byte.
+func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
+	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	nibbleCount := blocksAmount / 2
+
+	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
+
+	metaOffset := blocksAmount
+	lightOffset := blocksAmount + nibbleCount
+	skyOffset := blocksAmount + 2*nibbleCount
+
+	c.Data[i] = block.TypeId
+
+	ni := i / 2
+	if i%2 == 0 { // lower nibble (bits 0-3)
+		c.Data[metaOffset+ni] = (c.Data[metaOffset+ni] & 0xf0) | (block.Metadata & 0x0f)
+		c.Data[lightOffset+ni] = (c.Data[lightOffset+ni] & 0xf0) | (block.Light & 0x0f)
+		c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0xf0) | (block.SkyLight & 0x0f)
+	} else { // upper nibble (bits 4-7)
+		c.Data[metaOffset+ni] = (c.Data[metaOffset+ni] & 0x0f) | ((block.Metadata & 0x0f) << 4)
+		c.Data[lightOffset+ni] = (c.Data[lightOffset+ni] & 0x0f) | ((block.Light & 0x0f) << 4)
+		c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0x0f) | ((block.SkyLight & 0x0f) << 4)
+	}
+}
+
 func NewChunk() Chunk {
 	chunk := Chunk{
 		X:     0,

@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
 )
@@ -26,6 +27,8 @@ func main() {
 
 	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
 
+	world := level.NewWorld()
+
 	for {
 		// listen for incoming connections
 		connection, err := l.Accept()
@@ -35,11 +38,11 @@ func main() {
 		}
 
 		// handle connection
-		go handleConnection(connection)
+		go handleConnection(connection, world)
 	}
 }
 
-func handleConnection(connection net.Conn) {
+func handleConnection(connection net.Conn, world *level.World) {
 	done := make(chan struct{})
 
 	// send keep-alive every 10s so the client doesn't time out
@@ -72,6 +75,6 @@ func handleConnection(connection net.Conn) {
 			return
 		}
 
-		packethandler.HandlePacket(connection, &buf)
+		packethandler.HandlePacket(connection, &buf, world)
 	}
 }
