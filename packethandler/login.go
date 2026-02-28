@@ -97,9 +97,25 @@ func sendInventory(connection net.Conn) {
 	connection.Write(outData)
 
 	setSlotPacket = packets.SetSlotOutPacket{
-		WindowId: 0,                      // 0 = player inventory
-		Slot:     37,                     // slots 36-44 are the hotbar; 36 is the first
-		Item:     player.NewItem(1, 64), // item 1 = stone, count 64
+		WindowId: 0,
+		Slot:     37,
+		Item:     player.NewItem(1, 64),
+	}
+	outData = setSlotPacket.Serialize()
+	connection.Write(outData)
+
+	setSlotPacket = packets.SetSlotOutPacket{
+		WindowId: 0,
+		Slot:     38,
+		Item:     player.NewItem(326, 1),
+	}
+	outData = setSlotPacket.Serialize()
+	connection.Write(outData)
+
+	setSlotPacket = packets.SetSlotOutPacket{
+		WindowId: 0,
+		Slot:     39,
+		Item:     player.NewItem(327, 1),
 	}
 	outData = setSlotPacket.Serialize()
 	connection.Write(outData)
