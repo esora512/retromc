@@ -3,6 +3,8 @@ package packethandler
 import (
 	"net"
 
+	"log"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 )
@@ -24,6 +26,19 @@ func handlePlaceInPacket(connection net.Conn, p packets.PlaceInPacket, world *le
 		newX--
 	case 5:
 		newX++
+	}
+	log.Printf("Place: %+v", p)
+
+	// Reject out-of-bounds Y (e.g. face offset pushed below 0 or above 127).
+	if newY < 0 || newY >= level.CHUNK_SIZE_Y {
+		return
+	}
+
+	// Reject placement into a chunk that was never sent to the client.
+	cx := level.WorldToChunkCoord(newX)
+	cz := level.WorldToChunkCoord(newZ)
+	if !world.ChunkExists(cx, cz) {
+		return
 	}
 
 	block := level.NewBlockById(p.ItemId)

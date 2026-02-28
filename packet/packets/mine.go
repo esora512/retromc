@@ -1,8 +1,6 @@
 package packets
 
 import (
-	"log"
-
 	"github.com/leNicDev/retromc/packet"
 )
 
@@ -27,7 +25,7 @@ func ReadMineInPacket(data *[]byte) MineInPacket {
 	packet.Y = reader.ReadByte()
 	packet.Z = reader.ReadInt32()
 	packet.Face = reader.ReadByte()
-	log.Printf("Mine: %+v", packet)
+	//log.Printf("Mine: %+v", packet)
 
 	return packet
 }

@@ -2,7 +2,6 @@ package packets
 
 import (
 	"github.com/leNicDev/retromc/packet"
-	"log"
 )
 
 type HoldingChangeInPacket struct {
@@ -19,7 +18,7 @@ func ReadHoldingChangeInPacket(data *[]byte) HoldingChangeInPacket {
 	packet.PacketId = reader.ReadPacketId()
 	packet.Slot = int16(reader.ReadShort())
 
-	log.Printf("Holding change: %+v", packet)
+	//log.Printf("Holding change: %+v", packet)
 
 	return packet
 }

@@ -108,6 +108,13 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
 	}
 }
 
+// GetBlock returns the block at local coordinates (lx, ly, lz).
+// Only TypeId is populated — sufficient for placement checks.
+func (c *Chunk) GetBlock(lx, ly, lz int) Block {
+	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
+	return Block{TypeId: c.Data[i]}
+}
+
 func NewChunk() Chunk {
 	chunk := Chunk{
 		X:     0,

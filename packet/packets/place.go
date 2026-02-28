@@ -1,8 +1,6 @@
 package packets
 
 import (
-	"log"
-
 	"github.com/leNicDev/retromc/packet"
 )
 
@@ -32,7 +30,7 @@ func ReadPlaceInPacket(data *[]byte) PlaceInPacket {
 	packet.Amount = reader.ReadByte()
 	packet.Damage = int16(reader.ReadShort())
 
-	log.Printf("Place: %+v", packet)
+	//log.Printf("Place: %+v", packet)
 
 	return packet
 }

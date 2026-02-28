@@ -17,6 +17,14 @@ func NewWorld() *World {
 	return &World{chunks: make(map[ChunkCoord]*Chunk)}
 }
 
+// ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
+func (w *World) ChunkExists(cx, cz int32) bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	_, ok := w.chunks[ChunkCoord{cx, cz}]
+	return ok
+}
+
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
 func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 	w.mu.Lock()
@@ -45,3 +53,12 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	chunk.SetBlock(lx, int(worldY), lz, block)
 }
 
+func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
+	cx := WorldToChunkCoord(worldX)
+	cz := WorldToChunkCoord(worldZ)
+	chunk := w.GetOrCreateChunk(cx, cz)
+
+	lx := WorldToLocalCoord(worldX)
+	lz := WorldToLocalCoord(worldZ)
+	return chunk.GetBlock(lx, int(worldY), lz)
+}
