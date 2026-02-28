@@ -14,7 +14,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 
 	sendLoginResponse(connection)
 	sendChunks(connection)
-	sendSpawnPosition(connection)
+	//sendSpawnPosition(connection)
 	sendInventory(connection)
 	sendPlayerPositionAndLook(connection)
 }
@@ -35,8 +35,8 @@ func sendLoginResponse(connection net.Conn) {
 // sendChunks sends a 3x3 grid of chunks around the spawn point.
 // Each chunk needs a PreChunk (init) followed by its MapChunk (data).
 func sendChunks(connection net.Conn) {
-	for cx := int32(-1); cx <= 1; cx++ {
-		for cz := int32(-1); cz <= 1; cz++ {
+	for cx := int32(-1); cx <= 0; cx++ {
+		for cz := int32(-1); cz <= 0; cz++ {
 			// pre-chunk: uses chunk coordinates
 			preChunkPacket := packets.PreChunkOutPacket{
 				X:    cx,
@@ -127,7 +127,7 @@ func sendPlayerPositionAndLook(connection net.Conn) {
 	packet := packets.PlayerPositionAndLookOutPacket{
 		X:        0,
 		Y:        spawnY,
-		Stance:   spawnY + 1.62, // Stance MUST be Y + eye height; if Stance < Y client looks up
+		Stance:   spawnY + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
 		Z:        0,
 		Yaw:      0,
 		Pitch:    0,

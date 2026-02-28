@@ -11,9 +11,6 @@ import (
 func HandlePacket(connection net.Conn, data *[]byte) {
 	// read packet
 	p := packet.ReadPacket(data)
-
-	log.Printf("Received packet: %+v", p)
-
 	switch p.PacketId {
 	case packet.KeepAlive:
 		packet := packets.ReadKeepAliveInPacket(data)
@@ -21,20 +18,20 @@ func HandlePacket(connection net.Conn, data *[]byte) {
 	case packet.Handshake:
 		packet := packets.ReadHandshakeInPacket(data)
 		handleHandshakeInPacket(connection, packet)
-		break
 	case packet.LoginRequest:
 		packet := packets.ReadLoginRequestInPacket(data)
 		handleLoginRequestInPacket(connection, packet)
-		break
 	case packet.PlayerPositionAndLook:
 		packet := packets.ReadPlayerPositionAndLookInPacket(data)
 		handlePlayerPositionAndLookInPacket(connection, packet)
-		break
 	case packet.PlayerPosition:
-		packet := packets.ReadPlayerPositionInPacket(data)
-		handlePlayerPositionInPacket(connection, packet)
-		break
+		packets.ReadPlayerPositionInPacket(data)
+		//handlePlayerPositionInPacket(connection, packet)
+	case packet.PlayerOnGround:
+		packets.ReadPlayerOnGroundInPacket(data)
+	case packet.PlayerLook:
+		packets.ReadPlayerLookInPacket(data)
 	default:
-		log.Printf("Ignoring unknown packet id: %x", p.PacketId)
+		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}
 }

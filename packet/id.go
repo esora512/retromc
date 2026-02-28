@@ -14,4 +14,8 @@ const (
 	MapChunk              byte = 0x33
 	SetSlot               byte = 0x67
 	WindowItems           byte = 0x68
+	PlayerOnGround        byte = 0x0a
+	Mine                  byte = 0x0e
+	Place                 byte = 0x0f
+	PlayerLook            byte = 0x0c
 )
