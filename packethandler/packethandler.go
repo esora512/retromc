@@ -22,8 +22,8 @@ func HandlePacket(connection net.Conn, data *[]byte) {
 		packet := packets.ReadLoginRequestInPacket(data)
 		handleLoginRequestInPacket(connection, packet)
 	case packet.PlayerPositionAndLook:
-		packet := packets.ReadPlayerPositionAndLookInPacket(data)
-		handlePlayerPositionAndLookInPacket(connection, packet)
+		packets.ReadPlayerPositionAndLookInPacket(data)
+		//handlePlayerPositionAndLookInPacket(connection, packet)
 	case packet.PlayerPosition:
 		packets.ReadPlayerPositionInPacket(data)
 		//handlePlayerPositionInPacket(connection, packet)
@@ -31,6 +31,14 @@ func HandlePacket(connection net.Conn, data *[]byte) {
 		packets.ReadPlayerOnGroundInPacket(data)
 	case packet.PlayerLook:
 		packets.ReadPlayerLookInPacket(data)
+	case packet.EntityAction:
+		packets.ReadEntityActionInPacket(data)
+	case packet.PlayerAnimation:
+		packets.ReadPlayerAnimationInPacket(data)
+	case packet.Mine:
+		packets.ReadMineInPacket(data)
+	case packet.HoldingChange:
+		packets.ReadHoldingChangeInPacket(data)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}

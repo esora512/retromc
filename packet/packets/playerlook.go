@@ -1,8 +1,6 @@
 package packets
 
 import (
-	"log"
-
 	"github.com/leNicDev/retromc/packet"
 )
 
@@ -22,7 +20,7 @@ func ReadPlayerLookInPacket(data *[]byte) PlayerLookInPacket {
 	packet.Yaw = reader.ReadFloat32()
 	packet.Pitch = reader.ReadFloat32()
 	packet.OnGround = reader.ReadBool()
-	log.Printf("Player look: %+v", packet)
+	//log.Printf("Player look: %+v", packet)
 
 	return packet
 }

@@ -51,6 +51,20 @@ func (r *PacketReader) ReadShort() uint16 {
 	return binary.BigEndian.Uint16(data)
 }
 
+func (r *PacketReader) ReadInt32() int32 {
+	data := make([]byte, INT_SIZE)
+
+	intIndex := 0
+	endIndex := r.index + INT_SIZE
+	for i := r.index; i < endIndex; i++ {
+		data[intIndex] = (*r.Data)[i]
+		r.index++
+		intIndex++
+	}
+
+	return int32(binary.BigEndian.Uint32(data))
+}
+
 func (r *PacketReader) ReadInt() int {
 	data := make([]byte, INT_SIZE)
 
