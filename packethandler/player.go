@@ -9,7 +9,40 @@ import (
 	"github.com/leNicDev/retromc/packet/packets"
 )
 
-func handlePlaceInPacket(connection net.Conn, p packets.PlaceInPacket, world *level.World) {
+func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket) {
+	log.Printf("Player position and look: %+v", p)
+}
+
+func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket) {
+	log.Printf("Player position: %+v", p)
+}
+
+// handlePlayerDiggingInPacket handles block-break events.
+// Status 2 means the client finished digging — that's when we actually remove the block.
+func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World) {
+	if p.Status != 2 {
+		return
+	}
+
+	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
+	log.Printf("Mined block: %+v", oldBlock)
+	air := level.NewAirBlock()
+	world.SetBlock(p.X, p.Y, p.Z, air)
+
+	blockChange := packets.BlockChangeOutPacket{
+		X:         p.X,
+		Y:         p.Y,
+		Z:         p.Z,
+		BlockType: air.TypeId,
+		BlockMeta: air.Metadata,
+	}
+	connection.Write(blockChange.Serialize())
+
+	//TODO: Refine this; check for empty slots; check for existing same block and increase count
+	setItemInInventory(connection, int16(oldBlock.TypeId), 1, 9)
+}
+
+func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World) {
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
 	newX, newY, newZ := p.X, int(p.Y), p.Z

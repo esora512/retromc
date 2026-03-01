@@ -36,14 +36,14 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World) {
 		packets.ReadEntityActionInPacket(data)
 	case packet.PlayerAnimation:
 		packets.ReadPlayerAnimationInPacket(data)
-	case packet.Mine:
-		p := packets.ReadMineInPacket(data)
-		handleMineInPacket(connection, p, world)
+	case packet.PlayerDigging:
+		p := packets.ReadPlayerDiggingInPacket(data)
+		handlePlayerDiggingInPacket(connection, p, world)
 	case packet.HoldingChange:
 		packets.ReadHoldingChangeInPacket(data)
-	case packet.Place:
+	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(data)
-		handlePlaceInPacket(connection, p, world)
+		handlePlayerBlockPlacementInPacket(connection, p, world)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}
