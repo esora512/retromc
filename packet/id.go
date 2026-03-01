@@ -22,4 +22,5 @@ const (
 	PlayerAnimation       byte = 0x12
 	HoldingChange         byte = 0x10
 	BlockChange           byte = 0x35
+	WindowClick           byte = 0x66
 )

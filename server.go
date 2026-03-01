@@ -8,6 +8,7 @@ import (
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
+	"github.com/leNicDev/retromc/player"
 )
 
 const (
@@ -43,6 +44,7 @@ func main() {
 }
 
 func handleConnection(connection net.Conn, world *level.World) {
+	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 
 	// send keep-alive every 10s so the client doesn't time out
@@ -75,6 +77,6 @@ func handleConnection(connection net.Conn, world *level.World) {
 			return
 		}
 
-		packethandler.HandlePacket(connection, &buf, world)
+		packethandler.HandlePacket(connection, &buf, world, pl)
 	}
 }

@@ -7,9 +7,10 @@ import (
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/packet/packets"
+	"github.com/leNicDev/retromc/player"
 )
 
-func HandlePacket(connection net.Conn, data *[]byte, world *level.World) {
+func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *player.Player) {
 	// read packet
 	p := packet.ReadPacket(data)
 	switch p.PacketId {
@@ -21,13 +22,11 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World) {
 		handleHandshakeInPacket(connection, packet)
 	case packet.LoginRequest:
 		packet := packets.ReadLoginRequestInPacket(data)
-		handleLoginRequestInPacket(connection, packet, world)
+		handleLoginRequestInPacket(connection, packet, world, pl)
 	case packet.PlayerPositionAndLook:
 		packets.ReadPlayerPositionAndLookInPacket(data)
-		//handlePlayerPositionAndLookInPacket(connection, packet)
 	case packet.PlayerPosition:
 		packets.ReadPlayerPositionInPacket(data)
-		//handlePlayerPositionInPacket(connection, packet)
 	case packet.PlayerOnGround:
 		packets.ReadPlayerOnGroundInPacket(data)
 	case packet.PlayerLook:
@@ -38,12 +37,15 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World) {
 		packets.ReadPlayerAnimationInPacket(data)
 	case packet.PlayerDigging:
 		p := packets.ReadPlayerDiggingInPacket(data)
-		handlePlayerDiggingInPacket(connection, p, world)
+		handlePlayerDiggingInPacket(connection, p, world, pl)
 	case packet.HoldingChange:
 		packets.ReadHoldingChangeInPacket(data)
 	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(data)
-		handlePlayerBlockPlacementInPacket(connection, p, world)
+		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
+	case packet.WindowClick:
+		packets.ReadWindowClickInPacket(data)
+		//handleWindowClickInPacket(p, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}

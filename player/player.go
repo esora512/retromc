@@ -12,3 +12,10 @@ type Player struct {
 	Connection net.Conn
 	Inventory  Inventory
 }
+
+func NewPlayer(conn net.Conn) *Player {
+	return &Player{
+		Connection: conn,
+		Inventory:  NewInventory(PLAYER_INVENTORY_SIZE),
+	}
+}

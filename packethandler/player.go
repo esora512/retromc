@@ -1,12 +1,12 @@
 package packethandler
 
 import (
-	"net"
-
 	"log"
+	"net"
 
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
+	"github.com/leNicDev/retromc/player"
 )
 
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket) {
@@ -18,17 +18,24 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 }
 
 // handlePlayerDiggingInPacket handles block-break events.
-// Status 2 means the client finished digging — that's when we actually remove the block.
-func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World) {
+// Status 2 means the client finished digging — that's when we remove the block and
+// credit the item to the player's in-memory inventory.
+func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
 	if p.Status != 2 {
 		return
 	}
 
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
-	log.Printf("Mined block: %+v", oldBlock)
+	// Don't credit air — player somehow finished digging an empty cell.
+	if oldBlock.TypeId == 0x00 {
+		return
+	}
+	log.Printf("Mined block type=%d at (%d,%d,%d)", oldBlock.TypeId, p.X, p.Y, p.Z)
+
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 
+	// Notify client of the block change.
 	blockChange := packets.BlockChangeOutPacket{
 		X:         p.X,
 		Y:         p.Y,
@@ -38,11 +45,20 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 	connection.Write(blockChange.Serialize())
 
-	//TODO: Refine this; check for empty slots; check for existing same block and increase count
-	setItemInInventory(connection, int16(oldBlock.TypeId), 1, 9)
+	// Add the mined block to the in-memory inventory.
+	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
+	slot := pl.Inventory.AddItem(int16(oldBlock.TypeId))
+	if slot < 0 {
+		log.Printf("Inventory full — block type=%d not added", oldBlock.TypeId)
+		return
+	}
+	// Tell the client about the updated slot.
+	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }
 
-func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World) {
+// handlePlayerBlockPlacementInPacket handles block-place events.
+// It decrements the placed item from the player's in-memory inventory.
+func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
 	newX, newY, newZ := p.X, int(p.Y), p.Z
@@ -60,9 +76,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	case 5:
 		newX++
 	}
-	log.Printf("Place: %+v", p)
 
-	// Reject out-of-bounds Y (e.g. face offset pushed below 0 or above 127).
+	// Reject out-of-bounds Y.
 	if newY < 0 || newY >= level.CHUNK_SIZE_Y {
 		return
 	}
@@ -74,15 +89,24 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	// // Only place into air — don't overwrite existing blocks.
+	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
 	if existing.TypeId != 0x00 {
 		return
 	}
 
+	// Verify the player actually has the item they're trying to place.
+	slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
+	if slot < 0 {
+		log.Printf("Placement rejected — player has no item id=%d", p.ItemId)
+		return
+	}
+
 	block := level.NewBlockById(p.ItemId)
 	world.SetBlock(newX, byte(newY), newZ, block)
+	log.Printf("Placed block type=%d at (%d,%d,%d)", block.TypeId, newX, newY, newZ)
 
+	// Notify client of the block change.
 	blockChange := packets.BlockChangeOutPacket{
 		X:         newX,
 		Y:         byte(newY),
@@ -91,4 +115,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		BlockMeta: block.Metadata,
 	}
 	connection.Write(blockChange.Serialize())
+
+	// Decrement the item in the in-memory inventory and sync to client.
+	pl.Inventory.RemoveOneFromSlot(slot)
+	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }

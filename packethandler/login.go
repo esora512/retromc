@@ -9,13 +9,12 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World) {
+func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
 	log.Printf("Login Request: %+v", p)
 
 	sendLoginResponse(connection)
 	sendChunks(connection, world)
-	//sendSpawnPosition(connection)
-	sendInventory(connection)
+	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)
 }
 
@@ -69,21 +68,17 @@ func sendSpawnPosition(connection net.Conn) {
 	connection.Write(outData)
 }
 
-func sendInventory(connection net.Conn) {
-	// create empty player inventory
-	inv := player.NewInventory(player.PLAYER_INVENTORY_SIZE)
+func sendInventory(connection net.Conn, pl *player.Player) {
+	// Apply preset items into the player's in-memory inventory first,
+	// then send the full inventory in a single WindowItems packet.
+	presetInventory(&pl.Inventory)
 
-	// create new window items out packet
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
-		Count:    int16(inv.Size),
-		Payload:  inv,
+		Count:    int16(pl.Inventory.Size),
+		Payload:  pl.Inventory,
 	}
-	outData := windowItemsPacket.Serialize()
-
-	// write window items out packet
-	connection.Write(outData)
-	presetInventory(connection)
+	connection.Write(windowItemsPacket.Serialize())
 }
 
 func sendPlayerPositionAndLook(connection net.Conn) {

@@ -20,4 +20,3 @@ func (p *BlockChangeOutPacket) Serialize() []byte {
 	writer.WriteByte(p.BlockMeta)
 	return writer.Bytes()
 }
-
