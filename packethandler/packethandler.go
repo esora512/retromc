@@ -44,8 +44,8 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *pla
 		p := packets.ReadPlaceInPacket(data)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
 	case packet.WindowClick:
-		packets.ReadWindowClickInPacket(data)
-		//handleWindowClickInPacket(p, pl)
+		p := packets.ReadWindowClickInPacket(data)
+		handleWindowClickInPacket(p, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}

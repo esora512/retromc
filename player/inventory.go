@@ -5,11 +5,11 @@ import "github.com/leNicDev/retromc/packet"
 const (
 	// Slots 0-8 are crafting output/grid and armour — not usable for item storage.
 	// Slots 9-35 are the main inventory; 36-44 are the hotbar.
-	StorageStart = 9
-	StorageEnd   = 44
-	MaxStack     = 64
-	HotbarStart  = 36
-	HotbarEnd    = 44
+	StorageStart       = 9
+	StorageEnd         = 44
+	MaxStack           = 64
+	HotbarStart        = 36
+	HotbarEnd          = 44
 	MainInventoryStart = 9
 	MainInventoryEnd   = 35
 )
@@ -92,6 +92,10 @@ func (inv *Inventory) FindFirstSlotWith(typeId int16) int16 {
 		}
 	}
 	return -1
+}
+
+func (inv *Inventory) Swap(slot1, slot2 int16) {
+	inv.Items[slot1], inv.Items[slot2] = inv.Items[slot2], inv.Items[slot1]
 }
 
 func NewInventory(size uint16) Inventory {
