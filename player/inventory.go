@@ -8,6 +8,10 @@ const (
 	StorageStart = 9
 	StorageEnd   = 44
 	MaxStack     = 64
+	HotbarStart  = 36
+	HotbarEnd    = 44
+	MainInventoryStart = 9
+	MainInventoryEnd   = 35
 )
 
 type Inventory struct {
@@ -36,6 +40,14 @@ func (inv *Inventory) SetItem(slot int16, typeId int16, count byte) {
 // Returns the slot index that was updated, or -1 if the inventory is full.
 func (inv *Inventory) AddItem(typeId int16) int16 {
 	// Try to increment an existing partial stack.
+	for i := HotbarStart; i <= HotbarEnd; i++ {
+		item := &inv.Items[i]
+		if item.TypeId == typeId && item.Count < MaxStack {
+			item.Count++
+			return int16(i)
+		}
+	}
+
 	for i := StorageStart; i <= StorageEnd; i++ {
 		item := &inv.Items[i]
 		if item.TypeId == typeId && item.Count < MaxStack {

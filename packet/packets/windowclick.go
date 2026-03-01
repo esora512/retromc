@@ -35,6 +35,6 @@ func ReadWindowClickInPacket(data *[]byte) WindowClickInPacket {
 		p.ItemCount = reader.ReadByte()
 		p.ItemUses = int16(reader.ReadShort())
 	}
-	log.Printf("Slot: %d, ItemID: %d, ItemCount: %d, ItemUses: %d, Shift: %v", p.Slot, p.ItemID, p.ItemCount, p.ItemUses, p.Shift)
+	log.Printf("Slot: %d, ItemID: %d, ItemCount: %d, ItemUses: %d, Shift: %v, ActionNumber: %d, RightClick: %d", p.Slot, p.ItemID, p.ItemCount, p.ItemUses, p.Shift, p.ActionNumber, p.RightClick)
 	return p
 }
