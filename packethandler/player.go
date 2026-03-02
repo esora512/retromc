@@ -58,7 +58,11 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 // handlePlayerBlockPlacementInPacket handles block-place events.
 // It decrements the placed item from the player's in-memory inventory.
+// HotbarSlot is locked for the duration so that a HoldingChange packet
+// arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
+	pl.HotbarLocked.Store(true)
+	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
 	newX, newY, newZ := p.X, int(p.Y), p.Z
@@ -96,15 +100,12 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	// Verify the player actually has the item they're trying to place.
-	slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
-	if slot < 0 {
-		log.Printf("Placement rejected — player has no item id=%d", p.ItemId)
-		return
-	}
-
+	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
+	slot := pl.HotbarSlot
 	block := level.NewBlockById(p.ItemId)
 	world.SetBlock(newX, byte(newY), newZ, block)
 	log.Printf("Placed block type=%d at (%d,%d,%d)", block.TypeId, newX, newY, newZ)
+	log.Printf("Slot: %d", slot)
 
 	// Notify client of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -117,6 +118,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	connection.Write(blockChange.Serialize())
 
 	// Decrement the item in the in-memory inventory and sync to client.
-	pl.Inventory.RemoveOneFromSlot(slot)
+	check := pl.Inventory.RemoveOneFromSlot(slot)
+	log.Printf("Check: %d=%d", check, slot)
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }

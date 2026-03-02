@@ -1,6 +1,10 @@
 package player
 
-import "github.com/leNicDev/retromc/packet"
+import (
+	"log"
+
+	"github.com/leNicDev/retromc/packet"
+)
 
 const (
 	// Slots 0-8 are crafting output/grid and armour — not usable for item storage.
@@ -48,6 +52,8 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 		}
 	}
 
+	log.Printf("Adding item %d to main inventory", typeId)
+
 	for i := StorageStart; i <= StorageEnd; i++ {
 		item := &inv.Items[i]
 		if item.TypeId == typeId && item.Count < MaxStack {
@@ -56,6 +62,13 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 		}
 	}
 	// No partial stack found — claim the first empty slot.
+	for i := HotbarStart; i <= HotbarEnd; i++ {
+		if inv.Items[i].TypeId == -1 {
+			inv.Items[i] = NewItem(typeId, 1)
+			return int16(i)
+		}
+	}
+
 	for i := StorageStart; i <= StorageEnd; i++ {
 		if inv.Items[i].TypeId == -1 {
 			inv.Items[i] = NewItem(typeId, 1)
@@ -70,10 +83,12 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 // Returns the slot index, or -1 if the slot was already empty.
 func (inv *Inventory) RemoveOneFromSlot(slot int16) int16 {
 	if slot < 0 || int(slot) >= len(inv.Items) {
+		log.Printf("RemoveOneFromSlot: slot %d out of range", slot)
 		return -1
 	}
 	item := &inv.Items[slot]
 	if item.TypeId == -1 {
+		log.Printf("RemoveOneFromSlot: slot %d is empty", slot)
 		return -1
 	}
 	item.Count--

@@ -39,7 +39,8 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *pla
 		p := packets.ReadPlayerDiggingInPacket(data)
 		handlePlayerDiggingInPacket(connection, p, world, pl)
 	case packet.HoldingChange:
-		packets.ReadHoldingChangeInPacket(data)
+		p := packets.ReadHoldingChangeInPacket(data)
+		handleHoldingChangeInPacket(p, pl)
 	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(data)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)

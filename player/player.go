@@ -1,6 +1,9 @@
 package player
 
-import "net"
+import (
+	"net"
+	"sync/atomic"
+)
 
 const (
 	PLAYER_INVENTORY_SIZE = 45
@@ -19,6 +22,8 @@ type Player struct {
 	Connection   net.Conn
 	Inventory    Inventory
 	SelectedItem SelectedItem
+	HotbarSlot   int16
+	HotbarLocked atomic.Bool // locked while a BlockPlacement is being processed
 }
 
 func NewPlayer(conn net.Conn) *Player {
