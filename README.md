@@ -1,5 +1,5 @@
 # retromc
-A Mincraft Beta 1.7.3 server I found on GitHub: https://github.com/leNicDev/retromc
+A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https://github.com/leNicDev/retromc
 
 ## Plan
 * Create a functional Minecraft Beta 1.7.3 version
@@ -8,6 +8,17 @@ A Mincraft Beta 1.7.3 server I found on GitHub: https://github.com/leNicDev/retr
 
 ## Side goals
 * Learn more about Minecraft networking
+
+## Tasks
+* Inventory Management 🚧
+    * Using shift breaks it
+* World Generation ❌
+* Mobs ❌
+* Dropping Items (Entity Rendering) ❌
+* Block Placement & Mining 🚧
+    * Block duplication fixed
+    * Still a bit buggy; delays and undos of block placement
+* Multiplayer ❌
 
 ## References
 * https://pixelbrush.dev/beta-wiki/ (has protocol information; may help in improving this build)
