@@ -30,7 +30,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	if oldBlock.TypeId == 0x00 {
 		return
 	}
-	log.Printf("Mined block type=%d at (%d,%d,%d)", oldBlock.TypeId, p.X, p.Y, p.Z)
 
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
@@ -49,7 +48,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
 	slot := pl.Inventory.AddItem(int16(oldBlock.TypeId))
 	if slot < 0 {
-		log.Printf("Inventory full — block type=%d not added", oldBlock.TypeId)
 		return
 	}
 	// Tell the client about the updated slot.
@@ -104,8 +102,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	slot := pl.HotbarSlot
 	block := level.NewBlockById(p.ItemId)
 	world.SetBlock(newX, byte(newY), newZ, block)
-	log.Printf("Placed block type=%d at (%d,%d,%d)", block.TypeId, newX, newY, newZ)
-	log.Printf("Slot: %d", slot)
 
 	// Notify client of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -118,7 +114,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	connection.Write(blockChange.Serialize())
 
 	// Decrement the item in the in-memory inventory and sync to client.
-	check := pl.Inventory.RemoveOneFromSlot(slot)
-	log.Printf("Check: %d=%d", check, slot)
+	pl.Inventory.RemoveOneFromSlot(slot)
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }

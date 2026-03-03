@@ -14,6 +14,7 @@ type SelectedItem struct {
 	Item         Item
 	Slot         int16
 	ActionNumber int16
+	RightClick   bool
 }
 
 type Player struct {

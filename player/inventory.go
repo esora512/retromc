@@ -35,6 +35,10 @@ func (inv *Inventory) Serialize() []byte {
 
 // SetItem places an item directly into a slot, ignoring stack limits.
 func (inv *Inventory) SetItem(slot int16, typeId int16, count byte) {
+	if slot < 0 || int(slot) >= len(inv.Items) {
+		log.Printf("SetItem: slot %d out of range", slot)
+		return
+	}
 	inv.Items[slot] = NewItem(typeId, count)
 }
 
@@ -52,9 +56,7 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 		}
 	}
 
-	log.Printf("Adding item %d to main inventory", typeId)
-
-	for i := StorageStart; i <= StorageEnd; i++ {
+	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
 		item := &inv.Items[i]
 		if item.TypeId == typeId && item.Count < MaxStack {
 			item.Count++
@@ -69,7 +71,7 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 		}
 	}
 
-	for i := StorageStart; i <= StorageEnd; i++ {
+	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
 		if inv.Items[i].TypeId == -1 {
 			inv.Items[i] = NewItem(typeId, 1)
 			return int16(i)
@@ -83,17 +85,17 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 // Returns the slot index, or -1 if the slot was already empty.
 func (inv *Inventory) RemoveOneFromSlot(slot int16) int16 {
 	if slot < 0 || int(slot) >= len(inv.Items) {
-		log.Printf("RemoveOneFromSlot: slot %d out of range", slot)
 		return -1
 	}
 	item := &inv.Items[slot]
 	if item.TypeId == -1 {
-		log.Printf("RemoveOneFromSlot: slot %d is empty", slot)
 		return -1
 	}
-	item.Count--
-	if item.Count == 0 {
-		*item = NewItem(-1, 1)
+	// Guard against underflow: Count is a byte, so decrementing 0 wraps to 255.
+	if item.Count <= 1 {
+		*item = NewItem(-1, 0)
+	} else {
+		item.Count--
 	}
 	return slot
 }
@@ -109,8 +111,85 @@ func (inv *Inventory) FindFirstSlotWith(typeId int16) int16 {
 	return -1
 }
 
+func (inv *Inventory) FindFirstEmptySlotinHotbar() int16 {
+	for i := HotbarStart; i <= HotbarEnd; i++ {
+		if inv.Items[i].TypeId == -1 {
+			return int16(i)
+		}
+	}
+	return -1
+}
+
+func (inv *Inventory) FindFirstEmptySlotinMainInventory() int16 {
+	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
+		if inv.Items[i].TypeId == -1 {
+			return int16(i)
+		}
+	}
+	return -1
+}
+
+func (inv *Inventory) PeekItem(slot int16) Item {
+	return inv.Items[slot]
+}
+
+func (inv *Inventory) Move(sourceSlot, targetSlot int16) {
+	inv.Items[targetSlot] = inv.Items[sourceSlot]
+	inv.Items[sourceSlot] = NewItem(-1, 0)
+}
+
+func (inv *Inventory) Hold(slot int16) Item {
+	item := inv.Items[slot]
+	inv.Items[slot] = NewItem(-1, 0)
+	return item
+}
+
+func (inv *Inventory) HoldHalf(slot int16) Item {
+	item := inv.Items[slot]
+	item.Count = (item.Count + 1) / 2
+	inv.Items[slot].Count = (inv.Items[slot].Count + 1) / 2
+	return item
+}
+
+// TODO: Handle case where item count exceeds max stack size; leads to place & hold behaviour
+func (inv *Inventory) Place(item Item, slot int16) {
+	if inv.Items[slot].TypeId == item.TypeId {
+		newCount := inv.Items[slot].Count + item.Count
+		if newCount > MaxStack {
+			item.Count = newCount - MaxStack
+			inv.Items[slot].Count = MaxStack
+		} else {
+			inv.Items[slot].Count = newCount
+		}
+		return
+	}
+	inv.Items[slot] = item
+}
+
 func (inv *Inventory) Swap(slot1, slot2 int16) {
+	n := int16(len(inv.Items))
+	if slot1 < 0 || slot1 >= n || slot2 < 0 || slot2 >= n {
+		log.Printf("Swap: slot out of range (slot1=%d, slot2=%d, size=%d)", slot1, slot2, n)
+		return
+	}
 	inv.Items[slot1], inv.Items[slot2] = inv.Items[slot2], inv.Items[slot1]
+}
+
+func (inv *Inventory) IsHotbarSlot(slot int16) bool {
+	return slot >= HotbarStart && slot <= HotbarEnd
+}
+
+// Print logs every non-empty slot with its slot index, type ID, and count.
+// Intended for debugging only.
+func (inv *Inventory) Print() {
+	log.Println("=== Inventory ===")
+	for i, item := range inv.Items {
+		if item.TypeId == -1 {
+			continue
+		}
+		log.Printf("  slot %2d | id %-5d | count %d", i, item.TypeId, item.Count)
+	}
+	log.Println("=================")
 }
 
 func NewInventory(size uint16) Inventory {
@@ -119,7 +198,7 @@ func NewInventory(size uint16) Inventory {
 		Items: make([]Item, size),
 	}
 	for i := range inv.Items {
-		inv.Items[i] = NewItem(-1, 1)
+		inv.Items[i] = NewItem(-1, 0)
 	}
 	return inv
 }
