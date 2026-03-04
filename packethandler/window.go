@@ -12,6 +12,12 @@ func handleWindowClickInPacket(p packets.WindowClickInPacket, pl *player.Player)
 		return
 	}
 	log.Printf("Window click: %+v", p)
+
+	//TODO: Cases left to handle
+	// - Right click: Place item in slot that is already occupied
+	// - Shift + left click when item is moved to a non-full stack in hotbar / main inventory
+	// - Shift + right click: Move a single item count to hotbar / main inventory
+
 	switch {
 	// Left click: Manual pick up from slot
 	case p.ItemID > 0 && p.RightClick == 0 && !p.Shift && !pl.SelectedItem.Selected:
