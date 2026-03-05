@@ -2,6 +2,7 @@ package packets
 
 import (
 	"github.com/leNicDev/retromc/packet"
+	"github.com/leNicDev/retromc/player"
 )
 
 type WindowClickInPacket struct {
@@ -13,6 +14,14 @@ type WindowClickInPacket struct {
 	ItemID       int16
 	ItemCount    byte
 	ItemUses     int16
+}
+
+func (p *WindowClickInPacket) GetItem() player.Item {
+	return player.Item{
+		TypeId: p.ItemID,
+		Count:  p.ItemCount,
+		Uses:   p.ItemUses,
+	}
 }
 
 func ReadWindowClickInPacket(data *[]byte) WindowClickInPacket {

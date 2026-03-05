@@ -28,3 +28,12 @@ func NewItem(typeId int16, count byte) Item {
 		Uses:   int16(0),
 	}
 }
+
+func (item *Item) Half() {
+	if item.Count == 1 {
+		item.Count = 0
+		item.TypeId = -1
+	} else {
+		item.Count = (item.Count + 1) / 2
+	}
+}

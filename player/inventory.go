@@ -100,6 +100,14 @@ func (inv *Inventory) RemoveOneFromSlot(slot int16) int16 {
 	return slot
 }
 
+func (inv *Inventory) RemoveAllFromSlot(slot int16) int16 {
+	if slot < 0 || int(slot) >= len(inv.Items) {
+		return -1
+	}
+	inv.Items[slot] = NewItem(-1, 0)
+	return slot
+}
+
 // FindFirstSlotWith returns the first storage slot (9-44) that holds at least
 // one item of the given type. Returns -1 if none found.
 func (inv *Inventory) FindFirstSlotWith(typeId int16) int16 {
@@ -166,6 +174,38 @@ func (inv *Inventory) Place(item Item, slot int16) {
 	inv.Items[slot] = item
 }
 
+func (inv *Inventory) SwapCounts(item Item, slot int16) {
+	inv.Items[slot].Count, item.Count = item.Count, inv.Items[slot].Count
+}
+
+func (inv *Inventory) PlaceOne(item *Item, slot int16) {
+	if inv.Items[slot].TypeId == item.TypeId {
+		inv.Items[slot].Count++
+		item.Count--
+	}
+}
+
+func (inv *Inventory) PlaceOneInEmpty(item *Item, slot int16) {
+	if inv.Items[slot].TypeId == -1 {
+		inv.Items[slot] = NewItem(item.TypeId, 0)
+	}
+	inv.PlaceOne(item, slot)
+}
+
+func (inv *Inventory) PlaceRest(item Item, slot int16) {
+	if inv.Items[slot].Count+item.Count <= MaxStack {
+		inv.Items[slot].Count += item.Count
+		item.Count = 0
+	} else {
+		item.Count -= (MaxStack - inv.Items[slot].Count)
+		inv.Items[slot].Count = MaxStack
+	}
+}
+
+func (inv *Inventory) Drop(slot int16) {
+	inv.Items[slot] = NewItem(-1, 0)
+}
+
 func (inv *Inventory) Swap(slot1, slot2 int16) {
 	n := int16(len(inv.Items))
 	if slot1 < 0 || slot1 >= n || slot2 < 0 || slot2 >= n {
@@ -177,6 +217,15 @@ func (inv *Inventory) Swap(slot1, slot2 int16) {
 
 func (inv *Inventory) IsHotbarSlot(slot int16) bool {
 	return slot >= HotbarStart && slot <= HotbarEnd
+}
+
+func (inv *Inventory) FindFirstNonStackSlotOfItemInHotbar(typeID int16) int16 {
+	for i := HotbarStart; i <= HotbarEnd; i++ {
+		if inv.Items[i].TypeId == typeID {
+			return int16(i)
+		}
+	}
+	return -1
 }
 
 // Print logs every non-empty slot with its slot index, type ID, and count.

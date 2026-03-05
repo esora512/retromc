@@ -10,6 +10,15 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+func sendCurrentInventory(connection net.Conn, pl *player.Player) {
+	windowItemsPacket := packets.WindowItemsOutPacket{
+		WindowId: 0, // 0 = player inventory
+		Count:    int16(pl.Inventory.Size),
+		Payload:  pl.Inventory,
+	}
+	connection.Write(windowItemsPacket.Serialize())
+}
+
 func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *player.Player) {
 	// read packet
 	p := packet.ReadPacket(data)
@@ -47,6 +56,7 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *pla
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(data)
 		handleWindowClickInPacket(p, pl)
+		//sendCurrentInventory(connection, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}
