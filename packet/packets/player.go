@@ -69,6 +69,26 @@ type PlayerPositionInPacket struct {
 	OnGround bool
 }
 
+type PlayerPositionOutPacket struct {
+	packet.Packet
+	X        float64
+	Y        float64
+	Stance   float64
+	Z        float64
+	OnGround bool
+}
+
+func (p *PlayerPositionOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.PlayerPosition) // write packet id
+	w.WriteFloat64(p.X)                // write x position
+	w.WriteFloat64(p.Y)                // write y position
+	w.WriteFloat64(p.Stance)           // write stance
+	w.WriteFloat64(p.Z)                // write z position
+	w.WriteBool(p.OnGround)            // write on ground
+	return w.Bytes()
+}
+
 func ReadPlayerPositionInPacket(data *[]byte) PlayerPositionInPacket {
 	reader := packet.PacketReader{
 		Data: data,

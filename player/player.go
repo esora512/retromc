@@ -42,7 +42,20 @@ type Player struct {
 	SelectedItem SelectedItem
 	HotbarSlot   int16
 	HotbarLocked atomic.Bool // locked while a BlockPlacement is being processed
+
+	// Last valid position — used for boundary rubber-banding.
+	X, Y, Z    float64
+	Stance     float64
+	Yaw, Pitch float32
+	OnGround   bool
 }
+
+const (
+	SpawnX      = 0.0
+	SpawnY      = 64.0
+	SpawnZ      = 0.0
+	SpawnStance = SpawnY + 2
+)
 
 func NewPlayer(conn net.Conn) *Player {
 	return &Player{
@@ -58,5 +71,9 @@ func NewPlayer(conn net.Conn) *Player {
 			Slot:         -1,
 			ActionNumber: -1,
 		},
+		X:      SpawnX,
+		Y:      SpawnY,
+		Z:      SpawnZ,
+		Stance: SpawnStance,
 	}
 }

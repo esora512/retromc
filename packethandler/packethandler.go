@@ -33,9 +33,11 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *pla
 		packet := packets.ReadLoginRequestInPacket(data)
 		handleLoginRequestInPacket(connection, packet, world, pl)
 	case packet.PlayerPositionAndLook:
-		packets.ReadPlayerPositionAndLookInPacket(data)
+		p := packets.ReadPlayerPositionAndLookInPacket(data)
+		handlePlayerPositionAndLookInPacket(connection, p, pl)
 	case packet.PlayerPosition:
-		packets.ReadPlayerPositionInPacket(data)
+		p := packets.ReadPlayerPositionInPacket(data)
+		handlePlayerPositionInPacket(connection, p, pl)
 	case packet.PlayerOnGround:
 		packets.ReadPlayerOnGroundInPacket(data)
 	case packet.PlayerLook:

@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/level"
@@ -9,12 +8,56 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket) {
-	log.Printf("Player position and look: %+v", p)
+// World boundary constants (blocks). Chunks -1..0 on both axes → X/Z in [-16, 16).
+const (
+	worldMinX = -16.0
+	worldMaxX = 16.0
+	worldMinZ = -16.0
+	worldMaxZ = 16.0
+)
+
+func outOfBounds(x, z float64) bool {
+	return x < worldMinX || x >= worldMaxX || z < worldMinZ || z >= worldMaxZ
 }
 
-func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket) {
-	log.Printf("Player position: %+v", p)
+// rubberBand sends the player back to their last valid position.
+func rubberBand(connection net.Conn, pl *player.Player) {
+	p := packets.PlayerPositionAndLookOutPacket{
+		X:        pl.X,
+		Y:        pl.Y,
+		Stance:   pl.Stance,
+		Z:        pl.Z,
+		Yaw:      pl.Yaw,
+		Pitch:    pl.Pitch,
+		OnGround: pl.OnGround,
+	}
+	connection.Write(p.Serialize())
+}
+
+func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player) {
+	if outOfBounds(p.X, p.Z) {
+		rubberBand(connection, pl)
+		return
+	}
+	pl.X = p.X
+	pl.Y = p.Y
+	pl.Z = p.Z
+	pl.Stance = p.Stance
+	pl.Yaw = p.Yaw
+	pl.Pitch = p.Pitch
+	pl.OnGround = p.OnGround
+}
+
+func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player) {
+	if outOfBounds(p.X, p.Z) {
+		rubberBand(connection, pl)
+		return
+	}
+	pl.X = p.X
+	pl.Y = p.Y
+	pl.Z = p.Z
+	pl.Stance = p.Stance
+	pl.OnGround = p.OnGround
 }
 
 // handlePlayerDiggingInPacket handles block-break events.
