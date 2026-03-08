@@ -24,7 +24,7 @@ func (p *WindowClickInPacket) GetItem() player.Item {
 	}
 }
 
-func ReadWindowClickInPacket(reader packet.PacketReader) WindowClickInPacket {
+func ReadWindowClickInPacket(reader *packet.PacketReader) WindowClickInPacket {
 	p := WindowClickInPacket{}
 	_ = reader.GetPacketId()
 	p.WindowId = reader.ReadByte()

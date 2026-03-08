@@ -8,7 +8,7 @@ type KeepAliveInPacket struct {
 	packet.Packet
 }
 
-func ReadKeepAliveInPacket(reader packet.PacketReader) KeepAliveInPacket {
+func ReadKeepAliveInPacket(reader *packet.PacketReader) KeepAliveInPacket {
 	p := KeepAliveInPacket{}
 	p.PacketId = reader.GetPacketId()
 	return p

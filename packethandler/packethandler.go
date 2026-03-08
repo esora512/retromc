@@ -28,7 +28,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		log.Println("Failed to read packet id:", err.Error())
 		return err
 	}
-	packetReader := packet.NewReader(reader)
+	packetReader := packet.NewReader(reader, packetId)
 
 	switch packetId {
 	case packet.KeepAlive:
@@ -65,7 +65,8 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
-		handleWindowClickInPacket(p, pl)
+		log.Printf("Buffer size before: %d", reader.Buffered())
+		handleWindowClickInPacket(connection, p, pl)
 		//sendCurrentInventory(connection, pl)
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)

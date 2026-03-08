@@ -3,11 +3,13 @@ package packethandler
 import (
 	"log"
 
+	"net"
+
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleWindowClickInPacket(p packets.WindowClickInPacket, pl *player.Player) {
+func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
 	if p.WindowId != 0 {
 		return
 	}
@@ -26,10 +28,9 @@ func handleWindowClickInPacket(p packets.WindowClickInPacket, pl *player.Player)
 
 	switch {
 	// Left click: Manual pick up from slot
-
 	case p.ItemID > 0 && p.RightClick == 0 && !p.Shift && !pl.SelectedItem.Selected:
-		pl.Inventory.Hold(p.Slot)
 		log.Printf("Item %d held", p.ItemID)
+		pl.Inventory.Hold(p.Slot)
 		pl.SelectedItem.SetItem(p.GetItem(), p.Slot, p.ActionNumber, p.RightClick == 1)
 
 	// Left click: Place item in slot that is already occupied
@@ -63,12 +64,19 @@ func handleWindowClickInPacket(p packets.WindowClickInPacket, pl *player.Player)
 		sourceSlot := p.Slot
 		// Place item from hotbar to main inventory
 		if pl.Inventory.IsHotbarSlot(sourceSlot) {
-			targetSlot := pl.Inventory.FindFirstEmptySlotinMainInventory()
-			if targetSlot == -1 {
-				log.Printf("No empty slot in main inventory")
-				return
+			targetSlot := pl.Inventory.FindFirstNonStackSlotOfItemInMainInventory(pl.Inventory.PeekItem(sourceSlot).TypeId)
+			if targetSlot != -1 {
+				pl.Inventory.Place(pl.Inventory.PeekItem(sourceSlot), targetSlot)
+				pl.Inventory.RemoveAllFromSlot(sourceSlot)
+			} else {
+
+				targetSlot := pl.Inventory.FindFirstEmptySlotinMainInventory()
+				if targetSlot == -1 {
+					log.Printf("No empty slot in main inventory")
+					return
+				}
+				pl.Inventory.Move(sourceSlot, targetSlot)
 			}
-			pl.Inventory.Move(sourceSlot, targetSlot)
 			// Place item from main inventory to hotbar
 		} else {
 			targetSlot := pl.Inventory.FindFirstNonStackSlotOfItemInHotbar(pl.Inventory.PeekItem(sourceSlot).TypeId)
@@ -120,6 +128,12 @@ func handleWindowClickInPacket(p packets.WindowClickInPacket, pl *player.Player)
 			}
 		}
 	}
+	transactionOutPacket := packets.TransactionOutPacket{
+		WindowId:     0,
+		ActionNumber: p.ActionNumber,
+		Accepted:     true,
+	}
+	connection.Write(transactionOutPacket.Serialize())
 	pl.SelectedItem.Print()
 	pl.Inventory.Print()
 }

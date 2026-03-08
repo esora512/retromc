@@ -219,6 +219,15 @@ func (inv *Inventory) IsHotbarSlot(slot int16) bool {
 	return slot >= HotbarStart && slot <= HotbarEnd
 }
 
+func (inv *Inventory) FindFirstNonStackSlotOfItemInMainInventory(typeID int16) int16 {
+	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
+		if inv.Items[i].TypeId == typeID {
+			return int16(i)
+		}
+	}
+	return -1
+}
+
 func (inv *Inventory) FindFirstNonStackSlotOfItemInHotbar(typeID int16) int16 {
 	for i := HotbarStart; i <= HotbarEnd; i++ {
 		if inv.Items[i].TypeId == typeID {

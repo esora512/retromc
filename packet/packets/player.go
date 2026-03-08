@@ -8,7 +8,7 @@ type RespawnPacket struct {
 	World byte
 }
 
-func ReadRespawnInPacket(reader packet.PacketReader) RespawnPacket {
+func ReadRespawnInPacket(reader *packet.PacketReader) RespawnPacket {
 	packet := RespawnPacket{}
 	packet.World = reader.ReadByte()
 	return packet
@@ -38,7 +38,7 @@ type PlayerAnimationInPacket struct {
 	Animation byte
 }
 
-func ReadPlayerAnimationInPacket(reader packet.PacketReader) PlayerAnimationInPacket {
+func ReadPlayerAnimationInPacket(reader *packet.PacketReader) PlayerAnimationInPacket {
 	packet := PlayerAnimationInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt()
@@ -54,7 +54,7 @@ type PlayerLookInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerLookInPacket(reader packet.PacketReader) PlayerLookInPacket {
+func ReadPlayerLookInPacket(reader *packet.PacketReader) PlayerLookInPacket {
 	packet := PlayerLookInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Yaw = reader.ReadFloat32()
@@ -69,7 +69,7 @@ type PlayerOnGroundInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerOnGroundInPacket(reader packet.PacketReader) PlayerOnGroundInPacket {
+func ReadPlayerOnGroundInPacket(reader *packet.PacketReader) PlayerOnGroundInPacket {
 	packet := PlayerOnGroundInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.OnGround = reader.ReadBool()
@@ -105,7 +105,7 @@ func (p *PlayerPositionOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func ReadPlayerPositionInPacket(reader packet.PacketReader) PlayerPositionInPacket {
+func ReadPlayerPositionInPacket(reader *packet.PacketReader) PlayerPositionInPacket {
 	packet := PlayerPositionInPacket{}
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
@@ -126,7 +126,7 @@ type PlayerPositionAndLookInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerPositionAndLookInPacket(reader packet.PacketReader) PlayerPositionAndLookInPacket {
+func ReadPlayerPositionAndLookInPacket(reader *packet.PacketReader) PlayerPositionAndLookInPacket {
 	packet := PlayerPositionAndLookInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadFloat64()
@@ -173,7 +173,7 @@ type PlayerBlockPlacementInPacket struct {
 	Damage int16 //short
 }
 
-func ReadPlaceInPacket(reader packet.PacketReader) PlayerBlockPlacementInPacket {
+func ReadPlaceInPacket(reader *packet.PacketReader) PlayerBlockPlacementInPacket {
 	packet := PlayerBlockPlacementInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadInt32()
@@ -181,8 +181,10 @@ func ReadPlaceInPacket(reader packet.PacketReader) PlayerBlockPlacementInPacket 
 	packet.Z = reader.ReadInt32()
 	packet.Face = reader.ReadByte() // Direction
 	packet.ItemId = int16(reader.ReadShort())
-	packet.Amount = reader.ReadByte()
-	packet.Damage = int16(reader.ReadShort())
+	if packet.ItemId >= 0 {
+		packet.Amount = reader.ReadByte()
+		packet.Damage = int16(reader.ReadShort())
+	}
 	return packet
 }
 
@@ -195,7 +197,7 @@ type PlayerDiggingInPacket struct {
 	Face   byte
 }
 
-func ReadPlayerDiggingInPacket(reader packet.PacketReader) PlayerDiggingInPacket {
+func ReadPlayerDiggingInPacket(reader *packet.PacketReader) PlayerDiggingInPacket {
 	packet := PlayerDiggingInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Status = reader.ReadByte()

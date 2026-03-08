@@ -9,7 +9,7 @@ type HoldingChangeInPacket struct {
 	Slot int16
 }
 
-func ReadHoldingChangeInPacket(reader packet.PacketReader) HoldingChangeInPacket {
+func ReadHoldingChangeInPacket(reader *packet.PacketReader) HoldingChangeInPacket {
 	packet := HoldingChangeInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Slot = int16(reader.ReadShort())

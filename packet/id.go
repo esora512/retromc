@@ -25,4 +25,5 @@ const (
 	WindowClick           byte = 0x66
 	SetHealth             byte = 0x08
 	Respawn               byte = 0x09
+	Transaction           byte = 0x6a
 )

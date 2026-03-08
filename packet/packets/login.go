@@ -10,7 +10,7 @@ type LoginRequestInPacket struct {
 	Dimension       byte
 }
 
-func ReadLoginRequestInPacket(reader packet.PacketReader) LoginRequestInPacket {
+func ReadLoginRequestInPacket(reader *packet.PacketReader) LoginRequestInPacket {
 	packet := LoginRequestInPacket{}
 	packet.ProtocolVersion = reader.ReadInt()
 	packet.Username = reader.ReadString16()
