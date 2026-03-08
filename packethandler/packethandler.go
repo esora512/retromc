@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 
+	"bufio"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -19,50 +21,57 @@ func sendCurrentInventory(connection net.Conn, pl *player.Player) {
 	connection.Write(windowItemsPacket.Serialize())
 }
 
-func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *player.Player) {
+func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player) error {
 	// read packet
-	p := packet.ReadPacket(data)
-	switch p.PacketId {
+	packetId, err := reader.ReadByte()
+	if err != nil {
+		log.Println("Failed to read packet id:", err.Error())
+		return err
+	}
+	packetReader := packet.NewReader(reader)
+
+	switch packetId {
 	case packet.KeepAlive:
-		packet := packets.ReadKeepAliveInPacket(data)
+		packet := packets.ReadKeepAliveInPacket(packetReader)
 		handleKeepAliveInPacket(connection, packet)
 	case packet.Handshake:
-		packet := packets.ReadHandshakeInPacket(data)
+		packet := packets.ReadHandshakeInPacket(packetReader)
 		handleHandshakeInPacket(connection, packet)
 	case packet.LoginRequest:
-		packet := packets.ReadLoginRequestInPacket(data)
+		packet := packets.ReadLoginRequestInPacket(packetReader)
 		handleLoginRequestInPacket(connection, packet, world, pl)
 	case packet.PlayerPositionAndLook:
-		p := packets.ReadPlayerPositionAndLookInPacket(data)
+		p := packets.ReadPlayerPositionAndLookInPacket(packetReader)
 		handlePlayerPositionAndLookInPacket(connection, p, pl)
 	case packet.PlayerPosition:
-		p := packets.ReadPlayerPositionInPacket(data)
+		p := packets.ReadPlayerPositionInPacket(packetReader)
 		handlePlayerPositionInPacket(connection, p, pl)
 	case packet.PlayerOnGround:
-		packets.ReadPlayerOnGroundInPacket(data)
+		packets.ReadPlayerOnGroundInPacket(packetReader)
 	case packet.PlayerLook:
-		packets.ReadPlayerLookInPacket(data)
+		packets.ReadPlayerLookInPacket(packetReader)
 	case packet.EntityAction:
-		packets.ReadEntityActionInPacket(data)
+		packets.ReadEntityActionInPacket(packetReader)
 	case packet.PlayerAnimation:
-		packets.ReadPlayerAnimationInPacket(data)
+		packets.ReadPlayerAnimationInPacket(packetReader)
 	case packet.PlayerDigging:
-		p := packets.ReadPlayerDiggingInPacket(data)
+		p := packets.ReadPlayerDiggingInPacket(packetReader)
 		handlePlayerDiggingInPacket(connection, p, world, pl)
 	case packet.HoldingChange:
-		p := packets.ReadHoldingChangeInPacket(data)
+		p := packets.ReadHoldingChangeInPacket(packetReader)
 		handleHoldingChangeInPacket(p, pl)
 	case packet.PlayerBlockPlacement:
-		p := packets.ReadPlaceInPacket(data)
+		p := packets.ReadPlaceInPacket(packetReader)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
 	case packet.WindowClick:
-		p := packets.ReadWindowClickInPacket(data)
+		p := packets.ReadWindowClickInPacket(packetReader)
 		handleWindowClickInPacket(p, pl)
 		//sendCurrentInventory(connection, pl)
 	case packet.Respawn:
-		p := packets.ReadRespawnInPacket(data)
+		p := packets.ReadRespawnInPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl)
 	default:
-		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
+		log.Printf("Unhandled packet, packet id: %04x", packetId)
 	}
+	return nil
 }

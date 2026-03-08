@@ -1,7 +1,9 @@
 package packet
 
 import (
-	"encoding/binary"
+	"bufio"
+	"io"
+	"log"
 	"math"
 )
 
@@ -18,128 +20,74 @@ const (
 )
 
 type PacketReader struct {
-	index uint
-	Data  *[]byte
+	PacketId byte
+	Reader   *bufio.Reader
+}
+
+func NewReader(reader *bufio.Reader) PacketReader {
+	return PacketReader{
+		Reader: reader,
+	}
 }
 
 func (r *PacketReader) ReadByte() byte {
-	data := (*r.Data)[r.index]
-	r.index++
-	return data
+	b, err := r.Reader.ReadByte()
+	if err != nil {
+		log.Println("Failed to read byte:", err.Error())
+		return 0
+	}
+	return b
 }
 
-func (r *PacketReader) ReadPacketId() byte {
-	return r.ReadByte()
+func (r *PacketReader) GetPacketId() byte {
+	return r.PacketId
 }
 
 func (r *PacketReader) ReadBool() bool {
-	// 0x00 = False; 0x01 = True
-	return r.ReadByte() == 0x01
+	return r.ReadByte() != 0
 }
 
 func (r *PacketReader) ReadShort() uint16 {
-	data := make([]byte, SHORT_SIZE)
-
-	shortIndex := 0
-	endIndex := r.index + SHORT_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[shortIndex] = (*r.Data)[i]
-		r.index++
-		shortIndex++
-	}
-
-	return binary.BigEndian.Uint16(data)
+	var buf [2]byte
+	io.ReadFull(r.Reader, buf[:])
+	return uint16(buf[0])<<8 | uint16(buf[1])
 }
 
 func (r *PacketReader) ReadInt32() int32 {
-	data := make([]byte, INT_SIZE)
-
-	intIndex := 0
-	endIndex := r.index + INT_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[intIndex] = (*r.Data)[i]
-		r.index++
-		intIndex++
-	}
-
-	return int32(binary.BigEndian.Uint32(data))
+	var buf [4]byte
+	io.ReadFull(r.Reader, buf[:])
+	return int32(buf[0])<<24 | int32(buf[1])<<16 | int32(buf[2])<<8 | int32(buf[3])
 }
 
 func (r *PacketReader) ReadInt() int {
-	data := make([]byte, INT_SIZE)
-
-	intIndex := 0
-	endIndex := r.index + INT_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[intIndex] = (*r.Data)[i]
-		r.index++
-		intIndex++
-	}
-
-	return int(binary.BigEndian.Uint32(data))
+	return int(r.ReadInt32())
 }
 
 func (r *PacketReader) ReadLong() int64 {
-	data := make([]byte, LONG_SIZE)
-
-	intIndex := 0
-	endIndex := r.index + LONG_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[intIndex] = (*r.Data)[i]
-		r.index++
-		intIndex++
-	}
-
-	return int64(binary.BigEndian.Uint64(data))
+	var buf [8]byte
+	io.ReadFull(r.Reader, buf[:])
+	return int64(buf[0])<<56 | int64(buf[1])<<48 | int64(buf[2])<<40 | int64(buf[3])<<32 |
+		int64(buf[4])<<24 | int64(buf[5])<<16 | int64(buf[6])<<8 | int64(buf[7])
 }
 
 func (r *PacketReader) ReadFloat32() float32 {
-	data := make([]byte, FLOAT_SIZE)
-
-	intIndex := 0
-	endIndex := r.index + FLOAT_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[intIndex] = (*r.Data)[i]
-		r.index++
-		intIndex++
-	}
-
-	bits := binary.BigEndian.Uint32(data)
-	float := math.Float32frombits(bits)
-
-	return float
+	bits := uint32(r.ReadInt32())
+	return math.Float32frombits(bits)
 }
 
 func (r *PacketReader) ReadFloat64() float64 {
-	data := make([]byte, DOUBLE_SIZE)
-
-	intIndex := 0
-	endIndex := r.index + DOUBLE_SIZE
-	for i := r.index; i < endIndex; i++ {
-		data[intIndex] = (*r.Data)[i]
-		r.index++
-		intIndex++
-	}
-
-	bits := binary.BigEndian.Uint64(data)
-	float := math.Float64frombits(bits)
-
-	return float
+	bits := uint64(r.ReadLong())
+	return math.Float64frombits(bits)
 }
 
 func (r *PacketReader) ReadString16() string {
-	// read the length of the string in characters
-	strLength := r.ReadShort()
-
-	// convert string length to bytes
-	strLengthBytes := uint(strLength * STRING_CHARACTER_SIZE)
-
-	// get string bytes from data
-	strData := (*r.Data)[r.index : r.index+strLengthBytes]
-
-	// increment index by string length
-	r.index += strLengthBytes
-
-	// convert strData to string
-	return string(strData)
+	length := r.ReadShort()
+	buf := make([]byte, length*2)
+	io.ReadFull(r.Reader, buf)
+	// decode UTF-16 BE
+	runes := make([]rune, length)
+	for i := range runes {
+		runes[i] = rune(uint16(buf[i*2])<<8 | uint16(buf[i*2+1]))
+	}
+	return string(runes)
 }

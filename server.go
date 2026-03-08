@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"bufio"
 
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -68,37 +69,15 @@ func handleConnection(connection net.Conn, world *level.World) {
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
 
-	var buf []byte
+	reader := bufio.NewReader(connection)
 	for {
-		buf = make([]byte, 8192)
-		n, err := connection.Read(buf)
+		err := packethandler.HandlePacket(connection, reader, world, pl)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
 			close(done)
 			connection.Close()
 			return
 		}
-		buf = buf[:n]
-		packethandler.HandlePacket(connection, &buf, world, pl)
+
 	}
 }
-
-// old
-// func handleConnection(connection net.Conn, world *level.World) {
-// 	// create buffer to hold incoming data
-// 	pl := player.NewPlayer(connection)
-// 	var buf []byte
-
-// 	for {
-// 		buf = make([]byte, 1024)
-
-// 		// read incoming data
-// 		_, err := connection.Read(buf)
-// 		if err != nil {
-// 			log.Fatalln("Failed to read packet: ", err.Error())
-// 			return
-// 		}
-
-// 		packethandler.HandlePacket(connection, &buf, world, pl)
-// 	}
-// }

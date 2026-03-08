@@ -7,15 +7,10 @@ type HandshakeInPacket struct {
 	Username string // string16
 }
 
-func ReadHandshakeInPacket(data *[]byte) HandshakeInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadHandshakeInPacket(reader packet.PacketReader) HandshakeInPacket {
 	packet := HandshakeInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.Username = reader.ReadString16()
-
 	return packet
 }
 

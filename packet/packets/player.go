@@ -8,15 +8,9 @@ type RespawnPacket struct {
 	World byte
 }
 
-func ReadRespawnInPacket(data *[]byte) RespawnPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadRespawnInPacket(reader packet.PacketReader) RespawnPacket {
 	packet := RespawnPacket{}
-	_ = reader.ReadPacketId()
 	packet.World = reader.ReadByte()
-
 	return packet
 }
 
@@ -44,13 +38,9 @@ type PlayerAnimationInPacket struct {
 	Animation byte
 }
 
-func ReadPlayerAnimationInPacket(data *[]byte) PlayerAnimationInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlayerAnimationInPacket(reader packet.PacketReader) PlayerAnimationInPacket {
 	packet := PlayerAnimationInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt()
 	packet.Animation = reader.ReadByte()
 	//log.Printf("Player animation: %+v", packet)
@@ -64,17 +54,13 @@ type PlayerLookInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerLookInPacket(data *[]byte) PlayerLookInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
+func ReadPlayerLookInPacket(reader packet.PacketReader) PlayerLookInPacket {
 	packet := PlayerLookInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.Yaw = reader.ReadFloat32()
 	packet.Pitch = reader.ReadFloat32()
 	packet.OnGround = reader.ReadBool()
 	//log.Printf("Player look: %+v", packet)
-
 	return packet
 }
 
@@ -83,13 +69,9 @@ type PlayerOnGroundInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerOnGroundInPacket(data *[]byte) PlayerOnGroundInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlayerOnGroundInPacket(reader packet.PacketReader) PlayerOnGroundInPacket {
 	packet := PlayerOnGroundInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.OnGround = reader.ReadBool()
 	return packet
 }
@@ -123,19 +105,13 @@ func (p *PlayerPositionOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func ReadPlayerPositionInPacket(data *[]byte) PlayerPositionInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlayerPositionInPacket(reader packet.PacketReader) PlayerPositionInPacket {
 	packet := PlayerPositionInPacket{}
-	packet.PacketId = reader.ReadPacketId()
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
 	packet.Stance = reader.ReadFloat64()
 	packet.Z = reader.ReadFloat64()
 	packet.OnGround = reader.ReadBool()
-
 	return packet
 }
 
@@ -150,13 +126,9 @@ type PlayerPositionAndLookInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerPositionAndLookInPacket(data *[]byte) PlayerPositionAndLookInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlayerPositionAndLookInPacket(reader packet.PacketReader) PlayerPositionAndLookInPacket {
 	packet := PlayerPositionAndLookInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
 	packet.Stance = reader.ReadFloat64()
@@ -164,7 +136,6 @@ func ReadPlayerPositionAndLookInPacket(data *[]byte) PlayerPositionAndLookInPack
 	packet.Yaw = reader.ReadFloat32()
 	packet.Pitch = reader.ReadFloat32()
 	packet.OnGround = reader.ReadBool()
-
 	return packet
 }
 
@@ -202,13 +173,9 @@ type PlayerBlockPlacementInPacket struct {
 	Damage int16 //short
 }
 
-func ReadPlaceInPacket(data *[]byte) PlayerBlockPlacementInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlaceInPacket(reader packet.PacketReader) PlayerBlockPlacementInPacket {
 	packet := PlayerBlockPlacementInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadInt32()
 	packet.Y = reader.ReadByte()
 	packet.Z = reader.ReadInt32()
@@ -228,19 +195,14 @@ type PlayerDiggingInPacket struct {
 	Face   byte
 }
 
-func ReadPlayerDiggingInPacket(data *[]byte) PlayerDiggingInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadPlayerDiggingInPacket(reader packet.PacketReader) PlayerDiggingInPacket {
 	packet := PlayerDiggingInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.Status = reader.ReadByte()
 	packet.X = reader.ReadInt32()
 	packet.Y = reader.ReadByte()
 	packet.Z = reader.ReadInt32()
 	packet.Face = reader.ReadByte()
 	//log.Printf("Mine: %+v", packet)
-
 	return packet
 }

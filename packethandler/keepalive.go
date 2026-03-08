@@ -8,12 +8,14 @@ import (
 )
 
 func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
-	log.Printf("KeepAlive: %+v", p)
-
+	//log.Printf("KeepAlive: %+v", p)
 	// create keep alive out packet
 	keepAliveOutPacket := packets.KeepAliveOutPacket{}
 	outData := keepAliveOutPacket.Serialize()
 
 	// write keep alive out packet
-	connection.Write(outData)
+	_, err := connection.Write(outData)
+	if err != nil {
+		log.Println("Failed to write keep alive out packet:", err.Error())
+	}
 }

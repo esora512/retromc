@@ -10,18 +10,12 @@ type LoginRequestInPacket struct {
 	Dimension       byte
 }
 
-func ReadLoginRequestInPacket(data *[]byte) LoginRequestInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadLoginRequestInPacket(reader packet.PacketReader) LoginRequestInPacket {
 	packet := LoginRequestInPacket{}
-	packet.PacketId = reader.ReadPacketId()
 	packet.ProtocolVersion = reader.ReadInt()
 	packet.Username = reader.ReadString16()
 	packet.MapSeed = reader.ReadLong()
 	packet.Dimension = reader.ReadByte()
-
 	return packet
 }
 

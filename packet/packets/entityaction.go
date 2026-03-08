@@ -10,13 +10,9 @@ type EntityActionInPacket struct {
 	ActionId byte
 }
 
-func ReadEntityActionInPacket(data *[]byte) EntityActionInPacket {
-	reader := packet.PacketReader{
-		Data: data,
-	}
-
+func ReadEntityActionInPacket(reader packet.PacketReader) EntityActionInPacket {
 	packet := EntityActionInPacket{}
-	packet.PacketId = reader.ReadPacketId()
+	packet.PacketId = reader.GetPacketId()
 	packet.EntityId = reader.ReadInt()
 	packet.ActionId = reader.ReadByte()
 	//log.Printf("Entity action: %+v", packet)
