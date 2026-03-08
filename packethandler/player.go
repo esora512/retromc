@@ -11,10 +11,29 @@ import (
 // World boundary constants (blocks). Chunks -1..0 on both axes → X/Z in [-16, 16).
 const (
 	worldMinX = -16.0
-	worldMaxX = 16.0
+	worldMaxX = 17.0
 	worldMinZ = -16.0
 	worldMaxZ = 16.0
 )
+
+func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
+	sendPlayerPositionAndLook(connection)
+	sendRespawn(connection, p.World)
+}
+
+func sendRespawn(connection net.Conn, world byte) {
+	respawnPacket := packets.RespawnPacket{
+		World: world,
+	}
+	connection.Write(respawnPacket.Serialize())
+}
+
+func sendSetHealth(connection net.Conn, health float32) {
+	setHealthPacket := packets.SetHealthOutPacket{
+		Health: health,
+	}
+	connection.Write(setHealthPacket.Serialize())
+}
 
 func outOfBounds(x, z float64) bool {
 	return x < worldMinX || x >= worldMaxX || z < worldMinZ || z >= worldMaxZ
@@ -39,6 +58,12 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 		rubberBand(connection, pl)
 		return
 	}
+
+	if p.Y < 0 {
+		sendSetHealth(connection, 0)
+		return
+	}
+
 	pl.X = p.X
 	pl.Y = p.Y
 	pl.Z = p.Z

@@ -23,4 +23,6 @@ const (
 	HoldingChange         byte = 0x10
 	BlockChange           byte = 0x35
 	WindowClick           byte = 0x66
+	SetHealth             byte = 0x08
+	Respawn               byte = 0x09
 )

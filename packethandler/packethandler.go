@@ -59,6 +59,9 @@ func HandlePacket(connection net.Conn, data *[]byte, world *level.World, pl *pla
 		p := packets.ReadWindowClickInPacket(data)
 		handleWindowClickInPacket(p, pl)
 		//sendCurrentInventory(connection, pl)
+	case packet.Respawn:
+		p := packets.ReadRespawnInPacket(data)
+		handleRespawnInPacket(connection, p, world, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", p.PacketId)
 	}

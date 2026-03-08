@@ -4,6 +4,40 @@ import (
 	"github.com/leNicDev/retromc/packet"
 )
 
+type RespawnPacket struct {
+	World byte
+}
+
+func ReadRespawnInPacket(data *[]byte) RespawnPacket {
+	reader := packet.PacketReader{
+		Data: data,
+	}
+
+	packet := RespawnPacket{}
+	_ = reader.ReadPacketId()
+	packet.World = reader.ReadByte()
+
+	return packet
+}
+
+func (p *RespawnPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.Respawn)
+	w.WriteByte(p.World)
+	return w.Bytes()
+}
+
+type SetHealthOutPacket struct {
+	Health float32
+}
+
+func (p *SetHealthOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.SetHealth)
+	w.WriteFloat32(p.Health)
+	return w.Bytes()
+}
+
 type PlayerAnimationInPacket struct {
 	packet.Packet
 	PlayerId  int
