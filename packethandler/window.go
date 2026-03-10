@@ -8,6 +8,8 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+// Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
+// Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
 func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
 	if p.WindowId != 0 {
 		return
