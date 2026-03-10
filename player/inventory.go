@@ -260,3 +260,21 @@ func NewInventory(size uint16) Inventory {
 	}
 	return inv
 }
+
+func (inv *Inventory) RemoveCountFromInventory(slot int16, count byte) Item {
+	if slot < 0 || int(slot) >= len(inv.Items) {
+		return NewItem(-1, 0)
+	}
+	src := &inv.Items[slot]
+	if src.TypeId == -1 {
+		return NewItem(-1, 0)
+	}
+	if count >= src.Count {
+		taken := *src
+		*src = NewItem(-1, 0)
+		return taken
+	}
+	taken := NewItem(src.TypeId, count)
+	src.Count -= count
+	return taken
+}

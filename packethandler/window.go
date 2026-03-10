@@ -2,7 +2,6 @@ package packethandler
 
 import (
 	"log"
-
 	"net"
 
 	"github.com/leNicDev/retromc/packet/packets"
@@ -13,127 +12,174 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	if p.WindowId != 0 {
 		return
 	}
-	log.Printf("Window click: %+v", p)
 
-	//TODO: Cases left to handle
-	// Preconditions:
-	// - Left/Right
-	// - Shift/No Shift,
-	// - New/Existing Item
-	// - Same Item/Not Same Item (If same item is a stack, it may be equivalent to Not Same item)
-	// - Source is always contains an item, else noop
-	// - Target can contain an item or be empty
+	rightClick := p.RightClick == 1
+	shift := p.Shift
+	slot := p.Slot
 
-	// - Shift + right click Move a single item count to hotbar / main inventory (Bugged, no packet is sent from client)
+	log.Printf("Window click: slot=%d rightClick=%v shift=%v itemID=%d action=%d",
+		slot, rightClick, shift, p.ItemID, p.ActionNumber)
+
+	if slot == -999 {
+		// Outside-inventory click: drop held stack / single item.
+		// TODO: Impelment proper dropping in world
+		if pl.SelectedItem.Selected {
+			if rightClick {
+				// Drop one item from the held stack.
+				pl.SelectedItem.Item.Count--
+				if pl.SelectedItem.Item.Count == 0 {
+					pl.SelectedItem.Selected = false
+				}
+			} else {
+				// Drop entire held stack.
+				pl.SelectedItem.Selected = false
+			}
+		}
+		acceptTransaction(connection, p)
+		return
+	}
+
+	if shift {
+		// Based on decompiled Beta 1.7.3 code, shift click is the same for right & left
+		shiftClick(pl, slot)
+	} else {
+		normalClick(pl, slot, rightClick)
+	}
+
+	acceptTransaction(connection, p)
+	pl.SelectedItem.Print()
+	pl.Inventory.Print()
+}
+
+// Covers all non-shift left- and right-click cases.
+func normalClick(pl *player.Player, slot int16, rightClick bool) {
+	slotItem := pl.Inventory.PeekItem(slot)
+	heldItem := pl.SelectedItem.Item
+	hasHeld := pl.SelectedItem.Selected
+	slotEmpty := slotItem.TypeId == -1
 
 	switch {
-	// Left click: Manual pick up from slot
-	case p.ItemID > 0 && p.RightClick == 0 && !p.Shift && !pl.SelectedItem.Selected:
-		log.Printf("Item %d held", p.ItemID)
-		pl.Inventory.Hold(p.Slot)
-		pl.SelectedItem.SetItem(p.GetItem(), p.Slot, p.ActionNumber, p.RightClick == 1)
+	// nothing in slot and nothing held
+	case slotEmpty && !hasHeld:
+		// noop
 
-	// Left click: Place item in slot that is already occupied
-	case p.ItemID > 0 && p.RightClick == 0 && !p.Shift && pl.SelectedItem.Selected:
-		if pl.SelectedItem.Item.TypeId == pl.Inventory.PeekItem(p.Slot).TypeId {
-			if pl.Inventory.PeekItem(p.Slot).Count == player.MaxStack {
-				return
-			}
-			log.Printf("Item %d placed", p.ItemID)
-			pl.Inventory.Place(pl.SelectedItem.Item, p.Slot)
-			pl.SelectedItem.Selected = false
-		} else {
-			log.Printf("Item %d placed & Item %d held", pl.SelectedItem.Item.TypeId, p.ItemID)
-			pl.Inventory.Hold(p.Slot)
-			pl.Inventory.Place(pl.SelectedItem.Item, p.Slot)
-			pl.SelectedItem.SetItem(p.GetItem(), p.Slot, p.ActionNumber, p.RightClick == 1)
-		}
-
-	// Left click: Place item in empty slot
-	case p.ItemID < 0 && p.RightClick == 0 && !p.Shift && pl.SelectedItem.Selected:
-		if p.Slot == -999 {
-			pl.Inventory.Drop(pl.SelectedItem.Slot)
-			pl.SelectedItem.Selected = false
-		} else {
-			log.Printf("Item %d placed", p.ItemID)
-			pl.Inventory.Place(pl.SelectedItem.Item, p.Slot)
-			pl.SelectedItem.Selected = false
-		}
-	// Shift + left click: Move item to hotbar / main inventory
-	case p.ItemID > 0 && p.RightClick == 0 && p.Shift && !pl.SelectedItem.Selected:
-		sourceSlot := p.Slot
-		// Place item from hotbar to main inventory
-		if pl.Inventory.IsHotbarSlot(sourceSlot) {
-			targetSlot := pl.Inventory.FindFirstNonStackSlotOfItemInMainInventory(pl.Inventory.PeekItem(sourceSlot).TypeId)
-			if targetSlot != -1 {
-				pl.Inventory.Place(pl.Inventory.PeekItem(sourceSlot), targetSlot)
-				pl.Inventory.RemoveAllFromSlot(sourceSlot)
-			} else {
-
-				targetSlot := pl.Inventory.FindFirstEmptySlotinMainInventory()
-				if targetSlot == -1 {
-					log.Printf("No empty slot in main inventory")
-					return
-				}
-				pl.Inventory.Move(sourceSlot, targetSlot)
-			}
-			// Place item from main inventory to hotbar
-		} else {
-			targetSlot := pl.Inventory.FindFirstNonStackSlotOfItemInHotbar(pl.Inventory.PeekItem(sourceSlot).TypeId)
-			if targetSlot != -1 {
-				pl.Inventory.Place(pl.Inventory.PeekItem(sourceSlot), targetSlot)
-				pl.Inventory.RemoveAllFromSlot(sourceSlot)
-			} else {
-				targetSlot = pl.Inventory.FindFirstEmptySlotinHotbar()
-				pl.Inventory.Move(sourceSlot, targetSlot)
-			}
-			if targetSlot == -1 {
-				log.Printf("No empty slot in hotbar")
-				return
-			}
-		}
-	// Right click: Split item stack and hold
-	case p.ItemID > 0 && p.RightClick == 1 && !p.Shift && !pl.SelectedItem.Selected:
-		if pl.Inventory.PeekItem(p.Slot).Count > 1 {
-			pl.Inventory.HoldHalf(p.Slot)
-			log.Printf("Item %d held", p.ItemID)
-			item := p.GetItem()
-			item.Half()
-			pl.SelectedItem.SetItem(item, p.Slot, p.ActionNumber, p.RightClick == 1)
-		} else {
-			pl.Inventory.Hold(p.Slot)
-			log.Printf("Item %d held", p.ItemID)
-			pl.SelectedItem.SetItem(p.GetItem(), p.Slot, p.ActionNumber, p.RightClick == 1)
-		}
-
-	case p.ItemID > 0 && p.RightClick == 1 && !p.Shift && pl.SelectedItem.Selected:
-		if pl.SelectedItem.Item.TypeId == pl.Inventory.PeekItem(p.Slot).TypeId && pl.Inventory.PeekItem(p.Slot).Count < player.MaxStack {
-			pl.Inventory.PlaceOne(&pl.SelectedItem.Item, p.Slot)
-		} else {
-			log.Printf("Item %d placed & Item %d held", pl.SelectedItem.Item.TypeId, p.ItemID)
-			pl.Inventory.Hold(p.Slot)
-			pl.Inventory.Place(pl.SelectedItem.Item, p.Slot)
-			pl.SelectedItem.SetItem(p.GetItem(), p.Slot, p.ActionNumber, p.RightClick == 1)
-		}
-	case p.ItemID < 0 && p.RightClick == 1 && !p.Shift && pl.SelectedItem.Selected:
-		if p.Slot == -999 {
-			pl.SelectedItem.Item.Count--
+	// nothing in slot and something held
+	case slotEmpty && hasHeld:
+		if rightClick {
+			// Place one item into the empty slot.
+			pl.Inventory.PlaceOneInEmpty(&pl.SelectedItem.Item, slot)
 			if pl.SelectedItem.Item.Count == 0 {
 				pl.SelectedItem.Selected = false
 			}
-		} else if pl.Inventory.PeekItem(p.Slot).TypeId == -1 {
-			pl.Inventory.PlaceOneInEmpty(&pl.SelectedItem.Item, p.Slot)
+		} else {
+			// Place entire held stack into the empty slot.
+			pl.Inventory.Place(heldItem, slot)
+			pl.SelectedItem.Selected = false
+		}
+
+	// something in slot, nothing held
+	case !slotEmpty && !hasHeld:
+		if rightClick {
+			// Decompiled code: var10 = mouseClick == 0 ? var13.stackSize : (var13.stackSize + 1) / 2;
+			// For right click, we get (n + 1 / 2)
+			pickCount := (slotItem.Count + 1) / 2
+			picked := pl.Inventory.RemoveCountFromInventory(slot, pickCount)
+			pl.SelectedItem.SetItem(picked, slot, 0, true)
+		} else {
+			picked := pl.Inventory.Hold(slot)
+			pl.SelectedItem.SetItem(picked, slot, 0, false)
+		}
+
+	// something in slot, something held
+	case !slotEmpty && hasHeld:
+		sameType := slotItem.TypeId == heldItem.TypeId
+
+		if sameType {
+			// Merge held into slot (up to MaxStack).
+			addCount := heldItem.Count
+			if rightClick {
+				addCount = 1
+			}
+			// Cap by slot limit and item max stack.
+			room := player.MaxStack - int(slotItem.Count)
+			if int(addCount) > room {
+				addCount = byte(room)
+			}
+			if addCount == 0 {
+				return
+			}
+			// Deduct from held and add to slot.
+			pl.SelectedItem.Item.Count -= addCount
 			if pl.SelectedItem.Item.Count == 0 {
 				pl.SelectedItem.Selected = false
+			}
+			pl.Inventory.Items[slot].Count += addCount
+
+		} else {
+			// Different types: swap slot and held (left-click only; right-click
+			if int(heldItem.Count) <= player.MaxStack {
+				swapped := slotItem
+				pl.Inventory.Place(heldItem, slot)
+				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
 			}
 		}
 	}
-	transactionOutPacket := packets.TransactionOutPacket{
+}
+
+// It seems that in decompiled Beta 1.7.3 server, Shift is equivalent for right / left click
+// If Beta Tweaks is used, it sends different packets to simulate Modern Minecraft shift click
+func shiftClick(pl *player.Player, slot int16) {
+	sourceItem := pl.Inventory.PeekItem(slot)
+	if sourceItem.TypeId == -1 {
+		return
+	}
+
+	if pl.Inventory.IsHotbarSlot(slot) {
+		shiftMoveToRegion(pl, slot, player.MainInventoryStart, player.MainInventoryEnd)
+	} else {
+		shiftMoveToRegion(pl, slot, player.HotbarStart, player.HotbarEnd)
+	}
+}
+
+// if you play it, you realize that shift click moves it to the first empty slot in either
+// inventory or hotbar
+func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
+	// merge onto partial stacks of the same type.
+	for i := regionStart; i <= regionEnd && pl.Inventory.PeekItem(sourceSlot).TypeId != -1; i++ {
+		target := pl.Inventory.PeekItem(int16(i))
+		source := pl.Inventory.PeekItem(sourceSlot)
+		if target.TypeId == source.TypeId && target.Count < player.MaxStack {
+			room := player.MaxStack - int(target.Count)
+			move := int(source.Count)
+			if move > room {
+				move = room
+			}
+			pl.Inventory.Items[i].Count += byte(move)
+			pl.Inventory.Items[sourceSlot].Count -= byte(move)
+			if pl.Inventory.Items[sourceSlot].Count == 0 {
+				pl.Inventory.Items[sourceSlot] = player.NewItem(-1, 0)
+			}
+		}
+	}
+
+	// occurs when shift click created a stack, rest is also moved
+	// is also triggered if previous move didn't do anything, so nother item of the same existed
+	if pl.Inventory.PeekItem(sourceSlot).TypeId != -1 {
+		for i := regionStart; i <= regionEnd; i++ {
+			if pl.Inventory.PeekItem(int16(i)).TypeId == -1 {
+				pl.Inventory.Move(sourceSlot, int16(i))
+				break
+			}
+		}
+	}
+	// if inventory full of stacks of same item type, let's not do anything.
+}
+
+func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
+	out := packets.TransactionOutPacket{
 		WindowId:     0,
 		ActionNumber: p.ActionNumber,
 		Accepted:     true,
 	}
-	connection.Write(transactionOutPacket.Serialize())
-	pl.SelectedItem.Print()
-	pl.Inventory.Print()
+	connection.Write(out.Serialize())
 }
