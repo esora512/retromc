@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/packet/packets"
@@ -18,9 +17,6 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
-
-	log.Printf("Window click: slot=%d rightClick=%v shift=%v itemID=%d action=%d",
-		slot, rightClick, shift, p.ItemID, p.ActionNumber)
 
 	if slot == -999 {
 		// Outside-inventory click: drop held stack / single item.

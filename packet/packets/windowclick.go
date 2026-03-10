@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"log"
+
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
 )
@@ -14,6 +16,13 @@ type WindowClickInPacket struct {
 	ItemID       int16
 	ItemCount    byte
 	ItemUses     int16
+}
+
+func (p *WindowClickInPacket) Print() {
+	slot := p.Slot
+	rightClick := p.RightClick == 1
+	shift := p.Shift
+	log.Printf("Window click: slot=%d rightClick=%v shift=%v itemID=%d action=%d", slot, rightClick, shift, p.ItemID, p.ActionNumber)
 }
 
 func (p *WindowClickInPacket) GetItem() player.Item {

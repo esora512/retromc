@@ -65,9 +65,9 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
-		log.Printf("Buffer size before: %d", reader.Buffered())
+		//log.Printf("Buffer size before: %d", reader.Buffered())
 		handleWindowClickInPacket(connection, p, pl)
-		//sendCurrentInventory(connection, pl)
+		sendCurrentInventory(connection, pl)
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl)
