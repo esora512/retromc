@@ -22,6 +22,8 @@ func sendSetSlot(connection net.Conn, windowId byte, slot int16, item player.Ite
 func presetInventory(inv *player.Inventory) {
 	inv.SetItem(36, 257, 1) // Iron Pickaxe
 	inv.SetItem(37, 1, 64)  // Stone x64
+	inv.SetItem(38, 5, 64)  // Planks x64
+
 	//inv.SetItem(38, 326, 1) // Water Bucket
 	//inv.SetItem(39, 327, 1) // Lava Bucket
 }

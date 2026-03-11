@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/leNicDev/retromc/packet"
+
 )
 
 const (
@@ -21,6 +22,14 @@ const (
 type Inventory struct {
 	Size  uint16
 	Items []Item
+}
+
+func (inv *Inventory) GetCrafting2x2() [4]int16 {
+	var arr [4]int16
+	for i := range 4 {
+		arr[i] = inv.PeekItem(int16(i + 1)).TypeId
+	}
+	return arr
 }
 
 // Serialize encodes all slots in window-items wire format.
@@ -79,6 +88,7 @@ func (inv *Inventory) AddItem(typeId int16) int16 {
 	}
 	return -1 // inventory full
 }
+
 
 // RemoveOneFromSlot decrements the count in a slot by one.
 // When count reaches zero the slot is cleared to empty.

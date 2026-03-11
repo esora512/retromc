@@ -3,6 +3,7 @@ package packethandler
 import (
 	"net"
 
+	"github.com/leNicDev/retromc/crafting"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
@@ -14,9 +15,28 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		return
 	}
 
+	p.Print()
+
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
+
+	if slot == 0 {
+		inv := pl.Inventory
+		result := crafting.GetCrafter2x2().Craft(inv.GetCrafting2x2())
+
+		resultItem := player.NewItem(result, 1)
+		if !rightClick {
+			if result != -1 {
+				for slot := int16(1); slot <= 4; slot++ {
+					if inv.PeekItem(slot).TypeId != -1 {
+						inv.RemoveOneFromSlot(slot)
+					}
+				}
+				pl.SelectedItem.SetItem(resultItem, slot, 0, rightClick)
+			}
+		}
+	}
 
 	if slot == -999 {
 		// Outside-inventory click: drop held stack / single item.
