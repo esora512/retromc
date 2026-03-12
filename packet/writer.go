@@ -77,6 +77,11 @@ func (w *PacketWriter) WriteString16(s string) {
 	w.Write(encoded)
 }
 
+func (w *PacketWriter) WriteString8(s string) {
+	w.WriteByte(uint8(len(s)))
+	w.Write([]byte(s))
+}
+
 func (w *PacketWriter) Bytes() []byte {
 	return w.buf.Bytes()
 }

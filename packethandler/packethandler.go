@@ -29,6 +29,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		return err
 	}
 	packetReader := packet.NewReader(reader, packetId)
+	//log.Println(packetId)
 
 	switch packetId {
 	case packet.KeepAlive:

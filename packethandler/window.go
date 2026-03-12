@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/crafting"
@@ -22,20 +23,9 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	slot := p.Slot
 
 	if slot == 0 {
-		inv := pl.Inventory
-		result := crafting.GetCrafter2x2().Craft(inv.GetCrafting2x2())
-
-		resultItem := player.NewItem(result, 1)
-		if !rightClick {
-			if result != -1 {
-				for slot := int16(1); slot <= 4; slot++ {
-					if inv.PeekItem(slot).TypeId != -1 {
-						inv.RemoveOneFromSlot(slot)
-					}
-				}
-				pl.SelectedItem.SetItem(resultItem, slot, 0, rightClick)
-			}
-		}
+		craftInInventory(pl, shift, rightClick)
+		acceptTransaction(connection, p)
+		return
 	}
 
 	if slot == -999 {
@@ -140,6 +130,27 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 				pl.Inventory.Place(heldItem, slot)
 				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
 			}
+		}
+	}
+}
+
+func craftInInventory(pl *player.Player, shift, rightClick bool) {
+	inv := pl.Inventory
+	result := crafting.GetCrafter2x2().Craft(inv.GetCrafting2x2())
+
+	resultItem := player.NewItem(result, 1)
+	if result != -1 {
+		log.Println("Craft")
+		for slot := int16(1); slot <= 4; slot++ {
+			if inv.PeekItem(slot).TypeId != -1 {
+				inv.RemoveOneFromSlot(slot)
+			}
+		}
+
+		if shift {
+			pl.Inventory.AddItem(resultItem.TypeId)
+		} else {
+			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
 	}
 }

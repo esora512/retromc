@@ -34,6 +34,15 @@ func NewDirtBlock() Block {
 	}
 }
 
+func NewCraftingTable() Block {
+	return Block{
+		TypeId:   0x3a,
+		Metadata: 0x00,
+		Light:    0x00,
+		SkyLight: 0x00,
+	}
+}
+
 func NewBlockById(id int16) Block {
 	switch id {
 	case 0x00:
@@ -42,6 +51,8 @@ func NewBlockById(id int16) Block {
 		return NewStoneBlock()
 	case 0x03:
 		return NewDirtBlock()
+	case 0x3a:
+		return NewCraftingTable()
 	default:
 		return NewAirBlock()
 	}
