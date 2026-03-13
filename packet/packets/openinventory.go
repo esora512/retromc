@@ -11,16 +11,17 @@ type OpenInventoryOutPacket struct {
 
 func NewCraftingTable() OpenInventoryOutPacket {
 	p := OpenInventoryOutPacket{
-		WindowID: 0x01,
-		Type:     0x01,
-		Title:    "CraftingTable",
-		Size:     0x09,
+		WindowID: byte(1),
+		Type:     1,
+		Title:    "Crafting",
+		Size:     9,
 	}
 	return p
 }
 
 func (p *OpenInventoryOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
+	w.WriteByte(packet.OpenInventory)
 	w.WriteByte(p.WindowID)
 	w.WriteByte(p.Type)
 	w.WriteString8(p.Title)

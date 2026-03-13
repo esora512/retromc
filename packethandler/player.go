@@ -123,19 +123,29 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }
 
+func handleCrafting(connection net.Conn) {
+	p := packets.NewCraftingTable()
+	connection.Write(p.Serialize())
+}
+
 // handlePlayerBlockPlacementInPacket handles block-place events.
 // It decrements the placed item from the player's in-memory inventory.
 // HotbarSlot is locked for the duration so that a HoldingChange packet
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	log.Println("DEBUG: Block placement Item id", p.ItemId)
+	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
+	if oldExisting.TypeId == 58 {
+		log.Println(oldExisting.TypeId)
+		handleCrafting(connection)
+		return
+	}
+
 	pl.HotbarLocked.Store(true)
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
 	newX, newY, newZ := p.X, int(p.Y), p.Z
-	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
-	log.Println("old existing block", oldExisting.TypeId)
 
 	switch p.Face {
 	case 0:

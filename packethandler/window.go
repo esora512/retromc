@@ -12,15 +12,21 @@ import (
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
 func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
-	if p.WindowId != 0 {
-		return
-	}
+	//p.Print()
 
-	p.Print()
+	if p.WindowId == 1 {
+		if p.Slot > 9 {
+			p.Slot -= 1
+		} else {
+			return
+		}
+	}
 
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
+
+	p.Print()
 
 	if slot == 0 {
 		craftInInventory(pl, shift, rightClick)
@@ -57,6 +63,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	acceptTransaction(connection, p)
 	pl.SelectedItem.Print()
 	pl.Inventory.Print()
+	sendCurrentInventory(connection, pl)
 }
 
 // Covers all non-shift left- and right-click cases.
@@ -211,4 +218,8 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 		Accepted:     true,
 	}
 	connection.Write(out.Serialize())
+}
+
+func handleCloseWindowInPacket(connection net.Conn, p packets.CloseWindowInPacket, pl *player.Player) {
+	log.Printf("CloseWindow: %+v", p)
 }

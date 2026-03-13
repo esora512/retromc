@@ -29,7 +29,6 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		return err
 	}
 	packetReader := packet.NewReader(reader, packetId)
-	//log.Println(packetId)
 
 	switch packetId {
 	case packet.KeepAlive:
@@ -68,10 +67,12 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		p := packets.ReadWindowClickInPacket(packetReader)
 		//log.Printf("Buffer size before: %d", reader.Buffered())
 		handleWindowClickInPacket(connection, p, pl)
-		sendCurrentInventory(connection, pl)
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl)
+	case packet.CloseWindow:
+		p := packets.ReadCloseWindowInPacket(packetReader)
+		handleCloseWindowInPacket(connection, p, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", packetId)
 	}

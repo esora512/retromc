@@ -73,12 +73,12 @@ func (w *PacketWriter) WriteFloat64(value float64) {
 
 func (w *PacketWriter) WriteString16(s string) {
 	encoded, _, _ := transform.Bytes(unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder(), []byte(s))
-	w.WriteShort(uint16(len(s))) // write string length in characters
+	w.WriteShort(uint16(len(s)))
 	w.Write(encoded)
 }
 
 func (w *PacketWriter) WriteString8(s string) {
-	w.WriteByte(uint8(len(s)))
+	w.WriteShort(uint16(len(s)))
 	w.Write([]byte(s))
 }
 

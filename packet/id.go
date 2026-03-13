@@ -27,4 +27,5 @@ const (
 	Respawn               byte = 0x09
 	Transaction           byte = 0x6a
 	OpenInventory         byte = 0x64
+	CloseWindow           byte = 0x65
 )
