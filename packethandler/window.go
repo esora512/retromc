@@ -9,19 +9,96 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func convertItem(item player.Item, slot int16) crafting.Item {
-	cItem := crafting.NewItem(item.TypeId, 1, slot, &item.Count)
-	return cItem
-}
-
 func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, rightClick bool) {
 	targetSlot := p.Slot
 	if targetSlot == 0 {
 		craftInWorkbench(pl, shift, rightClick)
 	} else {
-		item := pl.SelectedItem
-		cItem := convertItem(item.Item, pl.SelectedItem.Slot)
-		pl.Workbench.SetGridItem(targetSlot, cItem)
+		workbenchGridClick(pl, targetSlot, rightClick)
+	}
+}
+
+// workbenchGridClick handles click mechanics for workbench grid slots (1-9),
+// mirroring the same pick/place/swap/merge logic as normalClick for inventory.
+func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
+	gridItem := pl.Workbench.GetGridItem(slot)
+	heldItem := pl.SelectedItem.Item
+	hasHeld := pl.SelectedItem.Selected
+	slotEmpty := gridItem.TypeId == -1
+
+	switch {
+	// nothing in slot and nothing held
+	case slotEmpty && !hasHeld:
+		// noop
+
+	// nothing in slot and something held
+	case slotEmpty && hasHeld:
+		if rightClick {
+			// Place one item from held into the empty grid slot.
+			pl.Workbench.SetGridItem(slot, crafting.NewItem(heldItem.TypeId, 1, heldItem.Metadata))
+			pl.SelectedItem.Item.Count--
+			if pl.SelectedItem.Item.Count == 0 {
+				pl.SelectedItem.Selected = false
+			}
+		} else {
+			// Place entire held stack into the empty grid slot.
+			pl.Workbench.SetGridItem(slot, crafting.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
+			pl.SelectedItem.Selected = false
+		}
+
+	// something in slot, nothing held
+	case !slotEmpty && !hasHeld:
+		if rightClick {
+			// Pick up half (rounded up) from grid slot.
+			pickCount := (gridItem.Count + 1) / 2
+			remainCount := gridItem.Count - pickCount
+			picked := player.NewItem(gridItem.TypeId, pickCount, gridItem.Metadata)
+			if remainCount <= 0 {
+				pl.Workbench.SetGridItem(slot, crafting.EmptyItem())
+			} else {
+				pl.Workbench.SetGridItem(slot, crafting.NewItem(gridItem.TypeId, remainCount, gridItem.Metadata))
+			}
+			pl.SelectedItem.SetItem(picked, slot, 0, true)
+		} else {
+			// Pick up entire stack from grid slot.
+			picked := player.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
+			pl.Workbench.SetGridItem(slot, crafting.EmptyItem())
+			pl.SelectedItem.SetItem(picked, slot, 0, false)
+		}
+
+	// something in slot, something held
+	case !slotEmpty && hasHeld:
+		sameType := gridItem.TypeId == heldItem.TypeId && gridItem.Metadata == heldItem.Metadata
+
+		if sameType {
+			// Merge held into grid slot (up to MaxStack).
+			addCount := heldItem.Count
+			if rightClick {
+				addCount = 1
+			}
+			room := player.MaxStack - int(gridItem.Count)
+			if int(addCount) > room {
+				addCount = byte(room)
+			}
+			if addCount == 0 {
+				return
+			}
+			pl.SelectedItem.Item.Count -= addCount
+			if pl.SelectedItem.Item.Count == 0 {
+				pl.SelectedItem.Selected = false
+			}
+			gridPtr := pl.Workbench.GetGridItemPtr(slot)
+			if gridPtr != nil {
+				gridPtr.Count += addCount
+			}
+		} else {
+			// Different types: swap grid slot and held.
+			if int(heldItem.Count) <= player.MaxStack {
+				swapped := player.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
+				pl.Workbench.SetGridItem(slot, crafting.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
+				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
+			}
+		}
 	}
 }
 
@@ -167,23 +244,17 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
-	wb := pl.Workbench
-	inv := pl.Inventory
 	result := crafting.New3x3Crafter().Craft(pl.Workbench.GetGrid())
 	resultItem := player.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
+		// Consume one item from each occupied grid slot.
 		for slot := int16(1); slot <= 9; slot++ {
-			item := wb.GetGridItem(slot)
-			if item.TypeId != -1 {
-				inv.RemoveOneFromSlot(item.SourceSlot)
-			}
+			pl.Workbench.RemoveOneFromGridSlot(slot)
 		}
-		pl.Workbench.ClearGrid()
 
 		if shift {
 			pl.SelectedItem.Clear()
 			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
-
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
