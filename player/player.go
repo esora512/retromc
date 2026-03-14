@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"sync/atomic"
+
+	"github.com/leNicDev/retromc/crafting"
 )
 
 const (
@@ -48,6 +50,7 @@ type Player struct {
 	Stance     float64
 	Yaw, Pitch float32
 	OnGround   bool
+	Workbench  crafting.Workbench
 }
 
 const (
@@ -71,9 +74,10 @@ func NewPlayer(conn net.Conn) *Player {
 			Slot:         -1,
 			ActionNumber: -1,
 		},
-		X:      SpawnX,
-		Y:      SpawnY,
-		Z:      SpawnZ,
-		Stance: SpawnStance,
+		X:         SpawnX,
+		Y:         SpawnY,
+		Z:         SpawnZ,
+		Stance:    SpawnStance,
+		Workbench: *crafting.NewWorkbench(),
 	}
 }
