@@ -4,7 +4,6 @@ import (
 	"log"
 
 	"github.com/leNicDev/retromc/packet"
-
 )
 
 const (
@@ -43,52 +42,51 @@ func (inv *Inventory) Serialize() []byte {
 }
 
 // SetItem places an item directly into a slot, ignoring stack limits.
-func (inv *Inventory) SetItem(slot int16, typeId int16, count byte) {
+func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata byte) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
 		log.Printf("SetItem: slot %d out of range", slot)
 		return
 	}
-	inv.Items[slot] = NewItem(typeId, count)
+	inv.Items[slot] = NewItem(typeId, count, metadata)
 }
 
 // AddItem adds one of the given block type to the inventory (slots 9-44).
-// It first tries to stack onto an existing partial stack of the same type,
+// It first tries to stack onto an existing partial stack of the same type and metadata,
 // then falls back to the first empty slot.
 // Returns the slot index that was updated, or -1 if the inventory is full.
-func (inv *Inventory) AddItem(typeId int16) int16 {
+func (inv *Inventory) AddItem(typeId int16, metadata byte, count byte) int16 {
 	// Try to increment an existing partial stack.
 	for i := HotbarStart; i <= HotbarEnd; i++ {
 		item := &inv.Items[i]
-		if item.TypeId == typeId && item.Count < MaxStack {
-			item.Count++
+		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+			item.Count += count
 			return int16(i)
 		}
 	}
 
 	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
 		item := &inv.Items[i]
-		if item.TypeId == typeId && item.Count < MaxStack {
-			item.Count++
+		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+			item.Count += count
 			return int16(i)
 		}
 	}
 	// No partial stack found — claim the first empty slot.
 	for i := HotbarStart; i <= HotbarEnd; i++ {
 		if inv.Items[i].TypeId == -1 {
-			inv.Items[i] = NewItem(typeId, 1)
+			inv.Items[i] = NewItem(typeId, count, metadata)
 			return int16(i)
 		}
 	}
 
 	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
 		if inv.Items[i].TypeId == -1 {
-			inv.Items[i] = NewItem(typeId, 1)
+			inv.Items[i] = NewItem(typeId, count, metadata)
 			return int16(i)
 		}
 	}
 	return -1 // inventory full
 }
-
 
 // RemoveOneFromSlot decrements the count in a slot by one.
 // When count reaches zero the slot is cleared to empty.
@@ -103,7 +101,7 @@ func (inv *Inventory) RemoveOneFromSlot(slot int16) int16 {
 	}
 	// Guard against underflow: Count is a byte, so decrementing 0 wraps to 255.
 	if item.Count <= 1 {
-		*item = NewItem(-1, 0)
+		*item = NewItem(-1, 0, 0)
 	} else {
 		item.Count--
 	}
@@ -116,12 +114,12 @@ func (inv *Inventory) PeekItem(slot int16) Item {
 
 func (inv *Inventory) Move(sourceSlot, targetSlot int16) {
 	inv.Items[targetSlot] = inv.Items[sourceSlot]
-	inv.Items[sourceSlot] = NewItem(-1, 0)
+	inv.Items[sourceSlot] = NewItem(-1, 0, 0)
 }
 
 func (inv *Inventory) Hold(slot int16) Item {
 	item := inv.Items[slot]
-	inv.Items[slot] = NewItem(-1, 0)
+	inv.Items[slot] = NewItem(-1, 0, 0)
 	return item
 }
 
@@ -149,7 +147,7 @@ func (inv *Inventory) PlaceOne(item *Item, slot int16) {
 
 func (inv *Inventory) PlaceOneInEmpty(item *Item, slot int16) {
 	if inv.Items[slot].TypeId == -1 {
-		inv.Items[slot] = NewItem(item.TypeId, 0)
+		inv.Items[slot] = NewItem(item.TypeId, 0, item.Metadata)
 	}
 	inv.PlaceOne(item, slot)
 }
@@ -177,25 +175,25 @@ func NewInventory(size uint16) Inventory {
 		Items: make([]Item, size),
 	}
 	for i := range inv.Items {
-		inv.Items[i] = NewItem(-1, 0)
+		inv.Items[i] = NewItem(-1, 0, 0)
 	}
 	return inv
 }
 
 func (inv *Inventory) RemoveCountFromInventory(slot int16, count byte) Item {
 	if slot < 0 || int(slot) >= len(inv.Items) {
-		return NewItem(-1, 0)
+		return NewItem(-1, 0, 0)
 	}
 	src := &inv.Items[slot]
 	if src.TypeId == -1 {
-		return NewItem(-1, 0)
+		return NewItem(-1, 0, 0)
 	}
 	if count >= src.Count {
 		taken := *src
-		*src = NewItem(-1, 0)
+		*src = NewItem(-1, 0, 0)
 		return taken
 	}
-	taken := NewItem(src.TypeId, count)
+	taken := NewItem(src.TypeId, count, src.Metadata)
 	src.Count -= count
 	return taken
 }

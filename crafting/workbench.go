@@ -42,7 +42,7 @@ func (w *Workbench) SetGridItem(slot int16, item Item) {
 }
 
 func (w *Workbench) GetGridItem(slot int16) Item {
-	loc := slot-1
+	loc := slot - 1
 	if loc > 8 || loc < 0 {
 		return NewItem(-1, 0, -1, nil)
 	}
@@ -52,7 +52,7 @@ func (w *Workbench) GetGridItem(slot int16) Item {
 func (w *Workbench) GetGrid() [9]int16 {
 	var arr [9]int16
 	for i := range 9 {
-		arr[i] = w.GetGridItem(int16(i)).TypeId
+		arr[i] = w.GetGridItem(int16(i + 1)).TypeId
 	}
 	return arr
 }

@@ -27,9 +27,9 @@ func (p *WindowClickInPacket) Print() {
 
 func (p *WindowClickInPacket) GetItem() player.Item {
 	return player.Item{
-		TypeId: p.ItemID,
-		Count:  p.ItemCount,
-		Uses:   p.ItemUses,
+		TypeId:   p.ItemID,
+		Count:    p.ItemCount,
+		Metadata: byte(p.ItemUses),
 	}
 }
 

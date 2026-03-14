@@ -115,7 +115,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	// Add the mined block to the in-memory inventory.
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
-	slot := pl.Inventory.AddItem(int16(oldBlock.TypeId))
+	slot := pl.Inventory.AddItem(int16(oldBlock.TypeId), 0, 1)
 	if slot < 0 {
 		return
 	}
@@ -182,7 +182,11 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	// Verify the player actually has the item they're trying to place.
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
+	item := pl.Inventory.PeekItem(slot)
 	block := level.NewBlockById(p.ItemId)
+	if item.Metadata != 0 {
+		block.Metadata = item.Metadata
+	}
 	world.SetBlock(newX, byte(newY), newZ, block)
 
 	// Notify client of the block change.

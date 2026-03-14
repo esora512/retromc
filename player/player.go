@@ -28,6 +28,14 @@ func (si *SelectedItem) Print() {
 	log.Printf("Item selected: %+v", si.Item)
 }
 
+func (si *SelectedItem) Clear() {
+	si.Selected = false
+	si.Item = Item{-1, 0, 0}
+	si.Slot = -1
+	si.ActionNumber = -1
+	si.RightClick = false
+}
+
 func (si *SelectedItem) SetItem(item Item, slot int16, actionNumber int16, rightClick bool) {
 	si.Item = item
 	si.Slot = slot
@@ -69,7 +77,6 @@ func NewPlayer(conn net.Conn) *Player {
 			Item: Item{
 				TypeId: -1,
 				Count:  0,
-				Uses:   0,
 			},
 			Slot:         -1,
 			ActionNumber: -1,

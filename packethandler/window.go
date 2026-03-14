@@ -22,39 +22,19 @@ func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, ri
 		item := pl.SelectedItem
 		cItem := convertItem(item.Item, pl.SelectedItem.Slot)
 		pl.Workbench.SetGridItem(targetSlot, cItem)
-
 	}
-	return
 }
 
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
 func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
-	//p.Print()
+	log.Println("Window click:", p.WindowId)
+	p.Print()
 
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
-
-	if p.WindowId == 1 {
-		if slot > 9 {
-			slot -= 1
-		} else {
-			// TODO: Implement crafting mechanism here
-			log.Println("Crafting Slot", p.Slot, pl.SelectedItem.Item.TypeId)
-			log.Println("Source slot", pl.SelectedItem.Slot)
-			handleWorkbench(p, pl, shift, rightClick)
-			return
-		}
-	}
-
-	p.Print()
-
-	if slot == 0 {
-		craftInInventory(pl, shift, rightClick)
-		acceptTransaction(connection, p)
-		return
-	}
+	windowId := p.WindowId
 
 	if slot == -999 {
 		// Outside-inventory click: drop held stack / single item.
@@ -75,17 +55,40 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		return
 	}
 
-	if shift {
-		// Based on decompiled Beta 1.7.3 code, shift click is the same for right & left
-		shiftClick(pl, slot)
-	} else {
-		normalClick(pl, slot, rightClick)
+	// Workbench actions
+	if windowId == 1 {
+		if slot > 9 {
+			// If outside crafting grid, switch to inventory
+			windowId = 0
+			slot -= 1
+		} else {
+			handleWorkbench(p, pl, shift, rightClick)
+			acceptTransaction(connection, p)
+			return
+		}
 	}
 
-	acceptTransaction(connection, p)
-	pl.SelectedItem.Print()
-	pl.Inventory.Print()
-	pl.Workbench.Print()
+	// Regular inventory actions
+	// Includes 2x2 grid crafting
+	if windowId == 0 {
+		if slot == 0 {
+			craftInInventory(pl, shift, rightClick)
+			acceptTransaction(connection, p)
+			return
+		}
+
+		if shift {
+			// Based on decompiled Beta 1.7.3 code, shift click is the same for right & left
+			shiftClick(pl, slot)
+		} else {
+			normalClick(pl, slot, rightClick)
+		}
+
+		acceptTransaction(connection, p)
+		pl.SelectedItem.Print()
+		pl.Inventory.Print()
+		pl.Workbench.Print()
+	}
 }
 
 // Covers all non-shift left- and right-click cases.
@@ -129,7 +132,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 
 	// something in slot, something held
 	case !slotEmpty && hasHeld:
-		sameType := slotItem.TypeId == heldItem.TypeId
+		sameType := slotItem.TypeId == heldItem.TypeId && slotItem.Metadata == heldItem.Metadata
 
 		if sameType {
 			// Merge held into slot (up to MaxStack).
@@ -167,19 +170,20 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 	wb := pl.Workbench
 	inv := pl.Inventory
 	result := crafting.New3x3Crafter().Craft(pl.Workbench.GetGrid())
-
-	resultItem := player.NewItem(result, 1)
-	if result != -1 {
+	resultItem := player.NewItem(result.TypeId, result.Count, result.Metadata)
+	if result.TypeId != -1 {
 		for slot := int16(1); slot <= 9; slot++ {
 			item := wb.GetGridItem(slot)
 			if item.TypeId != -1 {
-				log.Println("Breaks at craftInWorkbench, RemoveOneFromSlot")
 				inv.RemoveOneFromSlot(item.SourceSlot)
 			}
 		}
+		pl.Workbench.ClearGrid()
 
 		if shift {
-			pl.Inventory.AddItem(resultItem.TypeId)
+			pl.SelectedItem.Clear()
+			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
@@ -190,8 +194,8 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 	inv := pl.Inventory
 	result := crafting.New2x2Crafter().Craft(inv.GetCrafting2x2())
 
-	resultItem := player.NewItem(result, 1)
-	if result != -1 {
+	resultItem := player.NewItem(result.TypeId, result.Count, result.Metadata)
+	if result.TypeId != -1 {
 		for slot := int16(1); slot <= 4; slot++ {
 			if inv.PeekItem(slot).TypeId != -1 {
 				inv.RemoveOneFromSlot(slot)
@@ -199,7 +203,8 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 		}
 
 		if shift {
-			pl.Inventory.AddItem(resultItem.TypeId)
+			pl.SelectedItem.Clear()
+			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
@@ -228,7 +233,7 @@ func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionE
 	for i := regionStart; i <= regionEnd && pl.Inventory.PeekItem(sourceSlot).TypeId != -1; i++ {
 		target := pl.Inventory.PeekItem(int16(i))
 		source := pl.Inventory.PeekItem(sourceSlot)
-		if target.TypeId == source.TypeId && target.Count < player.MaxStack {
+		if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < player.MaxStack {
 			room := player.MaxStack - int(target.Count)
 			move := int(source.Count)
 			if move > room {
@@ -237,7 +242,7 @@ func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionE
 			pl.Inventory.Items[i].Count += byte(move)
 			pl.Inventory.Items[sourceSlot].Count -= byte(move)
 			if pl.Inventory.Items[sourceSlot].Count == 0 {
-				pl.Inventory.Items[sourceSlot] = player.NewItem(-1, 0)
+				pl.Inventory.Items[sourceSlot] = player.NewItem(-1, 0, 0)
 			}
 		}
 	}
