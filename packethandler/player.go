@@ -123,7 +123,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }
 
-func handleCrafting(connection net.Conn) {
+func displayWorkbenchGUI(connection net.Conn) {
 	p := packets.NewCraftingTable()
 	connection.Write(p.Serialize())
 }
@@ -133,11 +133,9 @@ func handleCrafting(connection net.Conn) {
 // HotbarSlot is locked for the duration so that a HoldingChange packet
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
-	log.Println("DEBUG: Block placement Item id", p.ItemId)
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	if oldExisting.TypeId == 58 {
-		log.Println(oldExisting.TypeId)
-		handleCrafting(connection)
+		displayWorkbenchGUI(connection)
 		return
 	}
 

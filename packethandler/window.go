@@ -18,6 +18,8 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		if p.Slot > 9 {
 			p.Slot -= 1
 		} else {
+			// TODO: Implement crafting mechanism here
+			log.Println("Crafting Slot", p.Slot)
 			return
 		}
 	}
@@ -63,7 +65,6 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	acceptTransaction(connection, p)
 	pl.SelectedItem.Print()
 	pl.Inventory.Print()
-	sendCurrentInventory(connection, pl)
 }
 
 // Covers all non-shift left- and right-click cases.
@@ -147,7 +148,6 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 
 	resultItem := player.NewItem(result, 1)
 	if result != -1 {
-		log.Println("Craft")
 		for slot := int16(1); slot <= 4; slot++ {
 			if inv.PeekItem(slot).TypeId != -1 {
 				inv.RemoveOneFromSlot(slot)
@@ -220,6 +220,6 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 	connection.Write(out.Serialize())
 }
 
-func handleCloseWindowInPacket(connection net.Conn, p packets.CloseWindowInPacket, pl *player.Player) {
+func handleCloseWindowInPacket(p packets.CloseWindowInPacket) {
 	log.Printf("CloseWindow: %+v", p)
 }
