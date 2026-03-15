@@ -1,14 +1,14 @@
 package packets
 
 import (
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/packet"
-	"github.com/leNicDev/retromc/player"
 )
 
 type WindowItemsOutPacket struct {
 	WindowId byte
 	Count    int16
-	Payload  player.Inventory
+	Payload  inventory.Inventory
 }
 
 func (p *WindowItemsOutPacket) Serialize() []byte {

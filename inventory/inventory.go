@@ -1,4 +1,4 @@
-package player
+package inventory
 
 import (
 	"log"
@@ -115,6 +115,15 @@ func (inv *Inventory) PeekItem(slot int16) Item {
 func (inv *Inventory) Move(sourceSlot, targetSlot int16) {
 	inv.Items[targetSlot] = inv.Items[sourceSlot]
 	inv.Items[sourceSlot] = NewItem(-1, 0, 0)
+}
+
+func MoveFromWorkbenchToInventory(wb *Workbench, inv *Inventory, sourceSlot, targetSlot int16) {
+	if sourceSlot > 8 && sourceSlot < 1 {
+		return
+	}
+
+	inv.Items[targetSlot] = wb.Grid[sourceSlot-1]
+	wb.Grid[sourceSlot-1] = NewItem(-1, 0, 0)
 }
 
 func (inv *Inventory) Hold(slot int16) Item {

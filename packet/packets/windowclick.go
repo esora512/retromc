@@ -3,8 +3,8 @@ package packets
 import (
 	"log"
 
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/packet"
-	"github.com/leNicDev/retromc/player"
 )
 
 type WindowClickInPacket struct {
@@ -25,8 +25,8 @@ func (p *WindowClickInPacket) Print() {
 	log.Printf("Window click: slot=%d rightClick=%v shift=%v itemID=%d action=%d", slot, rightClick, shift, p.ItemID, p.ActionNumber)
 }
 
-func (p *WindowClickInPacket) GetItem() player.Item {
-	return player.Item{
+func (p *WindowClickInPacket) GetItem() inventory.Item {
+	return inventory.Item{
 		TypeId:   p.ItemID,
 		Count:    p.ItemCount,
 		Metadata: byte(p.ItemUses),

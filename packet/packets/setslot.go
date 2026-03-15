@@ -2,13 +2,14 @@ package packets
 
 import (
 	"github.com/leNicDev/retromc/packet"
-	"github.com/leNicDev/retromc/player"
+	"github.com/leNicDev/retromc/inventory"
+
 )
 
 type SetSlotOutPacket struct {
 	WindowId byte
 	Slot     int16
-	Item     player.Item
+	Item     inventory.Item
 }
 
 func (p *SetSlotOutPacket) Serialize() []byte {

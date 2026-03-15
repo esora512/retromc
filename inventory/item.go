@@ -1,4 +1,4 @@
-package player
+package inventory
 
 import "github.com/leNicDev/retromc/packet"
 

@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/leNicDev/retromc/crafting"
+	"github.com/leNicDev/retromc/inventory"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 
 type SelectedItem struct {
 	Selected     bool
-	Item         Item
+	Item         inventory.Item
 	Slot         int16
 	ActionNumber int16
 	RightClick   bool
@@ -30,13 +30,13 @@ func (si *SelectedItem) Print() {
 
 func (si *SelectedItem) Clear() {
 	si.Selected = false
-	si.Item = Item{-1, 0, 0}
+	si.Item = inventory.Item{TypeId: -1, Count: 0, Metadata: 0}
 	si.Slot = -1
 	si.ActionNumber = -1
 	si.RightClick = false
 }
 
-func (si *SelectedItem) SetItem(item Item, slot int16, actionNumber int16, rightClick bool) {
+func (si *SelectedItem) SetItem(item inventory.Item, slot int16, actionNumber int16, rightClick bool) {
 	si.Item = item
 	si.Slot = slot
 	si.ActionNumber = actionNumber
@@ -48,7 +48,7 @@ type Player struct {
 	Username     string
 	EntityId     int
 	Connection   net.Conn
-	Inventory    Inventory
+	Inventory    inventory.Inventory
 	SelectedItem SelectedItem
 	HotbarSlot   int16
 	HotbarLocked atomic.Bool // locked while a BlockPlacement is being processed
@@ -58,7 +58,7 @@ type Player struct {
 	Stance     float64
 	Yaw, Pitch float32
 	OnGround   bool
-	Workbench  crafting.Workbench
+	Workbench  inventory.Workbench
 }
 
 const (
@@ -71,10 +71,10 @@ const (
 func NewPlayer(conn net.Conn) *Player {
 	return &Player{
 		Connection: conn,
-		Inventory:  NewInventory(PLAYER_INVENTORY_SIZE),
+		Inventory:  inventory.NewInventory(PLAYER_INVENTORY_SIZE),
 		SelectedItem: SelectedItem{
 			Selected: false,
-			Item: Item{
+			Item: inventory.Item{
 				TypeId: -1,
 				Count:  0,
 			},
@@ -85,6 +85,6 @@ func NewPlayer(conn net.Conn) *Player {
 		Y:         SpawnY,
 		Z:         SpawnZ,
 		Stance:    SpawnStance,
-		Workbench: *crafting.NewWorkbench(),
+		Workbench: *inventory.NewWorkbench(),
 	}
 }

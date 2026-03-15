@@ -1,12 +1,6 @@
-package crafting
+package inventory
 
 import "log"
-
-type Item struct {
-	TypeId   int16
-	Count    byte
-	Metadata byte
-}
 
 type Workbench struct {
 	Grid [9]Item
@@ -29,14 +23,6 @@ func (w *Workbench) ClearGrid() {
 
 func EmptyItem() Item {
 	return Item{-1, 0, 0}
-}
-
-func NewItem(typeId int16, count byte, metadata byte) Item {
-	return Item{
-		TypeId:   typeId,
-		Count:    count,
-		Metadata: metadata,
-	}
 }
 
 func (w *Workbench) SetGridItem(slot int16, item Item) {
