@@ -42,6 +42,8 @@ func New3x3Crafter() *Crafter3x3 {
 			{Pattern: [9]int16{5, 5, 5, 5, -1, 5, 5, 5, 5}, Result: Result{54, 0, 1}},
 
 			{Pattern: [9]int16{-1, -1, -1, -1, -1, -1, 5, 5, 5}, Result: Result{44, 2, 3}},
+			{Pattern: [9]int16{-1, -1, -1, 5, 5, 5, -1, -1, -1}, Result: Result{44, 2, 3}},
+			{Pattern: [9]int16{5, 5, 5, -1, -1, -1, -1, -1, -1}, Result: Result{44, 2, 3}},
 		},
 	}
 }

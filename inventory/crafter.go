@@ -1,5 +1,7 @@
 package inventory
 
+import "log"
+
 type Result struct {
 	TypeId   int16
 	Metadata byte
@@ -41,6 +43,8 @@ func New3x3Crafter() *Crafter3x3 {
 			// chest: wood planks ring with empty center
 			{Pattern: [9]int16{5, 5, 5, 5, -1, 5, 5, 5, 5}, Result: Result{54, 0, 1}},
 
+			{Pattern: [9]int16{5, 5, 5, -1, -1, -1, -1, -1, -1}, Result: Result{44, 2, 3}},
+
 			{Pattern: [9]int16{-1, -1, -1, -1, -1, -1, 5, 5, 5}, Result: Result{44, 2, 3}},
 		},
 	}
@@ -58,6 +62,7 @@ func (c *Crafter2x2) Craft(grid [4]int16) Result {
 func (c *Crafter3x3) Craft(grid [9]int16) Result {
 	for _, r := range c.Recipes {
 		if patternMatches9(r.Pattern, grid) {
+			log.Println("Match!")
 			return r.Result
 		}
 	}
