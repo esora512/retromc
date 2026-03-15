@@ -249,7 +249,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
-	result := crafting.New3x3Crafter().Craft(pl.Workbench.GetGrid())
+	result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
 		// Consume one item from each occupied grid slot.

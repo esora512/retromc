@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -115,7 +116,13 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	// Add the mined block to the in-memory inventory.
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
-	slot := pl.Inventory.AddItem(int16(oldBlock.TypeId), 0, 1)
+
+	blockItem := int16(oldBlock.TypeId)
+	if blockItem == constants.Stone.Value {
+		blockItem = constants.Cobblestone.Value
+	}
+
+	slot := pl.Inventory.AddItem(blockItem, 0, 1)
 	if slot < 0 {
 		return
 	}

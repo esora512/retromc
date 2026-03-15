@@ -1,5 +1,7 @@
 package crafting
 
+import "github.com/leNicDev/retromc/constants"
+
 type Result struct {
 	TypeId   int16
 	Metadata byte
@@ -37,7 +39,7 @@ func New3x3Crafter() *Crafter3x3 {
 	return &Crafter3x3{
 		Recipes: []Recipe3x3{
 			// furnace: cobblestone ring with empty center
-			{Pattern: [9]int16{4, 4, 4, 4, -1, 4, 4, 4, 4}, Result: Result{61, 0, 1}},
+			{Pattern: [9]int16{4, 4, 4, 4, -1, 4, 4, 4, 4}, Result: Result{constants.Furnace.Value, 0, 1}},
 			// chest: wood planks ring with empty center
 			{Pattern: [9]int16{5, 5, 5, 5, -1, 5, 5, 5, 5}, Result: Result{54, 0, 1}},
 
@@ -82,4 +84,106 @@ func patternMatches9(pattern, grid [9]int16) bool {
 		}
 	}
 	return true
+}
+
+type ShapedRecipe struct {
+	Shape  [9]rune
+	Key    map[rune]int16
+	Result Result
+}
+
+func NewShapedRecipe(shape [9]rune, key map[rune]int16, result Result) ShapedRecipe {
+	return ShapedRecipe{Shape: shape, Key: key, Result: result}
+}
+
+func (r ShapedRecipe) ToPattern() [9]int16 {
+	var pattern [9]int16
+	for i, char := range r.Shape {
+		if char == ' ' {
+			pattern[i] = -1
+		} else {
+			pattern[i] = r.Key[char]
+		}
+	}
+	return pattern
+}
+
+func (r ShapedRecipe) ToRecipe3x3() Recipe3x3 {
+	return Recipe3x3{r.ToPattern(), r.Result}
+}
+
+func AnyRow(item int16, result Result) []Recipe3x3 {
+	return []Recipe3x3{
+		{Pattern: [9]int16{item, item, item, -1, -1, -1, -1, -1, -1}, Result: result},
+		{Pattern: [9]int16{-1, -1, -1, item, item, item, -1, -1, -1}, Result: result},
+		{Pattern: [9]int16{-1, -1, -1, -1, -1, -1, item, item, item}, Result: result},
+	}
+}
+
+func AnyColumn(item int16, result Result) []Recipe3x3 {
+	return []Recipe3x3{
+		{Pattern: [9]int16{item, -1, -1, item, -1, -1, item, -1, -1}, Result: result},
+		{Pattern: [9]int16{-1, item, -1, -1, item, -1, -1, item, -1}, Result: result},
+		{Pattern: [9]int16{-1, -1, item, -1, -1, item, -1, -1, item}, Result: result},
+	}
+}
+
+func New3x3CrafterV2() *Crafter3x3 {
+	recipes := []Recipe3x3{}
+
+	recipes = append(recipes, NewShapedRecipe(
+		[9]rune{
+			'C', 'C', 'C',
+			'C', ' ', 'C',
+			'C', 'C', 'C',
+		},
+		map[rune]int16{'C': constants.Cobblestone.Value},
+		Result{constants.Furnace.Value, 0, 1},
+	).ToRecipe3x3())
+
+	recipes = append(recipes, NewShapedRecipe(
+		[9]rune{
+			'P', 'P', 'P',
+			'P', ' ', 'P',
+			'P', 'P', 'P',
+		},
+		map[rune]int16{'P': constants.Planks.Value},
+		Result{constants.Chest.Value, 0, 1},
+	).ToRecipe3x3())
+
+	recipes = append(recipes, NewShapedRecipe(
+		[9]rune{
+			'P', 'P', 'P',
+			'P', 'P', 'P',
+			' ', ' ', ' ',
+		},
+		map[rune]int16{'P': constants.Planks.Value},
+		Result{constants.CraftingTable.Value, 0, 1},
+	).ToRecipe3x3())
+
+	recipes = append(recipes, AnyRow(constants.Planks.Value, Result{constants.Slab.Value, 0, 3})...)
+	recipes = append(recipes, AnyRow(constants.Cobblestone.Value, Result{constants.Slab.Value, 3, 3})...)
+	recipes = append(recipes, AnyRow(constants.Sandstone.Value, Result{constants.Slab.Value, 1, 3})...)
+
+	recipes = append(recipes, NewShapedRecipe(
+		[9]rune{
+			'C', 'C', ' ',
+			'C', 'C', ' ',
+			' ', ' ', ' ',
+		},
+		map[rune]int16{'C': constants.Cobblestone.Value},
+		Result{constants.CobblestoneStairs.Value, 0, 1},
+	).ToRecipe3x3())
+
+	recipes = append(recipes, NewShapedRecipe(
+		[9]rune{
+			'P', 'P', ' ',
+			'P', 'P', ' ',
+			' ', ' ', ' ',
+		},
+		map[rune]int16{'P': constants.Planks.Value},
+		Result{constants.WoodenStairs.Value, 0, 1},
+	).ToRecipe3x3())
+
+	return &Crafter3x3{Recipes: recipes}
 }
