@@ -258,7 +258,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 		}
 
 		if shift {
-			pl.SelectedItem.Clear()
+			//pl.SelectedItem.Clear()
 			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
@@ -279,7 +279,7 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 		}
 
 		if shift {
-			pl.SelectedItem.Clear()
+			//pl.SelectedItem.Clear()
 			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)

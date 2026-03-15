@@ -181,7 +181,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	log.Println("Existing block", existing.TypeId)
 	if existing.TypeId != 0x00 {
 		return
 	}
@@ -190,10 +189,26 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
-	block := level.NewBlockById(p.ItemId)
-	if item.Metadata != 0 {
-		block.Metadata = item.Metadata
+	block := level.NewBlockById(p.ItemId, item.Metadata)
+
+	if block.TypeId == byte(constants.CobblestoneStairs.Value) || block.TypeId == byte(constants.WoodenStairs.Value) {
+		log.Println("Face", p.Face)
+		switch p.Face {
+		case 3:
+			// West
+			block.Metadata = 3
+		case 2:
+			// East
+			block.Metadata = 2
+		case 4:
+			block.Metadata = 0
+		case 5:
+			block.Metadata = 1
+		default:
+			block.Metadata = 0
+		}
 	}
+
 	world.SetBlock(newX, byte(newY), newZ, block)
 
 	// Notify client of the block change.

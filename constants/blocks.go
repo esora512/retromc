@@ -3,53 +3,63 @@ package constants
 type Block struct {
 	Value int16
 	Meta  byte
+	HasDirection bool
 }
 
 var (
-	Air                 = Block{Value: 0, Meta: 0}
-	Stone               = Block{Value: 1, Meta: 0}
-	Grass               = Block{Value: 2, Meta: 0}
-	Dirt                = Block{Value: 3, Meta: 0}
-	Cobblestone         = Block{Value: 4, Meta: 0}
-	Planks              = Block{Value: 5, Meta: 0}
-	Sapling             = Block{Value: 6, Meta: 0}
-	Bedrock             = Block{Value: 7, Meta: 0}
-	WaterFlowing        = Block{Value: 8, Meta: 0}
-	WaterStill          = Block{Value: 9, Meta: 0}
-	LavaFlowing         = Block{Value: 10, Meta: 0}
-	LavaStill           = Block{Value: 11, Meta: 0}
-	Sand                = Block{Value: 12, Meta: 0}
-	Gravel              = Block{Value: 13, Meta: 0}
-	GoldOre             = Block{Value: 14, Meta: 0}
-	IronOre             = Block{Value: 15, Meta: 0}
-	CoalOre             = Block{Value: 16, Meta: 0}
-	Log                 = Block{Value: 17, Meta: 0}
-	Leaves              = Block{Value: 18, Meta: 0}
-	Sponge              = Block{Value: 19, Meta: 0}
-	Glass               = Block{Value: 20, Meta: 0}
-	LapisLazuliOre      = Block{Value: 21, Meta: 0}
-	LapisLazuliBlock    = Block{Value: 22, Meta: 0}
-	Dispenser           = Block{Value: 23, Meta: 0}
-	Sandstone           = Block{Value: 24, Meta: 0}
-	Noteblock           = Block{Value: 25, Meta: 0}
-	Bed                 = Block{Value: 26, Meta: 0}
-	PoweredRail         = Block{Value: 27, Meta: 0}
-	DetectorRail        = Block{Value: 28, Meta: 0}
-	StickyPiston        = Block{Value: 29, Meta: 0}
-	Cobweb              = Block{Value: 30, Meta: 0}
-	Tallgrass           = Block{Value: 31, Meta: 0}
-	Deadbush            = Block{Value: 32, Meta: 0}
-	Piston              = Block{Value: 33, Meta: 0}
-	PistonHead          = Block{Value: 34, Meta: 0}
-	Wool                = Block{Value: 35, Meta: 0}
-	Dandelion           = Block{Value: 37, Meta: 0}
-	Rose                = Block{Value: 38, Meta: 0}
-	BrownMushroom       = Block{Value: 39, Meta: 0}
-	RedMushroom         = Block{Value: 40, Meta: 0}
-	GoldBlock           = Block{Value: 41, Meta: 0}
-	IronBlock           = Block{Value: 42, Meta: 0}
-	DoubleSlab          = Block{Value: 43, Meta: 0}
-	Slab                = Block{Value: 44, Meta: 0}
+	Air              = Block{Value: 0, Meta: 0}
+	Stone            = Block{Value: 1, Meta: 0}
+	Grass            = Block{Value: 2, Meta: 0}
+	Dirt             = Block{Value: 3, Meta: 0}
+	Cobblestone      = Block{Value: 4, Meta: 0}
+	Planks           = Block{Value: 5, Meta: 0}
+	Sapling          = Block{Value: 6, Meta: 0}
+	Bedrock          = Block{Value: 7, Meta: 0}
+	WaterFlowing     = Block{Value: 8, Meta: 0}
+	WaterStill       = Block{Value: 9, Meta: 0}
+	LavaFlowing      = Block{Value: 10, Meta: 0}
+	LavaStill        = Block{Value: 11, Meta: 0}
+	Sand             = Block{Value: 12, Meta: 0}
+	Gravel           = Block{Value: 13, Meta: 0}
+	GoldOre          = Block{Value: 14, Meta: 0}
+	IronOre          = Block{Value: 15, Meta: 0}
+	CoalOre          = Block{Value: 16, Meta: 0}
+	Log              = Block{Value: 17, Meta: 0}
+	Leaves           = Block{Value: 18, Meta: 0}
+	Sponge           = Block{Value: 19, Meta: 0}
+	Glass            = Block{Value: 20, Meta: 0}
+	LapisLazuliOre   = Block{Value: 21, Meta: 0}
+	LapisLazuliBlock = Block{Value: 22, Meta: 0}
+	Dispenser        = Block{Value: 23, Meta: 0}
+	Sandstone        = Block{Value: 24, Meta: 0}
+	Noteblock        = Block{Value: 25, Meta: 0}
+	Bed              = Block{Value: 26, Meta: 0}
+	PoweredRail      = Block{Value: 27, Meta: 0}
+	DetectorRail     = Block{Value: 28, Meta: 0}
+	StickyPiston     = Block{Value: 29, Meta: 0}
+	Cobweb           = Block{Value: 30, Meta: 0}
+	Tallgrass        = Block{Value: 31, Meta: 0}
+	Deadbush         = Block{Value: 32, Meta: 0}
+	Piston           = Block{Value: 33, Meta: 0}
+	PistonHead       = Block{Value: 34, Meta: 0}
+	Wool             = Block{Value: 35, Meta: 0}
+	Dandelion        = Block{Value: 37, Meta: 0}
+	Rose             = Block{Value: 38, Meta: 0}
+	BrownMushroom    = Block{Value: 39, Meta: 0}
+	RedMushroom      = Block{Value: 40, Meta: 0}
+	GoldBlock        = Block{Value: 41, Meta: 0}
+	IronBlock        = Block{Value: 42, Meta: 0}
+
+	DoubleStoneSlab       = Block{Value: 43, Meta: 0}
+	DoubleSandstoneSlab   = Block{Value: 43, Meta: 1}
+	DoubleWoodenSlab      = Block{Value: 43, Meta: 2}
+	DoubleCobblestoneSlab = Block{Value: 43, Meta: 4}
+
+	StoneSlab       = Block{Value: 44, Meta: 0}
+	SandstoneSlab   = Block{Value: 44, Meta: 1}
+	WoodenSlab      = Block{Value: 44, Meta: 2}
+	CobblestoneSlab = Block{Value: 44, Meta: 3}
+
 	Bricks              = Block{Value: 45, Meta: 0}
 	TNT                 = Block{Value: 46, Meta: 0}
 	Bookshelf           = Block{Value: 47, Meta: 0}

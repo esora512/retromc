@@ -151,38 +151,28 @@ func New3x3CrafterV2() *Crafter3x3 {
 		Result{constants.Chest.Value, 0, 1},
 	).ToRecipe3x3())
 
-	recipes = append(recipes, NewShapedRecipe(
-		[9]rune{
-			'P', 'P', 'P',
-			'P', 'P', 'P',
-			' ', ' ', ' ',
-		},
-		map[rune]int16{'P': constants.Planks.Value},
-		Result{constants.CraftingTable.Value, 0, 1},
-	).ToRecipe3x3())
-
-	recipes = append(recipes, AnyRow(constants.Planks.Value, Result{constants.Slab.Value, 0, 3})...)
-	recipes = append(recipes, AnyRow(constants.Cobblestone.Value, Result{constants.Slab.Value, 3, 3})...)
-	recipes = append(recipes, AnyRow(constants.Sandstone.Value, Result{constants.Slab.Value, 1, 3})...)
+	recipes = append(recipes, AnyRow(constants.Planks.Value, Result{constants.WoodenSlab.Value, constants.WoodenSlab.Meta, 3})...)
+	recipes = append(recipes, AnyRow(constants.Cobblestone.Value, Result{constants.CobblestoneSlab.Value, constants.CobblestoneSlab.Meta, 3})...)
+	recipes = append(recipes, AnyRow(constants.Stone.Value, Result{constants.StoneSlab.Value, constants.StoneSlab.Meta, 3})...)
 
 	recipes = append(recipes, NewShapedRecipe(
 		[9]rune{
+			'C', ' ', ' ',
 			'C', 'C', ' ',
-			'C', 'C', ' ',
-			' ', ' ', ' ',
+			'C', 'C', 'C',
 		},
 		map[rune]int16{'C': constants.Cobblestone.Value},
-		Result{constants.CobblestoneStairs.Value, 0, 1},
+		Result{constants.CobblestoneStairs.Value, 0, 4},
 	).ToRecipe3x3())
 
 	recipes = append(recipes, NewShapedRecipe(
 		[9]rune{
-			'P', 'P', ' ',
-			'P', 'P', ' ',
-			' ', ' ', ' ',
+			'C', ' ', ' ',
+			'C', 'C', ' ',
+			'C', 'C', 'C',
 		},
-		map[rune]int16{'P': constants.Planks.Value},
-		Result{constants.WoodenStairs.Value, 0, 1},
+		map[rune]int16{'C': constants.Planks.Value},
+		Result{constants.WoodenStairs.Value, 0, 4},
 	).ToRecipe3x3())
 
 	return &Crafter3x3{Recipes: recipes}
