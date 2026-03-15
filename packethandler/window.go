@@ -249,7 +249,11 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
+	// stateful crafter
 	result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
+
+	// stateless conditional crafting
+	//result := crafting.Craft(pl.Workbench.GetGrid())
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
 		// Consume one item from each occupied grid slot.

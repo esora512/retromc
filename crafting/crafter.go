@@ -177,3 +177,32 @@ func New3x3CrafterV2() *Crafter3x3 {
 
 	return &Crafter3x3{Recipes: recipes}
 }
+
+func sameItem(grid [9]int16) (int16, bool) {
+	var itemId = int16(-1)
+	for i := range grid {
+		if grid[i] == -1 {
+			continue
+		}
+		if itemId == -1 {
+			itemId = grid[i]
+		}
+		if grid[i] != itemId {
+			return -1, false
+		}
+	}
+	return itemId, true
+}
+
+func Craft(grid [9]int16) Result {
+	itemId, same := sameItem(grid)
+	if !same {
+		return Result{-1, 0, 0}
+	}
+
+	if grid[4] == -1 && itemId == constants.Planks.Value {
+		return Result{constants.Chest.Value, 0, 1}
+	}
+
+	return Result{-1, 0, 0}
+}
