@@ -94,7 +94,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	if p.Status != 2 {
 		return
 	}
-
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
 	// Don't credit air — player somehow finished digging an empty cell.
 	if oldBlock.TypeId == 0x00 {
@@ -118,11 +117,12 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
 
 	blockItem := int16(oldBlock.TypeId)
+	blockMeta := oldBlock.Metadata
 	if blockItem == constants.Stone.Value {
 		blockItem = constants.Cobblestone.Value
 	}
 
-	slot := pl.Inventory.AddItem(blockItem, 0, 1)
+	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
 	if slot < 0 {
 		return
 	}
@@ -201,8 +201,10 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			// East
 			block.Metadata = 2
 		case 4:
+			// North
 			block.Metadata = 0
 		case 5:
+			// South
 			block.Metadata = 1
 		default:
 			block.Metadata = 0

@@ -109,10 +109,20 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
 }
 
 // GetBlock returns the block at local coordinates (lx, ly, lz).
-// Only TypeId is populated — sufficient for placement checks.
 func (c *Chunk) GetBlock(lx, ly, lz int) Block {
+	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
-	return Block{TypeId: c.Data[i]}
+
+	metaOffset := blocksAmount
+	ni := i / 2
+	var metadata byte
+	if i%2 == 0 {
+		metadata = c.Data[metaOffset+ni] & 0x0f
+	} else {
+		metadata = (c.Data[metaOffset+ni] >> 4) & 0x0f
+	}
+
+	return Block{TypeId: c.Data[i], Metadata: metadata}
 }
 
 func NewChunk() Chunk {
