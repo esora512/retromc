@@ -93,6 +93,7 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 				gridPtr.Count += addCount
 			}
 		} else {
+
 			// Different types: swap grid slot and held.
 			if int(heldItem.Count) <= inventory.MaxStack {
 				swapped := inventory.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
@@ -249,11 +250,16 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
+	hasHeld := pl.SelectedItem.Selected
+	if hasHeld {
+		// noop if item in hand
+		return
+	}
 	// stateful crafter
-	result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
+	//result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
 
 	// stateless conditional crafting
-	//result := crafting.Craft(pl.Workbench.GetGrid())
+	result := crafting.Craft(pl.Workbench.GetGrid())
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
 		// Consume one item from each occupied grid slot.
@@ -271,6 +277,11 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 }
 
 func craftInInventory(pl *player.Player, shift, rightClick bool) {
+	hasHeld := pl.SelectedItem.Selected
+	if hasHeld {
+		// noop if item in hand
+		return
+	}
 	inv := pl.Inventory
 	result := crafting.New2x2Crafter().Craft(inv.GetCrafting2x2())
 

@@ -3,7 +3,6 @@ package constants
 type Block struct {
 	Value int16
 	Meta  byte
-	HasDirection bool
 }
 
 var (
