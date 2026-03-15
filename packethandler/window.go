@@ -71,7 +71,7 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 	case !slotEmpty && hasHeld:
 		sameType := gridItem.TypeId == heldItem.TypeId && gridItem.Metadata == heldItem.Metadata
 
-		if sameType {
+		if sameType && inventory.IsStackable(heldItem.TypeId) {
 			// Merge held into grid slot (up to MaxStack).
 			addCount := heldItem.Count
 			if rightClick {
@@ -217,7 +217,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 	case !slotEmpty && hasHeld:
 		sameType := slotItem.TypeId == heldItem.TypeId && slotItem.Metadata == heldItem.Metadata
 
-		if sameType {
+		if sameType && inventory.IsStackable(heldItem.TypeId) {
 			// Merge held into slot (up to MaxStack).
 			addCount := heldItem.Count
 			if rightClick {
@@ -332,20 +332,22 @@ func shiftClick(pl *player.Player, slot int16) {
 // if you play it, you realize that shift click moves it to the first empty slot in either
 // inventory or hotbar
 func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
-	// merge onto partial stacks of the same type.
-	for i := regionStart; i <= regionEnd && pl.Inventory.PeekItem(sourceSlot).TypeId != -1; i++ {
-		target := pl.Inventory.PeekItem(int16(i))
-		source := pl.Inventory.PeekItem(sourceSlot)
-		if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
-			room := inventory.MaxStack - int(target.Count)
-			move := int(source.Count)
-			if move > room {
-				move = room
-			}
-			pl.Inventory.Items[i].Count += byte(move)
-			pl.Inventory.Items[sourceSlot].Count -= byte(move)
-			if pl.Inventory.Items[sourceSlot].Count == 0 {
-				pl.Inventory.Items[sourceSlot] = inventory.NewItem(-1, 0, 0)
+	// merge onto partial stacks of the same type (skip for non-stackable items).
+	if inventory.IsStackable(pl.Inventory.PeekItem(sourceSlot).TypeId) {
+		for i := regionStart; i <= regionEnd && pl.Inventory.PeekItem(sourceSlot).TypeId != -1; i++ {
+			target := pl.Inventory.PeekItem(int16(i))
+			source := pl.Inventory.PeekItem(sourceSlot)
+			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
+				room := inventory.MaxStack - int(target.Count)
+				move := int(source.Count)
+				if move > room {
+					move = room
+				}
+				pl.Inventory.Items[i].Count += byte(move)
+				pl.Inventory.Items[sourceSlot].Count -= byte(move)
+				if pl.Inventory.Items[sourceSlot].Count == 0 {
+					pl.Inventory.Items[sourceSlot] = inventory.NewItem(-1, 0, 0)
+				}
 			}
 		}
 	}
@@ -364,20 +366,22 @@ func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionE
 }
 
 func shiftMoveToRegionInWorkbench(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
-	// merge onto partial stacks of the same type.
-	for i := regionStart; i <= regionEnd && pl.Workbench.GetGridItem(sourceSlot).TypeId != -1; i++ {
-		target := pl.Inventory.PeekItem(int16(i))
-		source := pl.Workbench.GetGridItem(sourceSlot)
-		if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
-			room := inventory.MaxStack - int(target.Count)
-			move := int(source.Count)
-			if move > room {
-				move = room
-			}
-			pl.Inventory.Items[i].Count += byte(move)
-			pl.Workbench.Grid[sourceSlot-1].Count -= byte(move)
-			if pl.Workbench.Grid[sourceSlot-1].Count == 0 {
-				pl.Workbench.Grid[sourceSlot-1] = inventory.NewItem(-1, 0, 0)
+	// merge onto partial stacks of the same type (skip for non-stackable items).
+	if inventory.IsStackable(pl.Workbench.GetGridItem(sourceSlot).TypeId) {
+		for i := regionStart; i <= regionEnd && pl.Workbench.GetGridItem(sourceSlot).TypeId != -1; i++ {
+			target := pl.Inventory.PeekItem(int16(i))
+			source := pl.Workbench.GetGridItem(sourceSlot)
+			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
+				room := inventory.MaxStack - int(target.Count)
+				move := int(source.Count)
+				if move > room {
+					move = room
+				}
+				pl.Inventory.Items[i].Count += byte(move)
+				pl.Workbench.Grid[sourceSlot-1].Count -= byte(move)
+				if pl.Workbench.Grid[sourceSlot-1].Count == 0 {
+					pl.Workbench.Grid[sourceSlot-1] = inventory.NewItem(-1, 0, 0)
+				}
 			}
 		}
 	}

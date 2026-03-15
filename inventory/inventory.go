@@ -55,23 +55,26 @@ func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata byt
 // then falls back to the first empty slot.
 // Returns the slot index that was updated, or -1 if the inventory is full.
 func (inv *Inventory) AddItem(typeId int16, metadata byte, count byte) int16 {
-	// Try to increment an existing partial stack.
-	for i := HotbarStart; i <= HotbarEnd; i++ {
-		item := &inv.Items[i]
-		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
-			item.Count += count
-			return int16(i)
+	// Non-stackable items go straight to the first empty slot.
+	if IsStackable(typeId) {
+		// Try to increment an existing partial stack.
+		for i := HotbarStart; i <= HotbarEnd; i++ {
+			item := &inv.Items[i]
+			if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+				item.Count += count
+				return int16(i)
+			}
 		}
-	}
 
-	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
-		item := &inv.Items[i]
-		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
-			item.Count += count
-			return int16(i)
+		for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
+			item := &inv.Items[i]
+			if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+				item.Count += count
+				return int16(i)
+			}
 		}
 	}
-	// No partial stack found — claim the first empty slot.
+	// No partial stack found or non-stackable — claim the first empty slot.
 	for i := HotbarStart; i <= HotbarEnd; i++ {
 		if inv.Items[i].TypeId == -1 {
 			inv.Items[i] = NewItem(typeId, count, metadata)

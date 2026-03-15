@@ -1,6 +1,9 @@
 package inventory
 
-import "github.com/leNicDev/retromc/packet"
+import (
+	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/packet"
+)
 
 type Item struct {
 	TypeId   int16
@@ -27,4 +30,40 @@ func NewItem(typeId int16, count byte, metadata byte) Item {
 		Count:    count,
 		Metadata: metadata,
 	}
+}
+
+var nonStackableItems = map[int16]bool{
+	constants.IronShovel.Value:  true,
+	constants.IronPickaxe.Value: true,
+	constants.IronAxe.Value:     true,
+	constants.IronSword.Value:   true,
+	constants.IronHoe.Value:     true,
+
+	constants.WoodenSword.Value:   true,
+	constants.WoodenShovel.Value:  true,
+	constants.WoodenPickaxe.Value: true,
+	constants.WoodenAxe.Value:     true,
+	constants.WoodenHoe.Value:     true,
+
+	constants.StoneSword.Value:   true,
+	constants.StoneShovel.Value:  true,
+	constants.StonePickaxe.Value: true,
+	constants.StoneAxe.Value:     true,
+	constants.StoneHoe.Value:     true,
+
+	constants.DiamondSword.Value:   true,
+	constants.DiamondShovel.Value:  true,
+	constants.DiamondPickaxe.Value: true,
+	constants.DiamondAxe.Value:     true,
+	constants.DiamondHoe.Value:     true,
+
+	constants.GoldSword.Value:   true,
+	constants.GoldShovel.Value:  true,
+	constants.GoldPickaxe.Value: true,
+	constants.GoldAxe.Value:     true,
+	constants.GoldHoe.Value:     true,
+}
+
+func IsStackable(typeId int16) bool {
+	return !nonStackableItems[typeId]
 }
