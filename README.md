@@ -29,3 +29,4 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 * https://github.com/OfficialPixelBrush/BetrockServer (a functional Beta 1.7.3 server written in C++; may be a good reference)
 * https://wiki.retromc.org/B1.7.3_data_values (beta 1.7.3 block ids)
 * https://github.com/MCPHackers/RetroMCP-Java (decompiling beta 1.7.3 server and playing with code)
+* https://github.com/p2r3/bareiron (minimalist C Minecraft server, inspiration / some parts copied)

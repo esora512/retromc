@@ -1,8 +1,6 @@
 package crafting
 
 import (
-	"log"
-
 	"github.com/leNicDev/retromc/constants"
 )
 
@@ -250,11 +248,13 @@ func getGridData(grid [9]int16) (int16, int16, int16, bool) {
 			location = int16(i)
 		}
 		if grid[i] == itemId {
-			count++
+
 		}
 		if grid[i] != itemId {
 			same = false
 		}
+
+		count++
 	}
 	return itemId, location, count, same
 }
@@ -320,95 +320,130 @@ func getToolForType(itemId int16, toolName string) int16 {
 	if toolName == "hoe" && itemId == constants.Diamond.Value {
 		return constants.DiamondHoe.Value
 	}
+	if toolName == "sword" && itemId == constants.Planks.Value {
+		return constants.WoodenSword.Value
+	}
+	if toolName == "sword" && itemId == constants.Cobblestone.Value {
+		return constants.StoneSword.Value
+	}
+	if toolName == "sword" && itemId == constants.Iron.Value {
+		return constants.IronSword.Value
+	}
+	if toolName == "sword" && itemId == constants.Gold.Value {
+		return constants.GoldSword.Value
+	}
+	if toolName == "sword" && itemId == constants.Diamond.Value {
+		return constants.DiamondSword.Value
+	}
 	return -1
 }
 
+func getSlab(itemId int16) int16 {
+	switch itemId {
+	case constants.Planks.Value:
+		return constants.WoodenSlab.Value
+	case constants.Cobblestone.Value:
+		return constants.CobblestoneSlab.Value
+	case constants.Stone.Value:
+		return constants.StoneSlab.Value
+	case constants.Sandstone.Value:
+		return constants.SandstoneSlab.Value
+	default:
+		return -1
+	}
+}
+
+// Based on bareiron by p2r3: https://github.com/p2r3/bareiron/blob/main/src/crafting.c
+// more "fun" and perhaps more efficient 
 func Craft(grid [9]int16) Result {
+	// first item id, location, total count and if all items are first item
 	itemId, location, count, same := getGridData(grid)
-	log.Printf("itemId %d, Location %d, Count %d, Same %v", itemId, location, count, same)
 	if itemId == -1 {
 		return Result{-1, 0, 0}
 	}
+	firstRow := location / 3    // If 0, item in first row
+	firstColumn := location % 3 // If 0, item in first column
+	switch count {
+	case 1:
+		switch itemId {
+		case constants.Log.Value:
+			return Result{constants.Planks.Value, 0, 4}
+		case constants.IronBlock.Value:
+			return Result{constants.Iron.Value, 0, 9}
+		case constants.GoldBlock.Value:
+			return Result{constants.Gold.Value, 0, 9}
+		case constants.DiamondBlock.Value:
+			return Result{constants.Diamond.Value, 0, 9}
+		case constants.Redstone.Value:
+			return Result{constants.RedstoneDust.Value, 0, 9}
+		}
 
-	// Sticks OR Pressure Plate
-	if count == 2 && same {
-		if (location+3 < 9) && grid[location+3] == constants.Planks.Value {
-			return Result{constants.Stick.Value, 0, 4}
-		} else if (location+1 < 9) && grid[location+1] != -1 && (location+1)%3 != 0 {
-			if itemId == constants.Planks.Value {
+	case 2:
+		switch itemId {
+		case constants.Planks.Value:
+			if firstColumn != 2 && grid[location+1] == itemId {
 				return Result{constants.WoodenPressurePlate.Value, 0, 1}
+			} else if firstRow != 2 && grid[location+3] == itemId {
+				return Result{constants.Stick.Value, 0, 4}
 			}
-			if itemId == constants.Stone.Value {
-				return Result{constants.StonePressurePlate.Value, 0, 1}
+		case constants.Coal.Value:
+			if firstRow != 2 && grid[location+3] == constants.Stick.Value {
+				return Result{constants.Torch.Value, 0, 4}
 			}
-		} else {
-			return Result{-1, 0, 0}
+		case constants.Iron.Value:
+			if ((firstRow != 2 && firstColumn != 2) && grid[location+4] == itemId) || ((firstRow != 2 && firstColumn != 0) && grid[location+2] == itemId) {
+				return Result{constants.Shears.Value, 0, 1}
+			}
 		}
-	}
+	case 3:
+		switch itemId {
+		case constants.Stone.Value, constants.Sandstone.Value:
+			// slab
+			if firstRow == 0 && grid[location+1] == itemId && grid[location+2] == itemId {
+				return Result{getSlab(itemId), 0, 3}
+			}
 
-	// Slabs
-	if count == 3 && same {
-		if (location+1 < 9) && (location+2 < 9) && ((location+1)%3 != 0) && ((location+2)%3 != 0) {
-			if itemId == constants.Planks.Value {
-				return Result{constants.WoodenSlab.Value, constants.WoodenSlab.Meta, 3}
+		case constants.Planks.Value, constants.Cobblestone.Value:
+			// slab and tools
+			if firstRow == 0 && grid[location+1] == itemId && grid[location+2] == itemId {
+				return Result{getSlab(itemId), 0, 3}
 			}
-			if itemId == constants.Cobblestone.Value {
-				return Result{constants.CobblestoneSlab.Value, constants.CobblestoneSlab.Meta, 3}
+			if firstRow == 0 &&
+				grid[location+3] == constants.Stick.Value &&
+				grid[location+6] == constants.Stick.Value {
+				return Result{getToolForType(itemId, "shovel"), 0, 1}
 			}
-			if itemId == constants.Stone.Value {
-				return Result{constants.StoneSlab.Value, constants.StoneSlab.Meta, 3}
+			if firstRow == 0 &&
+				grid[location+3] == itemId &&
+				grid[location+6] == constants.Stick.Value {
+				return Result{getToolForType(itemId, "sword"), 0, 1}
 			}
-		}
-	}
 
-	// Chest & Furnace
-	if grid[4] == -1 && same && count == 8 {
-		if itemId == constants.Planks.Value {
-			return Result{constants.Chest.Value, 0, 1}
-		}
-		if itemId == constants.Cobblestone.Value {
-			return Result{constants.Furnace.Value, 0, 1}
-		}
-	}
-
-	// Stairs
-	if grid[1] == -1 && grid[2] == -1 && grid[5] == -1 && same && count == 6 {
-		if itemId == constants.Planks.Value {
-			return Result{constants.WoodenStairs.Value, 0, 4}
-		}
-		if itemId == constants.Cobblestone.Value {
-			return Result{constants.CobblestoneStairs.Value, 0, 4}
-		}
-	}
-
-	// Tools
-	if !same && grid[4] == constants.Stick.Value && grid[7] == constants.Stick.Value {
-		if count == 1 && location == 1 {
-			return Result{getToolForType(itemId, "shovel"), 0, 1}
-		}
-		if count == 2 && (location == 0 || location == 1) {
-			if grid[location+1] == itemId && (location+1)%3 != 0 {
-				return Result{getToolForType(itemId, "hoe"), 0, 1}
+		case constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
+			// sword and shovel
+			if firstRow == 0 &&
+				grid[location+3] == constants.Stick.Value &&
+				grid[location+6] == constants.Stick.Value {
+				return Result{getToolForType(itemId, "shovel"), 0, 1}
+			}
+			if firstRow == 0 &&
+				grid[location+3] == itemId &&
+				grid[location+6] == constants.Stick.Value {
+				return Result{getToolForType(itemId, "sword"), 0, 1}
 			}
 		}
-		if count == 3 {
-			if location == 0 {
-				// Pickaxe for sure
-				if grid[1] == itemId && grid[2] == itemId {
-					return Result{getToolForType(itemId, "pickaxe"), 0, 1}
-					// Axe
-				} else if grid[1] == itemId && grid[3] == itemId {
-					return Result{getToolForType(itemId, "axe"), 0, 1}
+	case 4:
+		switch itemId {
+		case constants.Planks.Value, constants.Snowball.Value:
+			if firstColumn != 2 && firstRow != 2 && same {
+				if itemId == constants.Planks.Value {
+					return Result{constants.CraftingTable.Value, 0, 1}
 				}
-			}
-			if location == 1 {
-				// Axe for sure
-				if grid[2] == itemId && grid[5] == itemId {
-					return Result{getToolForType(itemId, "axe"), 0, 1}
+				if itemId == constants.Snowball.Value {
+					return Result{constants.SnowBlock.Value, 0, 1}
 				}
 			}
 		}
 	}
-
 	return Result{-1, 0, 0}
 }
