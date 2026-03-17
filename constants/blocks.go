@@ -69,7 +69,7 @@ var (
 	MonsterSpawner      = Block{Value: 52, Meta: 0}
 	WoodenStairs        = Block{Value: 53, Meta: 0}
 	Chest               = Block{Value: 54, Meta: 0}
-	Redstone            = Block{Value: 55, Meta: 0}
+	RedstoneBlock       = Block{Value: 55, Meta: 0}
 	DiamondOre          = Block{Value: 56, Meta: 0}
 	DiamondBlock        = Block{Value: 57, Meta: 0}
 	CraftingTable       = Block{Value: 58, Meta: 0}

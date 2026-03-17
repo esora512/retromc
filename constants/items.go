@@ -39,10 +39,10 @@ var (
 	Gold    = Item{Value: 266, Meta: 0}
 	Diamond = Item{Value: 264, Meta: 0}
 
-	RedstoneDust = Item{Value: 331, Meta: 0}
-	Coal         = Item{Value: 263, Meta: 0}
-	Shears       = Item{Value: 359, Meta: 0}
-	Snowball     = Item{Value: 332, Meta: 0}
+	Redstone = Item{Value: 331, Meta: 0}
+	Coal     = Item{Value: 263, Meta: 0}
+	Shears   = Item{Value: 359, Meta: 0}
+	Snowball = Item{Value: 332, Meta: 0}
 
 	FlintAndSteel = Item{Value: 259, Meta: 0}
 	Apple         = Item{Value: 260, Meta: 0}
