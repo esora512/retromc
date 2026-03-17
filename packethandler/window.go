@@ -251,7 +251,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 	hasHeld := pl.SelectedItem.Selected
-	if hasHeld {
+	if hasHeld && !shift {
 		// noop if item in hand
 		return
 	}
@@ -269,7 +269,10 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 
 		if shift {
 			//pl.SelectedItem.Clear()
-			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
+			if !res {
+				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+			}
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
@@ -278,7 +281,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 
 func craftInInventory(pl *player.Player, shift, rightClick bool) {
 	hasHeld := pl.SelectedItem.Selected
-	if hasHeld {
+	if hasHeld && !shift {
 		// noop if item in hand
 		return
 	}
@@ -295,7 +298,10 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 
 		if shift {
 			//pl.SelectedItem.Clear()
-			pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
+			if !res {
+				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+			}
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}

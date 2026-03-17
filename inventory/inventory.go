@@ -50,6 +50,23 @@ func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata byt
 	inv.Items[slot] = NewItem(typeId, count, metadata)
 }
 
+func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata byte, count byte) bool {
+	for i := HotbarEnd; i >= HotbarStart; i-- {
+		item := &inv.Items[i]
+		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+			item.Count += count
+			return true
+		}
+	}
+	for i := HotbarEnd; i >= HotbarStart; i-- {
+		if inv.Items[i].TypeId == -1 {
+			inv.Items[i] = NewItem(typeId, count, metadata)
+			return true
+		}
+	}
+	return false
+}
+
 // AddItem adds one of the given block type to the inventory (slots 9-44).
 // It first tries to stack onto an existing partial stack of the same type and metadata,
 // then falls back to the first empty slot.
