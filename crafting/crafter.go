@@ -353,8 +353,60 @@ func getSlab(itemId int16) int16 {
 	}
 }
 
+func getArmorForType(itemId int16, armorPiece string) int16 {
+	if armorPiece == "helmet" {
+		switch itemId {
+		case constants.Leather.Value:
+			return constants.LeatherCap.Value
+		case constants.Iron.Value:
+			return constants.IronHelmet.Value
+		case constants.Diamond.Value:
+			return constants.DiamondHelmet.Value
+		case constants.Gold.Value:
+			return constants.GoldHelmet.Value
+		}
+	}
+	if armorPiece == "chestplate" {
+		switch itemId {
+		case constants.Leather.Value:
+			return constants.LeatherTunic.Value
+		case constants.Iron.Value:
+			return constants.IronChestplate.Value
+		case constants.Diamond.Value:
+			return constants.DiamondChestplate.Value
+		case constants.Gold.Value:
+			return constants.GoldChestplate.Value
+		}
+	}
+	if armorPiece == "leggings" {
+		switch itemId {
+		case constants.Leather.Value:
+			return constants.LeatherPants.Value
+		case constants.Iron.Value:
+			return constants.IronLeggings.Value
+		case constants.Diamond.Value:
+			return constants.DiamondLeggings.Value
+		case constants.Gold.Value:
+			return constants.GoldLeggings.Value
+		}
+	}
+	if armorPiece == "boots" {
+		switch itemId {
+		case constants.Leather.Value:
+			return constants.LeatherBoots.Value
+		case constants.Iron.Value:
+			return constants.IronBoots.Value
+		case constants.Diamond.Value:
+			return constants.DiamondBoots.Value
+		case constants.Gold.Value:
+			return constants.GoldBoots.Value
+		}
+	}
+	return 0
+}
+
 // Based on bareiron by p2r3: https://github.com/p2r3/bareiron/blob/main/src/crafting.c
-// more "fun" and perhaps more efficient 
+// more "fun" and perhaps more efficient
 func Craft(grid [9]int16) Result {
 	// first item id, location, total count and if all items are first item
 	itemId, location, count, same := getGridData(grid)
@@ -442,6 +494,11 @@ func Craft(grid [9]int16) Result {
 				if itemId == constants.Snowball.Value {
 					return Result{constants.SnowBlock.Value, 0, 1}
 				}
+			}
+		case constants.Leather.Value, constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
+			if firstColumn == 0 && firstRow < 2 && grid[location+2] == itemId && grid[location+3] == itemId && grid[location+5] == itemId {
+				return Result{getArmorForType(itemId, "boots"), 0, 1}
+
 			}
 		}
 	}
