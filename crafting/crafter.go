@@ -256,6 +256,14 @@ func Craft(grid [9]int16) Result {
 					slabId, meta := getSlab(itemId)
 					return Result{slabId, meta, 3}
 				}
+			case constants.SugarcaneItem.Value:
+				if firstColumn == 0 && grid[location] == itemId && grid[location+1] == itemId && grid[location+2] == itemId {
+					return Result{constants.Paper.Value, 0, 3}
+				}
+			case constants.Paper.Value:
+				if firstRow == 0 && grid[location] == itemId && grid[location+3] == itemId && grid[location+6] == itemId {
+					return Result{constants.Book.Value, 0, 1}
+				}
 			}
 		} else {
 			switch itemId {
