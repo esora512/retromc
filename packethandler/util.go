@@ -24,9 +24,8 @@ func presetInventory(inv *inventory.Inventory) {
 	inv.SetItem(36, constants.IronPickaxe.Value, 1, 0) // Iron Pickaxe
 	inv.SetItem(37, constants.Stone.Value, 64, 0)      // Stone x64
 	inv.SetItem(38, constants.Planks.Value, 64, 0)     // Planks x64
-	inv.SetItem(39, constants.Leather.Value, 64, 0)
-	inv.SetItem(40, constants.Paper.Value, 10, 0)
-	inv.SetItem(40, constants.SugarcaneItem.Value, 10, 0)
+	inv.SetItem(39, constants.Iron.Value, 64, 0)       // Planks x64
+	inv.SetItem(40, constants.Flint.Value, 16, 0)      // Planks x64
 	//inv.SetItem(38, 326, 1) // Water Bucket
 	//inv.SetItem(39, 327, 1) // Lava Bucket
 }

@@ -5,6 +5,7 @@
 *.so
 *.dylib
 retromc
+recipes.txt
 
 # Test binary, built with `go test -c`
 *.test
