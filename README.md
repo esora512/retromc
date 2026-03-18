@@ -30,3 +30,5 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 * https://wiki.retromc.org/B1.7.3_data_values (beta 1.7.3 block ids)
 * https://github.com/MCPHackers/RetroMCP-Java (decompiling beta 1.7.3 server and playing with code)
 * https://github.com/p2r3/bareiron (minimalist C Minecraft server, inspiration / some parts copied)
+* https://web.archive.org/web/20110902073903/http://www.minecraftwiki.net/wiki/Crafting (Crafting recipes for Beta 1.7.3)
+* https://github.com/jacobo-mc/mc_b1.7.3_release/blob/main/1.7.3-LTS/src/minecraft_server/net/minecraft/src/CraftingManager.java (Crafting recipes, how they were implemented in decompiled code)
