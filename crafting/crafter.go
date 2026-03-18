@@ -262,39 +262,39 @@ func getGridData(grid [9]int16) (int16, int16, int16, bool) {
 func getToolForType(itemId int16, toolName string) int16 {
 	toolMap := map[string]map[int16]int16{
 		"axe": {
-			constants.Planks.Value:     constants.WoodenAxe.Value,
+			constants.Planks.Value:      constants.WoodenAxe.Value,
 			constants.Cobblestone.Value: constants.StoneAxe.Value,
-			constants.Iron.Value:       constants.IronAxe.Value,
-			constants.Gold.Value:       constants.GoldAxe.Value,
-			constants.Diamond.Value:    constants.DiamondAxe.Value,
+			constants.Iron.Value:        constants.IronAxe.Value,
+			constants.Gold.Value:        constants.GoldAxe.Value,
+			constants.Diamond.Value:     constants.DiamondAxe.Value,
 		},
 		"pickaxe": {
-			constants.Planks.Value:     constants.WoodenPickaxe.Value,
+			constants.Planks.Value:      constants.WoodenPickaxe.Value,
 			constants.Cobblestone.Value: constants.StonePickaxe.Value,
-			constants.Iron.Value:       constants.IronPickaxe.Value,
-			constants.Gold.Value:       constants.GoldPickaxe.Value,
-			constants.Diamond.Value:    constants.DiamondPickaxe.Value,
+			constants.Iron.Value:        constants.IronPickaxe.Value,
+			constants.Gold.Value:        constants.GoldPickaxe.Value,
+			constants.Diamond.Value:     constants.DiamondPickaxe.Value,
 		},
 		"shovel": {
-			constants.Planks.Value:     constants.WoodenShovel.Value,
+			constants.Planks.Value:      constants.WoodenShovel.Value,
 			constants.Cobblestone.Value: constants.StoneShovel.Value,
-			constants.Iron.Value:       constants.IronShovel.Value,
-			constants.Gold.Value:       constants.GoldShovel.Value,
-			constants.Diamond.Value:    constants.DiamondShovel.Value,
+			constants.Iron.Value:        constants.IronShovel.Value,
+			constants.Gold.Value:        constants.GoldShovel.Value,
+			constants.Diamond.Value:     constants.DiamondShovel.Value,
 		},
 		"hoe": {
-			constants.Planks.Value:     constants.WoodenHoe.Value,
+			constants.Planks.Value:      constants.WoodenHoe.Value,
 			constants.Cobblestone.Value: constants.StoneHoe.Value,
-			constants.Iron.Value:       constants.IronHoe.Value,
-			constants.Gold.Value:       constants.GoldHoe.Value,
-			constants.Diamond.Value:    constants.DiamondHoe.Value,
+			constants.Iron.Value:        constants.IronHoe.Value,
+			constants.Gold.Value:        constants.GoldHoe.Value,
+			constants.Diamond.Value:     constants.DiamondHoe.Value,
 		},
 		"sword": {
-			constants.Planks.Value:     constants.WoodenSword.Value,
+			constants.Planks.Value:      constants.WoodenSword.Value,
 			constants.Cobblestone.Value: constants.StoneSword.Value,
-			constants.Iron.Value:       constants.IronSword.Value,
-			constants.Gold.Value:       constants.GoldSword.Value,
-			constants.Diamond.Value:    constants.DiamondSword.Value,
+			constants.Iron.Value:        constants.IronSword.Value,
+			constants.Gold.Value:        constants.GoldSword.Value,
+			constants.Diamond.Value:     constants.DiamondSword.Value,
 		},
 	}
 
@@ -306,18 +306,18 @@ func getToolForType(itemId int16, toolName string) int16 {
 	return -1
 }
 
-func getSlab(itemId int16) int16 {
+func getSlab(itemId int16) (int16, byte) {
 	switch itemId {
 	case constants.Planks.Value:
-		return constants.WoodenSlab.Value
+		return constants.WoodenSlab.Value, constants.WoodenSlab.Meta
 	case constants.Cobblestone.Value:
-		return constants.CobblestoneSlab.Value
+		return constants.CobblestoneSlab.Value, constants.CobblestoneSlab.Meta
 	case constants.Stone.Value:
-		return constants.StoneSlab.Value
+		return constants.StoneSlab.Value, constants.StoneSlab.Meta
 	case constants.Sandstone.Value:
-		return constants.SandstoneSlab.Value
+		return constants.SandstoneSlab.Value, constants.SandstoneSlab.Meta
 	default:
-		return -1
+		return -1, byte(0)
 	}
 }
 
@@ -427,42 +427,31 @@ func Craft(grid [9]int16) Result {
 			}
 		}
 	case 3:
-		switch itemId {
-		case constants.Stone.Value, constants.Sandstone.Value:
-			// slab
-			if firstRow == 0 && grid[location+1] == itemId && grid[location+2] == itemId {
-				return Result{getSlab(itemId), 0, 3}
+		if same {
+			switch itemId {
+			case constants.Stone.Value, constants.Sandstone.Value, constants.Planks.Value, constants.Cobblestone.Value:
+				// slab
+				if firstColumn == 0 && grid[location] == itemId && grid[location+1] == itemId && grid[location+2] == itemId {
+					slabId, meta := getSlab(itemId)
+					return Result{slabId, meta, 3}
+				}
 			}
-
-		case constants.Planks.Value, constants.Cobblestone.Value:
-			// slab and tools
-			if firstRow == 0 && grid[location+1] == itemId && grid[location+2] == itemId {
-				return Result{getSlab(itemId), 0, 3}
-			}
-			if firstRow == 0 &&
-				grid[location+3] == constants.Stick.Value &&
-				grid[location+6] == constants.Stick.Value {
-				return Result{getToolForType(itemId, "shovel"), 0, 1}
-			}
-			if firstRow == 0 &&
-				grid[location+3] == itemId &&
-				grid[location+6] == constants.Stick.Value {
-				return Result{getToolForType(itemId, "sword"), 0, 1}
-			}
-
-		case constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
-			// sword and shovel
-			if firstRow == 0 &&
-				grid[location+3] == constants.Stick.Value &&
-				grid[location+6] == constants.Stick.Value {
-				return Result{getToolForType(itemId, "shovel"), 0, 1}
-			}
-			if firstRow == 0 &&
-				grid[location+3] == itemId &&
-				grid[location+6] == constants.Stick.Value {
-				return Result{getToolForType(itemId, "sword"), 0, 1}
+		} else {
+			switch itemId {
+			case constants.Planks.Value, constants.Cobblestone.Value, constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
+				if firstRow == 0 &&
+					grid[location+3] == constants.Stick.Value &&
+					grid[location+6] == constants.Stick.Value {
+					return Result{getToolForType(itemId, "shovel"), 0, 1}
+				}
+				if firstRow == 0 &&
+					grid[location+3] == itemId &&
+					grid[location+6] == constants.Stick.Value {
+					return Result{getToolForType(itemId, "sword"), 0, 1}
+				}
 			}
 		}
+
 	case 4:
 		switch itemId {
 		case constants.Planks.Value, constants.Snowball.Value:
