@@ -138,6 +138,8 @@ func getSlab(itemId int16) (int16, byte) {
 		return constants.StoneSlab.Value, constants.StoneSlab.Meta
 	case constants.Sandstone.Value:
 		return constants.SandstoneSlab.Value, constants.SandstoneSlab.Meta
+	case constants.Wheat.Value:
+		return constants.Bread.Value, byte(0)
 	default:
 		return -1, byte(0)
 	}
@@ -208,6 +210,8 @@ func getStairsForType(itemId int16) int16 {
 
 // Based on bareiron by p2r3: https://github.com/p2r3/bareiron/blob/main/src/crafting.c
 // more "fun" and perhaps more efficient
+
+// TODO: Add cake (special recipe as it leaves items behind!)
 func Craft(grid [9]int16) Result {
 	// first item id, location, total count and if all items are first item
 	itemId, location, count, itemCount, same := getGridData(grid)
@@ -235,6 +239,11 @@ func Craft(grid [9]int16) Result {
 
 	case 2:
 		switch itemId {
+		case constants.Slime.Value:
+			if firstColumn != 2 && grid[location+1] == constants.Piston.Value {
+				return Result{constants.StickyPiston.Value, 0, 1}
+			}
+
 		case constants.Planks.Value:
 			if firstColumn != 2 && grid[location+1] == itemId {
 				return Result{constants.WoodenPressurePlate.Value, 0, 1}
@@ -245,6 +254,10 @@ func Craft(grid [9]int16) Result {
 			if firstRow != 2 && grid[location+3] == constants.Stick.Value {
 				return Result{constants.Torch.Value, 0, 4}
 			}
+		case constants.Redstone.Value:
+			if firstRow != 2 && grid[location+3] == constants.Stick.Value {
+				return Result{constants.RedstoneTorchOn.Value, 0, 1}
+			}
 		case constants.Iron.Value:
 			if ((firstRow != 2 && firstColumn != 2) && grid[location+4] == itemId) || ((firstRow != 2 && firstColumn != 0) && grid[location+2] == itemId) {
 				return Result{constants.Shears.Value, 0, 1}
@@ -252,7 +265,6 @@ func Craft(grid [9]int16) Result {
 			if grid[location] == itemId && grid[location+4] == constants.Flint.Value {
 				return Result{constants.FlintAndSteel.Value, 0, 1}
 			}
-
 		case constants.Stone.Value:
 			if grid[location] == itemId && grid[location+3] == itemId {
 				return Result{constants.StoneButton.Value, 0, 1}
@@ -260,16 +272,37 @@ func Craft(grid [9]int16) Result {
 			if firstColumn == 0 && grid[location] == itemId && grid[location+1] == itemId {
 				return Result{constants.StonePressurePlate.Value, 0, 1}
 			}
+		case constants.Minecart.Value:
+			if location > 2 && grid[location-3] != -1 {
+				if grid[location-3] == constants.Chest.Value {
+					return Result{constants.ChestMinecart.Value, 0, 1}
+				}
+				if grid[location-3] == constants.Furnace.Value {
+					return Result{constants.FurnaceMinecart.Value, 0, 1}
+				}
+			}
+		case constants.Cobblestone.Value:
+			if firstRow != 2 && grid[location+3] == constants.Stick.Value {
+				return Result{constants.Lever.Value, 0, 1}
+			}
+		case constants.Pumpkin.Value:
+			if firstRow != 2 && grid[location+3] == constants.Torch.Value {
+				return Result{constants.PumpkinLit.Value, 0, 1}
+			}
 		}
 	case 3:
 		if same {
 			switch itemId {
-			case constants.Stone.Value, constants.Sandstone.Value, constants.Planks.Value, constants.Cobblestone.Value:
+			case constants.Stone.Value, constants.Sandstone.Value, constants.Planks.Value, constants.Cobblestone.Value, constants.Wheat.Value:
 				// slab
 				if firstColumn == 0 && grid[location] == itemId && grid[location+1] == itemId && grid[location+2] == itemId {
 					slabId, meta := getSlab(itemId)
 					return Result{slabId, meta, 3}
 				}
+				if firstColumn == 0 && grid[location+4] == itemId && grid[location+2] == itemId && itemId == constants.Planks.Value {
+					return Result{constants.Bowl.Value, 0, 4}
+				}
+
 			case constants.SugarcaneItem.Value:
 				if firstColumn == 0 && grid[location] == itemId && grid[location+1] == itemId && grid[location+2] == itemId {
 					return Result{constants.Paper.Value, 0, 3}
@@ -330,7 +363,30 @@ func Craft(grid [9]int16) Result {
 		}
 	case 5:
 		switch itemId {
+		case constants.Stick.Value:
+			if grid[2] == itemId && grid[4] == itemId && grid[6] == itemId && grid[5] == constants.String.Value && grid[8] == constants.String.Value {
+				return Result{constants.FishingRod.Value, 0, 1}
+			}
+
+		case constants.Planks.Value:
+			if same && firstColumn == 0 && grid[location+3] == itemId && grid[location+2] == itemId && grid[location+4] == itemId && grid[location+5] == itemId {
+				return Result{constants.Boat.Value, 0, 1}
+			}
 		case constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
+			if same && itemId == constants.Iron.Value && firstColumn == 0 && grid[location+3] == itemId && grid[location+2] == itemId && grid[location+4] == itemId && grid[location+5] == itemId {
+				return Result{constants.Minecart.Value, 0, 1}
+			}
+			if itemCount == 4 && grid[4] == constants.Redstone.Value {
+				if grid[3] == itemId && grid[7] == itemId && grid[1] == itemId && grid[5] == itemId {
+					if itemId == constants.Iron.Value {
+						return Result{constants.Compass.Value, 0, 1}
+					}
+					if itemId == constants.Gold.Value {
+						return Result{constants.Clock.Value, 0, 1}
+					}
+				}
+			}
+
 			if location == 0 &&
 				grid[location+1] == itemId &&
 				grid[location+2] == itemId &&
@@ -387,6 +443,16 @@ func Craft(grid [9]int16) Result {
 					return Result{constants.IronDoor.Value, 0, 1}
 				}
 			}
+		case constants.Wool.Value:
+			if firstColumn == 0 && grid[location+1] == itemId && grid[location+2] == itemId && grid[location+3] == constants.Planks.Value && grid[location+4] == itemId && grid[location+5] == itemId {
+				return Result{constants.Bed.Value, 0, 1}
+			}
+		case constants.RedstoneTorchOn.Value:
+			if firstColumn == 0 && grid[location+2] == itemId && grid[location+1] == constants.Redstone.Value {
+				if grid[location+3] == constants.Stone.Value && grid[location+4] == constants.Stone.Value && grid[location+5] == constants.Stone.Value {
+					return Result{constants.RedstoneRepeaterOff.Value, 0, 1}
+				}
+			}
 		}
 	case 7:
 		if same && grid[4] == -1 && grid[7] == -1 {
@@ -402,6 +468,19 @@ func Craft(grid [9]int16) Result {
 
 		if itemCount == 6 && itemId == constants.Planks.Value && grid[6] == -1 && grid[8] == -1 && grid[7] == constants.Stick.Value {
 			return Result{constants.Sign.Value, 0, 1}
+		}
+		if itemCount == 6 && grid[1] == -1 && grid[4] == constants.Stick.Value {
+			if itemId == constants.Iron.Value {
+				if grid[7] == -1 {
+					return Result{constants.Rail.Value, 0, 16}
+				}
+				if grid[7] == constants.Redstone.Value {
+					return Result{constants.DetectorRail.Value, 0, 6}
+				}
+			}
+			if itemId == constants.Gold.Value && grid[7] == constants.Redstone.Value {
+				return Result{constants.PoweredRail.Value, 0, 6}
+			}
 		}
 
 	case 8:
@@ -422,6 +501,33 @@ func Craft(grid [9]int16) Result {
 			}
 		}
 	case 9:
+
+		if itemCount == 8 && itemId == constants.Stick.Value && grid[4] == constants.Wool.Value {
+			return Result{constants.Painting.Value, 0, 1}
+		}
+
+		if itemCount == 8 && itemId == constants.Gold.Value && grid[4] == constants.Apple.Value {
+			return Result{constants.GoldenApple.Value, 0, 1}
+		}
+
+		if itemCount == 8 && itemId == constants.Paper.Value && grid[4] == constants.Compass.Value {
+			return Result{constants.Map.Value, 0, 1}
+		}
+
+		if itemCount == 3 && itemId == constants.Planks.Value {
+			if grid[4] == constants.Iron.Value && grid[7] == constants.Redstone.Value {
+				if grid[3] == constants.Cobblestone.Value && grid[5] == constants.Cobblestone.Value && grid[6] == constants.Cobblestone.Value && grid[8] == constants.Cobblestone.Value {
+					return Result{constants.Piston.Value, 0, 1}
+				}
+			}
+		}
+
+		if itemCount == 7 && itemId == constants.Cobblestone.Value {
+			if grid[4] == constants.Bow.Value && grid[7] == constants.Redstone.Value {
+				return Result{constants.Dispenser.Value, 0, 1}
+			}
+		}
+
 		if same {
 			switch itemId {
 			case constants.Iron.Value:
