@@ -281,8 +281,8 @@ func Craft(grid [9]int16) Result {
 					return Result{constants.FurnaceMinecart.Value, 0, 1}
 				}
 			}
-		case constants.Cobblestone.Value:
-			if firstRow != 2 && grid[location+3] == constants.Stick.Value {
+		case constants.Stick.Value:
+			if firstRow != 2 && grid[location+3] == constants.Cobblestone.Value {
 				return Result{constants.Lever.Value, 0, 1}
 			}
 		case constants.Pumpkin.Value:
