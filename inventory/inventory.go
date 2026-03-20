@@ -18,6 +18,13 @@ const (
 	MainInventoryEnd   = 35
 )
 
+
+type ItemContainer interface {
+    PeekItem(slot int16) Item
+    SetItem(slot int16, item Item)
+    RemoveOne(slot int16)
+}
+
 type Inventory struct {
 	Size  uint16
 	Items []Item

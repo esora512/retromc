@@ -22,7 +22,7 @@ func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, ri
 // workbenchGridClick handles click mechanics for workbench grid slots (1-9),
 // mirroring the same pick/place/swap/merge logic as normalClick for inventory.
 func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
-	gridItem := pl.Workbench.GetGridItem(slot)
+	gridItem := pl.Workbench.PeekItem(slot)
 	heldItem := pl.SelectedItem.Item
 	hasHeld := pl.SelectedItem.Selected
 	slotEmpty := gridItem.TypeId == -1
@@ -36,14 +36,14 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 	case slotEmpty && hasHeld:
 		if rightClick {
 			// Place one item from held into the empty grid slot.
-			pl.Workbench.SetGridItem(slot, inventory.NewItem(heldItem.TypeId, 1, heldItem.Metadata))
+			pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, 1, heldItem.Metadata))
 			pl.SelectedItem.Item.Count--
 			if pl.SelectedItem.Item.Count == 0 {
 				pl.SelectedItem.Selected = false
 			}
 		} else {
 			// Place entire held stack into the empty grid slot.
-			pl.Workbench.SetGridItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
+			pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
 			pl.SelectedItem.Selected = false
 		}
 
@@ -55,15 +55,15 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 			remainCount := gridItem.Count - pickCount
 			picked := inventory.NewItem(gridItem.TypeId, pickCount, gridItem.Metadata)
 			if remainCount <= 0 {
-				pl.Workbench.SetGridItem(slot, inventory.EmptyItem())
+				pl.Workbench.SetItem(slot, inventory.EmptyItem())
 			} else {
-				pl.Workbench.SetGridItem(slot, inventory.NewItem(gridItem.TypeId, remainCount, gridItem.Metadata))
+				pl.Workbench.SetItem(slot, inventory.NewItem(gridItem.TypeId, remainCount, gridItem.Metadata))
 			}
 			pl.SelectedItem.SetItem(picked, slot, 0, true)
 		} else {
 			// Pick up entire stack from grid slot.
 			picked := inventory.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
-			pl.Workbench.SetGridItem(slot, inventory.EmptyItem())
+			pl.Workbench.SetItem(slot, inventory.EmptyItem())
 			pl.SelectedItem.SetItem(picked, slot, 0, false)
 		}
 
@@ -97,7 +97,7 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 			// Different types: swap grid slot and held.
 			if int(heldItem.Count) <= inventory.MaxStack {
 				swapped := inventory.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
-				pl.Workbench.SetGridItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
+				pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
 				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
 			}
 		}
@@ -273,7 +273,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 	if result.TypeId != -1 {
 		// Consume one item from each occupied grid slot.
 		for slot := int16(1); slot <= 9; slot++ {
-			pl.Workbench.RemoveOneFromGridSlot(slot)
+			pl.Workbench.RemoveOne(slot)
 		}
 
 		if shift {
@@ -318,7 +318,7 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 }
 
 func shiftClickWorkbench(pl *player.Player, slot int16) {
-	sourceItem := pl.Workbench.GetGridItem(slot)
+	sourceItem := pl.Workbench.PeekItem(slot)
 	if sourceItem.TypeId == -1 {
 		return
 	}
@@ -387,10 +387,10 @@ func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionE
 
 func shiftMoveToRegionInWorkbench(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
 	// merge onto partial stacks of the same type (skip for non-stackable items).
-	if inventory.IsStackable(pl.Workbench.GetGridItem(sourceSlot).TypeId) {
-		for i := regionStart; i <= regionEnd && pl.Workbench.GetGridItem(sourceSlot).TypeId != -1; i++ {
+	if inventory.IsStackable(pl.Workbench.PeekItem(sourceSlot).TypeId) {
+		for i := regionStart; i <= regionEnd && pl.Workbench.PeekItem(sourceSlot).TypeId != -1; i++ {
 			target := pl.Inventory.PeekItem(int16(i))
-			source := pl.Workbench.GetGridItem(sourceSlot)
+			source := pl.Workbench.PeekItem(sourceSlot)
 			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
 				room := inventory.MaxStack - int(target.Count)
 				move := int(source.Count)
@@ -408,7 +408,7 @@ func shiftMoveToRegionInWorkbench(pl *player.Player, sourceSlot int16, regionSta
 
 	// occurs when shift click created a stack, rest is also moved
 	// is also triggered if previous move didn't do anything, so nother item of the same existed
-	if pl.Workbench.GetGridItem(sourceSlot).TypeId != -1 {
+	if pl.Workbench.PeekItem(sourceSlot).TypeId != -1 {
 		for i := regionStart; i <= regionEnd; i++ {
 			if pl.Inventory.PeekItem(int16(i)).TypeId == -1 {
 				inventory.MoveFromWorkbenchToInventory(&pl.Workbench, &pl.Inventory, sourceSlot, int16(i))

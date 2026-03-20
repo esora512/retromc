@@ -29,11 +29,11 @@ func EmptyItem() Item {
 	return Item{-1, 0, 0}
 }
 
-func (w *Workbench) SetGridItem(slot int16, item Item) {
+func (w *Workbench) SetItem(slot int16, item Item) {
 	w.Grid[slot-1] = item
 }
 
-func (w *Workbench) GetGridItem(slot int16) Item {
+func (w *Workbench) PeekItem(slot int16) Item {
 	loc := slot - 1
 	if loc > 8 || loc < 0 {
 		return EmptyItem()
@@ -54,15 +54,15 @@ func (w *Workbench) GetGridItemPtr(slot int16) *Item {
 func (w *Workbench) GetGrid() [9]int16 {
 	var arr [9]int16
 	for i := range 9 {
-		arr[i] = w.GetGridItem(int16(i + 1)).TypeId
+		arr[i] = w.PeekItem(int16(i + 1)).TypeId
 	}
 	return arr
 }
 
-// RemoveOneFromGridSlot decrements the count in a grid slot by one.
+// RemoveOne decrements the count in a grid slot by one.
 // When count reaches zero the slot is cleared to empty.
 // Slot is 1-indexed (1-9).
-func (w *Workbench) RemoveOneFromGridSlot(slot int16) {
+func (w *Workbench) RemoveOne(slot int16) {
 	loc := slot - 1
 	if loc < 0 || loc > 8 {
 		return
