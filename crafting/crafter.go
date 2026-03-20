@@ -329,6 +329,10 @@ func Craft(grid [9]int16) Result {
 					grid[location+6] == constants.Stick.Value {
 					return Result{getToolForType(itemId, "sword"), 0, 1}
 				}
+			case constants.Flint.Value:
+				if grid[0] == itemId && grid[4] == constants.Stick.Value && grid[8] == constants.Feather.Value {
+					return Result{constants.Arrow.Value, 0, 4}
+				}
 			}
 		}
 
@@ -441,6 +445,11 @@ func Craft(grid [9]int16) Result {
 				}
 				if itemId == constants.Iron.Value {
 					return Result{constants.IronDoor.Value, 0, 1}
+				}
+			}
+			if grid[1] == constants.Stick.Value && grid[3] == constants.Stick.Value && grid[7] == constants.Stick.Value {
+				if grid[2] == constants.String.Value && grid[5] == constants.String.Value && grid[8] == constants.String.Value {
+					return Result{constants.Bow.Value, 0, 1}
 				}
 			}
 		case constants.Wool.Value:
