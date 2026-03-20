@@ -11,6 +11,22 @@ func (wb *Workbench) IsCraftingSlot(slot int16) bool {
 	return slot > 0 && slot <= 9
 }
 
+func (wb *Workbench) AddCount(slot int16, amount byte) {
+	if slot < 1 || int(slot) > len(wb.Grid) {
+		log.Printf("ChangeAmount: slot %d out of range", slot)
+		return
+	}
+	wb.Grid[slot-1].Count += amount
+}
+
+func (wb *Workbench) SetEmpty(slot int16) {
+	if slot < 1 || int(slot) > len(wb.Grid) {
+		log.Printf("SetEmpty: slot %d out of range", slot)
+		return
+	}
+	wb.Grid[slot-1] = EmptyItem()
+}
+
 func NewWorkbench() *Workbench {
 	wb := Workbench{}
 	for i := range wb.Grid {
@@ -29,7 +45,12 @@ func EmptyItem() Item {
 	return Item{-1, 0, 0}
 }
 
-func (w *Workbench) SetItem(slot int16, item Item) {
+func (w *Workbench) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+	if slot < 1 || int(slot) > len(w.Grid) {
+		log.Printf("SetItem: slot %d out of range", slot)
+		return
+	}
+	item := NewItem(typeId, count, metadata)
 	w.Grid[slot-1] = item
 }
 
@@ -62,20 +83,21 @@ func (w *Workbench) GetGrid() [9]int16 {
 // RemoveOne decrements the count in a grid slot by one.
 // When count reaches zero the slot is cleared to empty.
 // Slot is 1-indexed (1-9).
-func (w *Workbench) RemoveOne(slot int16) {
+func (w *Workbench) RemoveOne(slot int16) int16 {
 	loc := slot - 1
 	if loc < 0 || loc > 8 {
-		return
+		return -1
 	}
 	item := &w.Grid[loc]
 	if item.TypeId == -1 {
-		return
+		return -1
 	}
 	if item.Count <= 1 {
 		*item = EmptyItem()
 	} else {
 		item.Count--
 	}
+	return slot
 }
 
 func (w *Workbench) Print() {

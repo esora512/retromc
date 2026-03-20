@@ -18,11 +18,40 @@ const (
 	MainInventoryEnd   = 35
 )
 
-
 type ItemContainer interface {
-    PeekItem(slot int16) Item
-    SetItem(slot int16, item Item)
-    RemoveOne(slot int16)
+	PeekItem(slot int16) Item
+	SetItem(slot int16, typeId int16, count byte, metadata byte)
+	RemoveOne(slot int16) int16
+	AddCount(slot int16, amount byte)
+	SetEmpty(slot int16)
+}
+
+func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContainer, sourceSlot int16, regionStart, regionEnd int) {
+	if sourceContainer.PeekItem(sourceSlot).TypeId != -1 {
+		for i := regionStart; i <= regionEnd; i++ {
+			if targetContainer.PeekItem(int16(i)).TypeId == -1 {
+				targetContainer.SetItem(int16(i), sourceContainer.PeekItem(sourceSlot).TypeId, sourceContainer.PeekItem(sourceSlot).Count, sourceContainer.PeekItem(sourceSlot).Metadata)
+				sourceContainer.SetEmpty(sourceSlot)
+				break
+			}
+		}
+	}
+}
+
+func (inv *Inventory) AddCount(slot int16, amount byte) {
+	if slot < 0 || int(slot) >= len(inv.Items) {
+		log.Printf("ChangeAmount: slot %d out of range", slot)
+		return
+	}
+	inv.Items[slot].Count += amount
+}
+
+func (inv *Inventory) SetEmpty(slot int16) {
+	if slot < 0 || int(slot) >= len(inv.Items) {
+		log.Printf("SetEmpty: slot %d out of range", slot)
+		return
+	}
+	inv.Items[slot] = NewItem(-1, 0, 0)
 }
 
 type Inventory struct {
@@ -115,10 +144,10 @@ func (inv *Inventory) AddItem(typeId int16, metadata byte, count byte) int16 {
 	return -1 // inventory full
 }
 
-// RemoveOneFromSlot decrements the count in a slot by one.
+// RemoveOne decrements the count in a slot by one.
 // When count reaches zero the slot is cleared to empty.
 // Returns the slot index, or -1 if the slot was already empty.
-func (inv *Inventory) RemoveOneFromSlot(slot int16) int16 {
+func (inv *Inventory) RemoveOne(slot int16) int16 {
 	if slot < 0 || int(slot) >= len(inv.Items) {
 		return -1
 	}

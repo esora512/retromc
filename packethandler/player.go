@@ -224,6 +224,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	connection.Write(blockChange.Serialize())
 
 	// Decrement the item in the in-memory inventory and sync to client.
-	pl.Inventory.RemoveOneFromSlot(slot)
+	pl.Inventory.RemoveOne(slot)
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }

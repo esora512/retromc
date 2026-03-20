@@ -10,105 +10,6 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, rightClick bool) {
-	targetSlot := p.Slot
-	if targetSlot == 0 {
-		craftInWorkbench(pl, shift, rightClick)
-	} else {
-		workbenchGridClick(pl, targetSlot, rightClick, shift)
-	}
-}
-
-// workbenchGridClick handles click mechanics for workbench grid slots (1-9),
-// mirroring the same pick/place/swap/merge logic as normalClick for inventory.
-func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
-	gridItem := pl.Workbench.PeekItem(slot)
-	heldItem := pl.SelectedItem.Item
-	hasHeld := pl.SelectedItem.Selected
-	slotEmpty := gridItem.TypeId == -1
-
-	switch {
-	// nothing in slot and nothing held
-	case slotEmpty && !hasHeld:
-		// noop
-
-	// nothing in slot and something held
-	case slotEmpty && hasHeld:
-		if rightClick {
-			// Place one item from held into the empty grid slot.
-			pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, 1, heldItem.Metadata))
-			pl.SelectedItem.Item.Count--
-			if pl.SelectedItem.Item.Count == 0 {
-				pl.SelectedItem.Selected = false
-			}
-		} else {
-			// Place entire held stack into the empty grid slot.
-			pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
-			pl.SelectedItem.Selected = false
-		}
-
-	// something in slot, nothing held
-	case !slotEmpty && !hasHeld:
-		if rightClick {
-			// Pick up half (rounded up) from grid slot.
-			pickCount := (gridItem.Count + 1) / 2
-			remainCount := gridItem.Count - pickCount
-			picked := inventory.NewItem(gridItem.TypeId, pickCount, gridItem.Metadata)
-			if remainCount <= 0 {
-				pl.Workbench.SetItem(slot, inventory.EmptyItem())
-			} else {
-				pl.Workbench.SetItem(slot, inventory.NewItem(gridItem.TypeId, remainCount, gridItem.Metadata))
-			}
-			pl.SelectedItem.SetItem(picked, slot, 0, true)
-		} else {
-			// Pick up entire stack from grid slot.
-			picked := inventory.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
-			pl.Workbench.SetItem(slot, inventory.EmptyItem())
-			pl.SelectedItem.SetItem(picked, slot, 0, false)
-		}
-
-	// something in slot, something held
-	case !slotEmpty && hasHeld:
-		sameType := gridItem.TypeId == heldItem.TypeId && gridItem.Metadata == heldItem.Metadata
-
-		if sameType && inventory.IsStackable(heldItem.TypeId) {
-			// Merge held into grid slot (up to MaxStack).
-			addCount := heldItem.Count
-			if rightClick {
-				addCount = 1
-			}
-			room := inventory.MaxStack - int(gridItem.Count)
-			if int(addCount) > room {
-				addCount = byte(room)
-			}
-			if addCount == 0 {
-				return
-			}
-			pl.SelectedItem.Item.Count -= addCount
-			if pl.SelectedItem.Item.Count == 0 {
-				pl.SelectedItem.Selected = false
-			}
-			gridPtr := pl.Workbench.GetGridItemPtr(slot)
-			if gridPtr != nil {
-				gridPtr.Count += addCount
-			}
-		} else {
-
-			// Different types: swap grid slot and held.
-			if int(heldItem.Count) <= inventory.MaxStack {
-				swapped := inventory.NewItem(gridItem.TypeId, gridItem.Count, gridItem.Metadata)
-				pl.Workbench.SetItem(slot, inventory.NewItem(heldItem.TypeId, heldItem.Count, heldItem.Metadata))
-				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
-			}
-		}
-	}
-	result := crafting.Craft3x3(pl.Workbench.GetGrid())
-	if result.TypeId != 1 {
-		sendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
-	}
-
-}
-
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
 func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
@@ -179,93 +80,12 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	}
 }
 
-// Covers all non-shift left- and right-click cases.
-func normalClick(pl *player.Player, slot int16, rightClick bool) {
-	slotItem := pl.Inventory.PeekItem(slot)
-	heldItem := pl.SelectedItem.Item
-	hasHeld := pl.SelectedItem.Selected
-	slotEmpty := slotItem.TypeId == -1
-
-	switch {
-	// nothing in slot and nothing held
-	case slotEmpty && !hasHeld:
-		// noop
-
-	// nothing in slot and something held
-	case slotEmpty && hasHeld:
-		if rightClick {
-			// Place one item into the empty slot.
-			pl.Inventory.PlaceOneInEmpty(&pl.SelectedItem.Item, slot)
-			if pl.SelectedItem.Item.Count == 0 {
-				pl.SelectedItem.Selected = false
-			}
-		} else {
-			// Place entire held stack into the empty slot.
-			pl.Inventory.Place(heldItem, slot)
-			pl.SelectedItem.Selected = false
-		}
-
-	// something in slot, nothing held
-	case !slotEmpty && !hasHeld:
-		if rightClick {
-			// Decompiled code: var10 = mouseClick == 0 ? var13.stackSize : (var13.stackSize + 1) / 2;
-			// For right click, we get (n + 1 / 2)
-			pickCount := (slotItem.Count + 1) / 2
-			picked := pl.Inventory.RemoveCountFromInventory(slot, pickCount)
-			pl.SelectedItem.SetItem(picked, slot, 0, true)
-		} else {
-			picked := pl.Inventory.Hold(slot)
-			pl.SelectedItem.SetItem(picked, slot, 0, false)
-		}
-
-	// something in slot, something held
-	case !slotEmpty && hasHeld:
-		sameType := slotItem.TypeId == heldItem.TypeId && slotItem.Metadata == heldItem.Metadata
-
-		if sameType && inventory.IsStackable(heldItem.TypeId) {
-			// Merge held into slot (up to MaxStack).
-			addCount := heldItem.Count
-			if rightClick {
-				addCount = 1
-			}
-			// Cap by slot limit and item max stack.
-			room := inventory.MaxStack - int(slotItem.Count)
-			if int(addCount) > room {
-				addCount = byte(room)
-			}
-			if addCount == 0 {
-				return
-			}
-			// Deduct from held and add to slot.
-			pl.SelectedItem.Item.Count -= addCount
-			if pl.SelectedItem.Item.Count == 0 {
-				pl.SelectedItem.Selected = false
-			}
-			pl.Inventory.Items[slot].Count += addCount
-
-		} else {
-			// Different types: swap slot and held (left-click only; right-click
-			if int(heldItem.Count) <= inventory.MaxStack {
-				swapped := slotItem
-				pl.Inventory.Place(heldItem, slot)
-				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
-			}
-		}
-	}
-	result := crafting.Craft2x2(pl.Inventory.GetCrafting2x2())
-	if result.TypeId != -1 {
-		sendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
-	}
-}
-
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 	hasHeld := pl.SelectedItem.Selected
 	if hasHeld && !shift {
 		// noop if item in hand
 		return
 	}
-	// stateful crafter
-	//result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
 
 	// stateless conditional crafting
 	result := crafting.Craft3x3(pl.Workbench.GetGrid())
@@ -275,9 +95,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 		for slot := int16(1); slot <= 9; slot++ {
 			pl.Workbench.RemoveOne(slot)
 		}
-
 		if shift {
-			//pl.SelectedItem.Clear()
 			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
 			if !res {
 				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
@@ -301,12 +119,11 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 	if result.TypeId != -1 {
 		for slot := int16(1); slot <= 4; slot++ {
 			if inv.PeekItem(slot).TypeId != -1 {
-				inv.RemoveOneFromSlot(slot)
+				inv.RemoveOne(slot)
 			}
 		}
 
 		if shift {
-			//pl.SelectedItem.Clear()
 			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
 			if !res {
 				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
@@ -323,12 +140,15 @@ func shiftClickWorkbench(pl *player.Player, slot int16) {
 		return
 	}
 
+	var sourceContainer inventory.ItemContainer = &pl.Workbench
+	var targetContainer inventory.ItemContainer = &pl.Inventory
+
 	if pl.Workbench.IsCraftingSlot(slot) {
-		shiftMoveToRegionInWorkbench(pl, slot, inventory.MainInventoryStart, inventory.HotbarEnd)
+		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
 	} else if pl.Inventory.IsHotbarSlot(slot) {
-		shiftMoveToRegionInWorkbench(pl, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
+		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
 	} else {
-		shiftMoveToRegionInWorkbench(pl, slot, inventory.HotbarStart, inventory.HotbarEnd)
+		shiftMoveToRegion(slot, inventory.HotbarStart, inventory.HotbarEnd, sourceContainer, targetContainer)
 	}
 }
 
@@ -340,83 +160,136 @@ func shiftClick(pl *player.Player, slot int16) {
 		return
 	}
 
+	var sourceContainer inventory.ItemContainer = &pl.Inventory
+	var targetContainer inventory.ItemContainer = &pl.Inventory
+
 	if pl.Inventory.IsCraftingSlot(slot) {
-		shiftMoveToRegion(pl, slot, inventory.MainInventoryStart, inventory.HotbarEnd)
+		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
 	} else if pl.Inventory.IsHotbarSlot(slot) {
-		shiftMoveToRegion(pl, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
+		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
 	} else {
-		shiftMoveToRegion(pl, slot, inventory.HotbarStart, inventory.HotbarEnd)
+		shiftMoveToRegion(slot, inventory.HotbarStart, inventory.HotbarEnd, sourceContainer, targetContainer)
 	}
 }
 
 // if you play it, you realize that shift click moves it to the first empty slot in either
 // inventory or hotbar
-func shiftMoveToRegion(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
+func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceContainer, targetContainer inventory.ItemContainer) {
 	// merge onto partial stacks of the same type (skip for non-stackable items).
-	if inventory.IsStackable(pl.Inventory.PeekItem(sourceSlot).TypeId) {
-		for i := regionStart; i <= regionEnd && pl.Inventory.PeekItem(sourceSlot).TypeId != -1; i++ {
-			target := pl.Inventory.PeekItem(int16(i))
-			source := pl.Inventory.PeekItem(sourceSlot)
+	if inventory.IsStackable(sourceContainer.PeekItem(sourceSlot).TypeId) {
+		for i := regionStart; i <= regionEnd && sourceContainer.PeekItem(sourceSlot).TypeId != -1; i++ {
+			target := targetContainer.PeekItem(int16(i))
+			source := sourceContainer.PeekItem(sourceSlot)
 			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
 				room := inventory.MaxStack - int(target.Count)
 				move := int(source.Count)
 				if move > room {
 					move = room
 				}
-				pl.Inventory.Items[i].Count += byte(move)
-				pl.Inventory.Items[sourceSlot].Count -= byte(move)
-				if pl.Inventory.Items[sourceSlot].Count == 0 {
-					pl.Inventory.Items[sourceSlot] = inventory.NewItem(-1, 0, 0)
+				targetContainer.AddCount(int16(i), byte(move))
+				sourceContainer.AddCount(sourceSlot, -byte(move))
+
+				if sourceContainer.PeekItem(sourceSlot).Count == 0 {
+					sourceContainer.SetEmpty(sourceSlot)
 				}
 			}
 		}
 	}
-
 	// occurs when shift click created a stack, rest is also moved
 	// is also triggered if previous move didn't do anything, so nother item of the same existed
-	if pl.Inventory.PeekItem(sourceSlot).TypeId != -1 {
-		for i := regionStart; i <= regionEnd; i++ {
-			if pl.Inventory.PeekItem(int16(i)).TypeId == -1 {
-				pl.Inventory.Move(sourceSlot, int16(i))
-				break
-			}
-		}
-	}
+	inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, sourceSlot, regionStart, regionEnd)
 	// if inventory full of stacks of same item type, let's not do anything.
 }
 
-func shiftMoveToRegionInWorkbench(pl *player.Player, sourceSlot int16, regionStart, regionEnd int) {
-	// merge onto partial stacks of the same type (skip for non-stackable items).
-	if inventory.IsStackable(pl.Workbench.PeekItem(sourceSlot).TypeId) {
-		for i := regionStart; i <= regionEnd && pl.Workbench.PeekItem(sourceSlot).TypeId != -1; i++ {
-			target := pl.Inventory.PeekItem(int16(i))
-			source := pl.Workbench.PeekItem(sourceSlot)
-			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
-				room := inventory.MaxStack - int(target.Count)
-				move := int(source.Count)
-				if move > room {
-					move = room
-				}
-				pl.Inventory.Items[i].Count += byte(move)
-				pl.Workbench.Grid[sourceSlot-1].Count -= byte(move)
-				if pl.Workbench.Grid[sourceSlot-1].Count == 0 {
-					pl.Workbench.Grid[sourceSlot-1] = inventory.NewItem(-1, 0, 0)
-				}
-			}
-		}
-	}
+// Covers all non-shift left- and right-clicks
+func guiClick(pl *player.Player, container inventory.ItemContainer, slot int16, rightClick bool) {
+	slotItem := container.PeekItem(slot)
+	heldItem := pl.SelectedItem.Item
+	hasHeld := pl.SelectedItem.Selected
+	slotEmpty := slotItem.TypeId == -1
 
-	// occurs when shift click created a stack, rest is also moved
-	// is also triggered if previous move didn't do anything, so nother item of the same existed
-	if pl.Workbench.PeekItem(sourceSlot).TypeId != -1 {
-		for i := regionStart; i <= regionEnd; i++ {
-			if pl.Inventory.PeekItem(int16(i)).TypeId == -1 {
-				inventory.MoveFromWorkbenchToInventory(&pl.Workbench, &pl.Inventory, sourceSlot, int16(i))
-				break
+	switch {
+	// nothing in slot and nothing held
+	case slotEmpty && !hasHeld:
+		// noop
+
+		// nothing in slot and something held
+	case slotEmpty && hasHeld:
+		if rightClick {
+			container.SetItem(slot, heldItem.TypeId, 1, heldItem.Metadata)
+			pl.SelectedItem.Item.Count--
+			if pl.SelectedItem.Item.Count == 0 {
+				pl.SelectedItem.Selected = false
+			}
+		} else {
+			container.SetItem(slot, heldItem.TypeId, heldItem.Count, heldItem.Metadata)
+			pl.SelectedItem.Selected = false
+		}
+
+		// something in slot and nothing held
+	case !slotEmpty && !hasHeld:
+		if rightClick {
+			// Decompiled code: var10 = mouseClick == 0 ? var13.stackSize : (var13.stackSize + 1) / 2;
+			// For right click, we get (n + 1 / 2)
+			pickCount := (slotItem.Count + 1) / 2
+			remainCount := slotItem.Count - pickCount
+			picked := inventory.NewItem(slotItem.TypeId, pickCount, slotItem.Metadata)
+			if remainCount <= 0 {
+				container.SetEmpty(slot)
+			} else {
+				container.SetItem(slot, slotItem.TypeId, remainCount, slotItem.Metadata)
+			}
+			pl.SelectedItem.SetItem(picked, slot, 0, true)
+		} else {
+			picked := inventory.NewItem(slotItem.TypeId, slotItem.Count, slotItem.Metadata)
+			container.SetEmpty(slot)
+			pl.SelectedItem.SetItem(picked, slot, 0, false)
+		}
+
+		// something in slot and something held
+	case !slotEmpty && hasHeld:
+		sameType := slotItem.TypeId == heldItem.TypeId && slotItem.Metadata == heldItem.Metadata
+		if sameType && inventory.IsStackable(heldItem.TypeId) {
+			addCount := heldItem.Count
+			if rightClick {
+				addCount = 1
+			}
+			room := inventory.MaxStack - int(slotItem.Count)
+			if int(addCount) > room {
+				addCount = byte(room)
+			}
+			if addCount == 0 {
+				return
+			}
+			pl.SelectedItem.Item.Count -= addCount
+			if pl.SelectedItem.Item.Count == 0 {
+				pl.SelectedItem.Selected = false
+			}
+			container.AddCount(slot, addCount)
+		} else {
+			if int(heldItem.Count) <= inventory.MaxStack {
+				swapped := inventory.NewItem(slotItem.TypeId, slotItem.Count, slotItem.Metadata)
+				container.SetItem(slot, heldItem.TypeId, heldItem.Count, heldItem.Metadata)
+				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
 			}
 		}
 	}
-	// if inventory full of stacks of same item type, let's not do anything.
+}
+
+func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
+	guiClick(pl, &pl.Workbench, slot, rightClick)
+	result := crafting.Craft3x3(pl.Workbench.GetGrid())
+	if result.TypeId != -1 {
+		sendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+	}
+}
+
+func normalClick(pl *player.Player, slot int16, rightClick bool) {
+	guiClick(pl, &pl.Inventory, slot, rightClick)
+	result := crafting.Craft2x2(pl.Inventory.GetCrafting2x2())
+	if result.TypeId != -1 {
+		sendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+	}
 }
 
 func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
@@ -430,4 +303,13 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 
 func handleCloseWindowInPacket(p packets.CloseWindowInPacket) {
 	log.Printf("CloseWindow: %+v", p)
+}
+
+func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, rightClick bool) {
+	targetSlot := p.Slot
+	if targetSlot == 0 {
+		craftInWorkbench(pl, shift, rightClick)
+	} else {
+		workbenchGridClick(pl, targetSlot, rightClick)
+	}
 }
