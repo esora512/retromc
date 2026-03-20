@@ -435,14 +435,14 @@ func Craft3x3(grid [9]int16) Result {
 			if grid[2] == itemId && grid[4] == itemId && grid[6] == itemId && grid[5] == constants.String.Value && grid[8] == constants.String.Value {
 				return Result{constants.FishingRod.Value, 0, 1}
 			}
-
-		case constants.Planks.Value:
+		case constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value, constants.Cobblestone.Value, constants.Planks.Value:
 			if same && firstColumn == 0 && grid[location+3] == itemId && grid[location+2] == itemId && grid[location+4] == itemId && grid[location+5] == itemId {
-				return Result{constants.Boat.Value, 0, 1}
-			}
-		case constants.Iron.Value, constants.Gold.Value, constants.Diamond.Value:
-			if same && itemId == constants.Iron.Value && firstColumn == 0 && grid[location+3] == itemId && grid[location+2] == itemId && grid[location+4] == itemId && grid[location+5] == itemId {
-				return Result{constants.Minecart.Value, 0, 1}
+				if itemId == constants.Iron.Value {
+					return Result{constants.Minecart.Value, 0, 1}
+				}
+				if itemId == constants.Planks.Value {
+					return Result{constants.Boat.Value, 0, 1}
+				}
 			}
 			if itemCount == 4 && grid[4] == constants.Redstone.Value {
 				if grid[3] == itemId && grid[7] == itemId && grid[1] == itemId && grid[5] == itemId {
@@ -454,7 +454,6 @@ func Craft3x3(grid [9]int16) Result {
 					}
 				}
 			}
-
 			if location == 0 &&
 				grid[location+1] == itemId &&
 				grid[location+2] == itemId &&
