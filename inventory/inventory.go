@@ -181,6 +181,10 @@ func (inv *Inventory) PlaceOneInEmpty(item *Item, slot int16) {
 	inv.PlaceOne(item, slot)
 }
 
+func (inv *Inventory) IsCraftingSlot(slot int16) bool {
+	return slot >= 0 && slot <= 5
+}
+
 func (inv *Inventory) IsHotbarSlot(slot int16) bool {
 	return slot >= HotbarStart && slot <= HotbarEnd
 }

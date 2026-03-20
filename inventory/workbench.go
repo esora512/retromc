@@ -7,6 +7,10 @@ type Workbench struct {
 	Out  Item
 }
 
+func (wb *Workbench) IsCraftingSlot(slot int16) bool {
+	return slot > 0 && slot <= 9
+}
+
 func NewWorkbench() *Workbench {
 	wb := Workbench{}
 	for i := range wb.Grid {

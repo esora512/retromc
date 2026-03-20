@@ -10,52 +10,116 @@ type Result struct {
 	Count    byte
 }
 
-type Recipe struct {
-	Pattern [4]int16
-	Result  Result
-}
 
-type Recipe3x3 struct {
-	Pattern [9]int16
-	Result  Result
-}
+func Craft2x2(grid [4]int16) Result {
+	var itemId = int16(-1)
+	var location int16 = -1
+	var count int16 = 0
+	var itemCount int16 = 0
+	var same bool = true
 
-type Crafter2x2 struct {
-	Recipes []Recipe
-}
-
-type Crafter3x3 struct {
-	Recipes []Recipe3x3
-}
-
-func New2x2Crafter() *Crafter2x2 {
-	return &Crafter2x2{
-		Recipes: []Recipe{
-			// crafting table
-			{Pattern: [4]int16{5, 5, 5, 5}, Result: Result{58, 0, 1}},
-		},
+	for i := range grid {
+		if grid[i] == -1 {
+			continue
+		}
+		if itemId == -1 {
+			itemId = grid[i]
+			location = int16(i)
+		}
+		if grid[i] == itemId {
+			itemCount++
+		} else {
+			same = false
+		}
+		count++
 	}
-}
 
-func (c *Crafter2x2) Craft(grid [4]int16) Result {
-	for _, r := range c.Recipes {
-		if patternMatches4(r.Pattern, grid) {
-			return r.Result
+	if itemId == -1 {
+		return Result{-1, 0, 0}
+	}
+
+	firstRow := location / 2
+	firstColumn := location % 2
+
+	switch count {
+	case 1:
+		switch itemId {
+		case constants.Log.Value:
+			return Result{constants.Planks.Value, 0, 4}
+		case constants.IronBlock.Value:
+			return Result{constants.Iron.Value, 0, 9}
+		case constants.GoldBlock.Value:
+			return Result{constants.Gold.Value, 0, 9}
+		case constants.DiamondBlock.Value:
+			return Result{constants.Diamond.Value, 0, 9}
+		case constants.RedstoneBlock.Value:
+			return Result{constants.Redstone.Value, 0, 9}
+		case constants.SugarcaneItem.Value:
+			return Result{constants.Sugar.Value, 0, 3}
+		}
+
+	case 2:
+		switch itemId {
+		case constants.Planks.Value:
+			// Two planks side by side horizontally -> pressure plate
+			if firstColumn == 0 && grid[location+1] == itemId {
+				return Result{constants.WoodenPressurePlate.Value, 0, 1}
+			}
+			// Two planks stacked vertically -> sticks
+			if firstRow == 0 && grid[location+2] == itemId {
+				return Result{constants.Stick.Value, 0, 4}
+			}
+		case constants.Coal.Value:
+			// Coal on top, stick below
+			if firstRow == 0 && grid[location+2] == constants.Stick.Value {
+				return Result{constants.Torch.Value, 0, 4}
+			}
+		case constants.Redstone.Value:
+			// Redstone on top, stick below
+			if firstRow == 0 && grid[location+2] == constants.Stick.Value {
+				return Result{constants.RedstoneTorchOn.Value, 0, 1}
+			}
+		case constants.Pumpkin.Value:
+			// Pumpkin on top, torch below
+			if firstRow == 0 && grid[location+2] == constants.Torch.Value {
+				return Result{constants.PumpkinLit.Value, 0, 1}
+			}
+		}
+
+	case 3:
+		if !same {
+			switch itemId {
+			case constants.Iron.Value:
+				// Iron top-left, flint bottom-right (diagonal) -> flint and steel
+				if location == 0 && grid[3] == constants.Flint.Value {
+					return Result{constants.FlintAndSteel.Value, 0, 1}
+				}
+			}
+		}
+
+	case 4:
+		if same {
+			switch itemId {
+			case constants.Planks.Value:
+				return Result{constants.CraftingTable.Value, 0, 1}
+			case constants.Snowball.Value:
+				return Result{constants.SnowBlock.Value, 0, 1}
+			case constants.ClayItem.Value:
+				return Result{constants.Clay.Value, 0, 1}
+			case constants.Brick.Value:
+				return Result{constants.Bricks.Value, 0, 1}
+			case constants.String.Value:
+				return Result{constants.Wool.Value, 0, 1}
+			case constants.GlowstoneDust.Value:
+				return Result{constants.Glowstone.Value, 0, 1}
+			}
 		}
 	}
+
 	return Result{-1, 0, 0}
 }
 
-func patternMatches4(pattern, grid [4]int16) bool {
-	for i := range pattern {
-		if pattern[i] != grid[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func getGridData(grid [9]int16) (int16, int16, int16, int16, bool) {
+func scan3x3Grid(grid [9]int16) (int16, int16, int16, int16, bool) {
 	var itemId = int16(-1)
 	var location int16 = -1
 	var count int16 = 0
@@ -212,9 +276,9 @@ func getStairsForType(itemId int16) int16 {
 // more "fun" and perhaps more efficient
 
 // TODO: Add cake (special recipe as it leaves items behind!)
-func Craft(grid [9]int16) Result {
+func Craft3x3(grid [9]int16) Result {
 	// first item id, location, total count and if all items are first item
-	itemId, location, count, itemCount, same := getGridData(grid)
+	itemId, location, count, itemCount, same := scan3x3Grid(grid)
 	if itemId == -1 {
 		return Result{-1, 0, 0}
 	}

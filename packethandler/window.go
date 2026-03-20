@@ -102,6 +102,11 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick, shift bool) {
 			}
 		}
 	}
+	result := crafting.Craft3x3(pl.Workbench.GetGrid())
+	if result.TypeId != 1 {
+		sendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+	}
+
 }
 
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
@@ -247,6 +252,10 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 			}
 		}
 	}
+	result := crafting.Craft2x2(pl.Inventory.GetCrafting2x2())
+	if result.TypeId != -1 {
+		sendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+	}
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
@@ -259,7 +268,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 	//result := crafting.New3x3CrafterV2().Craft(pl.Workbench.GetGrid())
 
 	// stateless conditional crafting
-	result := crafting.Craft(pl.Workbench.GetGrid())
+	result := crafting.Craft3x3(pl.Workbench.GetGrid())
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
 		// Consume one item from each occupied grid slot.
@@ -286,7 +295,7 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 		return
 	}
 	inv := pl.Inventory
-	result := crafting.New2x2Crafter().Craft(inv.GetCrafting2x2())
+	result := crafting.Craft2x2(inv.GetCrafting2x2())
 
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 	if result.TypeId != -1 {
@@ -313,7 +322,10 @@ func shiftClickWorkbench(pl *player.Player, slot int16) {
 	if sourceItem.TypeId == -1 {
 		return
 	}
-	if pl.Inventory.IsHotbarSlot(slot) {
+
+	if pl.Workbench.IsCraftingSlot(slot) {
+		shiftMoveToRegionInWorkbench(pl, slot, inventory.MainInventoryStart, inventory.HotbarEnd)
+	} else if pl.Inventory.IsHotbarSlot(slot) {
 		shiftMoveToRegionInWorkbench(pl, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
 	} else {
 		shiftMoveToRegionInWorkbench(pl, slot, inventory.HotbarStart, inventory.HotbarEnd)
@@ -328,7 +340,9 @@ func shiftClick(pl *player.Player, slot int16) {
 		return
 	}
 
-	if pl.Inventory.IsHotbarSlot(slot) {
+	if pl.Inventory.IsCraftingSlot(slot) {
+		shiftMoveToRegion(pl, slot, inventory.MainInventoryStart, inventory.HotbarEnd)
+	} else if pl.Inventory.IsHotbarSlot(slot) {
 		shiftMoveToRegion(pl, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
 	} else {
 		shiftMoveToRegion(pl, slot, inventory.HotbarStart, inventory.HotbarEnd)
