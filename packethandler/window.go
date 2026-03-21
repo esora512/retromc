@@ -13,9 +13,6 @@ import (
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
 func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
-	log.Println("Window click:", p.WindowId)
-	p.Print()
-
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
@@ -40,12 +37,32 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		return
 	}
 
+	if windowId == 1 && pl.InventoryType == player.ChestInventory {
+		log.Println("Chest inventory")
+		p.Print()
+		if slot > 26 {
+			windowId = 0
+			slot -= 18
+		} else {
+			if shift {
+				shiftClickChest(pl, slot)
+			} else {
+				chestClick(pl, slot, rightClick)
+			}
+			acceptTransaction(connection, p)
+			return
+		}
+	}
+
 	// Workbench actions
-	if windowId == 1 {
+	if windowId == 1 && pl.InventoryType == player.WorkbenchInventory {
+		log.Println("Workbench inventory")
+		p.Print()
 		if slot > 9 {
 			// If outside crafting grid, switch to inventory
 			windowId = 0
 			slot -= 1
+
 		} else {
 			if shift && slot != 0 {
 				shiftClickWorkbench(pl, slot)
@@ -61,6 +78,8 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	// Regular inventory actions
 	// Includes 2x2 grid crafting
 	if windowId == 0 {
+		log.Println("Player inventory")
+		p.Print()
 		if slot == 0 {
 			craftInInventory(pl, shift, rightClick)
 			acceptTransaction(connection, p)
@@ -132,6 +151,26 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
 	}
+}
+
+func shiftClickChest(pl *player.Player, slot int16) {
+	chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+	if chest == nil {
+		return
+	}
+	sourceItem := chest.PeekItem(slot)
+	if sourceItem.TypeId == -1 {
+		return
+	}
+
+	var sourceContainer inventory.ItemContainer = chest
+	var targetContainer inventory.ItemContainer = &pl.Inventory
+	if pl.Inventory.IsHotbarSlot(slot) {
+		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
+	} else {
+		shiftMoveToRegion(slot, inventory.HotbarStart, inventory.HotbarEnd, sourceContainer, targetContainer)
+	}
+	chest.Print()
 }
 
 func shiftClickWorkbench(pl *player.Player, slot int16) {
@@ -292,6 +331,15 @@ func normalClick(pl *player.Player, slot int16, rightClick bool) {
 	}
 }
 
+func chestClick(pl *player.Player, slot int16, rightClick bool) {
+	chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+	if chest == nil {
+		return
+	}
+	guiClick(pl, chest, slot, rightClick)
+	chest.Print()
+}
+
 func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 	out := packets.TransactionOutPacket{
 		WindowId:     0,
@@ -301,7 +349,8 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 	connection.Write(out.Serialize())
 }
 
-func handleCloseWindowInPacket(p packets.CloseWindowInPacket) {
+func handleCloseWindowInPacket(p packets.CloseWindowInPacket, pl *player.Player) {
+	pl.InventoryType = player.PlayerInventory
 	log.Printf("CloseWindow: %+v", p)
 }
 

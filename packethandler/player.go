@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -136,15 +137,26 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
-	if oldExisting.TypeId == 58 {
+	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
 		connection.Write(p.Serialize())
+		pl.InventoryType = player.WorkbenchInventory
 		return
 	}
 
 	if oldExisting.TypeId == byte(constants.Chest.Value) {
-		p := packets.NewChest()
-		connection.Write(p.Serialize())
+		chestPacket := packets.NewChest()
+		connection.Write(chestPacket.Serialize())
+		pl.InventoryType = player.ChestInventory
+		pl.Chest.X = int32(p.X)
+		pl.Chest.Y = int32(p.Y)
+		pl.Chest.Z = int32(p.Z)
+
+		// Send chest contents to the client so items are visible.
+		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+		if chest != nil {
+			sendChestContents(connection, chest)
+		}
 		return
 	}
 
@@ -194,6 +206,10 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	block := level.NewBlockById(p.ItemId, item.Metadata)
 
 	if block.IsDirectional() {
+		if block.TypeId == byte(constants.Chest.Value) {
+			inventory.PlaceChest(int32(newX), int32(newY), int32(newZ))
+		}
+
 		log.Println("Face", p.Face)
 		switch p.Face {
 		case 3:

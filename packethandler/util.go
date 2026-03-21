@@ -18,6 +18,15 @@ func sendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.
 	connection.Write(setSlotPacket.Serialize())
 }
 
+func sendChestContents(connection net.Conn, chest *inventory.Chest) {
+	for i := int16(0); i < int16(chest.Size); i++ {
+		item := chest.PeekItem(i)
+		if item.TypeId != -1 {
+			sendSetSlot(connection, 1, i, item)
+		}
+	}
+}
+
 // presetInventory writes the starting items directly into the player's in-memory
 // inventory. The caller is responsible for sending the inventory to the client.
 func presetInventory(inv *inventory.Inventory) {

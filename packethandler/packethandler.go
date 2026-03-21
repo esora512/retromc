@@ -73,7 +73,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleRespawnInPacket(connection, p, world, pl)
 	case packet.CloseWindow:
 		p := packets.ReadCloseWindowInPacket(packetReader, pl)
-		handleCloseWindowInPacket(p)
+		handleCloseWindowInPacket(p, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: %04x", packetId)
 	}
