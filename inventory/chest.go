@@ -92,3 +92,7 @@ func (c *Chest) Print() {
 	}
 	fmt.Println("=================")
 }
+
+func (c *Chest) IsInChest (slot int16) bool {
+	return slot >= 0 && slot < int16(c.Size)
+}

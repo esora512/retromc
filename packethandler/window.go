@@ -165,10 +165,9 @@ func shiftClickChest(pl *player.Player, slot int16) {
 
 	var sourceContainer inventory.ItemContainer = chest
 	var targetContainer inventory.ItemContainer = &pl.Inventory
-	if pl.Inventory.IsHotbarSlot(slot) {
-		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
-	} else {
-		shiftMoveToRegion(slot, inventory.HotbarStart, inventory.HotbarEnd, sourceContainer, targetContainer)
+	check := inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, slot, inventory.HotbarEnd, inventory.HotbarStart)
+	if !check {
+		inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
 	}
 	chest.Print()
 }
@@ -204,6 +203,11 @@ func shiftClick(pl *player.Player, slot int16) {
 
 	if pl.Inventory.IsCraftingSlot(slot) {
 		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
+	} else if pl.InventoryType == player.ChestInventory {
+		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+		targetContainer = chest
+		shiftMoveToRegion(slot, inventory.ChestStart, inventory.ChestEnd, sourceContainer, targetContainer)
+
 	} else if pl.Inventory.IsHotbarSlot(slot) {
 		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
 	} else {

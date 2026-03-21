@@ -16,6 +16,9 @@ const (
 	HotbarEnd          = 44
 	MainInventoryStart = 9
 	MainInventoryEnd   = 35
+
+	ChestStart = 0
+	ChestEnd   = 26
 )
 
 type ItemContainer interface {
@@ -26,18 +29,30 @@ type ItemContainer interface {
 	SetEmpty(slot int16)
 }
 
-func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContainer, sourceSlot int16, regionStart, regionEnd int) {
-	if sourceContainer.PeekItem(sourceSlot).TypeId != -1 {
-		for i := regionStart; i <= regionEnd; i++ {
-			if targetContainer.PeekItem(int16(i)).TypeId == -1 {
-				targetContainer.SetItem(int16(i), sourceContainer.PeekItem(sourceSlot).TypeId, sourceContainer.PeekItem(sourceSlot).Count, sourceContainer.PeekItem(sourceSlot).Metadata)
-				sourceContainer.SetEmpty(sourceSlot)
-				break
-			}
+func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContainer, sourceSlot int16, regionStart, regionEnd int) bool {
+	source := sourceContainer.PeekItem(sourceSlot)
+	if source.TypeId == -1 {
+		return false
+	}
+
+	step := 1
+	if regionStart > regionEnd {
+		step = -1
+	}
+
+	for i := regionStart; ; i += step {
+		if targetContainer.PeekItem(int16(i)).TypeId == -1 {
+			targetContainer.SetItem(int16(i), source.TypeId, source.Count, source.Metadata)
+			sourceContainer.SetEmpty(sourceSlot)
+			return true
+		}
+		if i == regionEnd {
+			break
 		}
 	}
-}
 
+	return false
+}
 func (inv *Inventory) AddCount(slot int16, amount byte) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
 		log.Printf("ChangeAmount: slot %d out of range", slot)
