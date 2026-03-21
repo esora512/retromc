@@ -1,10 +1,49 @@
 package level
 
+import (
+	"github.com/leNicDev/retromc/constants"
+)
+
 type Block struct {
 	TypeId   byte
 	Metadata byte
 	Light    byte
 	SkyLight byte
+}
+
+var directionalBlocks = map[int16]bool{
+	constants.WoodenStairs.Value:        true,
+	constants.CobblestoneStairs.Value:   true,
+	constants.Torch.Value:               true,
+	constants.Chest.Value:               true,
+	constants.Furnace.Value:             true,
+	constants.FurnaceLit.Value:          true,
+	constants.Sign.Value:                true,
+	constants.Ladder.Value:              true,
+	constants.Dispenser.Value:           true,
+	constants.PoweredRail.Value:         true,
+	constants.DetectorRail.Value:        true,
+	constants.StickyPiston.Value:        true,
+	constants.Piston.Value:              true,
+	constants.PistonHead.Value:          true,
+	constants.SignGround.Value:          true,
+	constants.SignWall.Value:            true,
+	constants.Rail.Value:                true,
+	constants.Lever.Value:               true,
+	constants.RedstoneTorchOn.Value:     true,
+	constants.RedstoneTorchOff.Value:    true,
+	constants.StoneButton.Value:         true,
+	constants.Pumpkin.Value:             true,
+	constants.PumpkinLit.Value:          true,
+	constants.RedstoneRepeater.Value:    true,
+	constants.RedstoneRepeaterOn.Value:  true,
+	constants.RedstoneRepeaterOff.Value: true,
+	constants.LockedChest.Value:         true,
+	constants.Trapdoor.Value:            true,
+}
+
+func (b *Block) IsDirectional() bool {
+	return directionalBlocks[int16(b.TypeId)]
 }
 
 // ID 0 - Air

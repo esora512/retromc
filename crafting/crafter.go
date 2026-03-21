@@ -10,7 +10,6 @@ type Result struct {
 	Count    byte
 }
 
-
 func Craft2x2(grid [4]int16) Result {
 	var itemId = int16(-1)
 	var location int16 = -1
@@ -61,39 +60,55 @@ func Craft2x2(grid [4]int16) Result {
 	case 2:
 		switch itemId {
 		case constants.Planks.Value:
-			// Two planks side by side horizontally -> pressure plate
 			if firstColumn == 0 && grid[location+1] == itemId {
 				return Result{constants.WoodenPressurePlate.Value, 0, 1}
 			}
-			// Two planks stacked vertically -> sticks
 			if firstRow == 0 && grid[location+2] == itemId {
 				return Result{constants.Stick.Value, 0, 4}
 			}
 		case constants.Coal.Value:
-			// Coal on top, stick below
 			if firstRow == 0 && grid[location+2] == constants.Stick.Value {
 				return Result{constants.Torch.Value, 0, 4}
 			}
 		case constants.Redstone.Value:
-			// Redstone on top, stick below
 			if firstRow == 0 && grid[location+2] == constants.Stick.Value {
 				return Result{constants.RedstoneTorchOn.Value, 0, 1}
 			}
 		case constants.Pumpkin.Value:
-			// Pumpkin on top, torch below
 			if firstRow == 0 && grid[location+2] == constants.Torch.Value {
 				return Result{constants.PumpkinLit.Value, 0, 1}
 			}
-		}
+		case constants.Stone.Value:
+			if firstRow == 0 && grid[location+2] == itemId {
+				return Result{constants.StoneButton.Value, 0, 1}
+			}
+			if firstColumn == 0 && grid[location+2] == itemId {
+				return Result{constants.StonePressurePlate.Value, 0, 1}
+			}
 
-	case 3:
-		if !same {
-			switch itemId {
-			case constants.Iron.Value:
-				// Iron top-left, flint bottom-right (diagonal) -> flint and steel
-				if location == 0 && grid[3] == constants.Flint.Value {
-					return Result{constants.FlintAndSteel.Value, 0, 1}
+		case constants.Slime.Value:
+			if grid[location] == itemId && grid[location+1] == constants.Piston.Value {
+				return Result{constants.StickyPiston.Value, 0, 1}
+			}
+		case constants.Iron.Value:
+			if grid[location] == itemId && grid[3] == itemId {
+				return Result{constants.Shears.Value, 0, 1}
+			}
+			if grid[location] == itemId && grid[3] == constants.Flint.Value {
+				return Result{constants.FlintAndSteel.Value, 0, 1}
+			}
+		case constants.Minecart.Value:
+			if firstRow != 0 {
+				if grid[location-2] == constants.Chest.Value {
+					return Result{constants.ChestMinecart.Value, 0, 1}
 				}
+				if grid[location-2] == constants.FurnaceMinecart.Value {
+					return Result{constants.FurnaceMinecart.Value, 0, 1}
+				}
+			}
+		case constants.Stick.Value:
+			if firstRow == 0 && grid[location+2] == constants.Cobblestone.Value {
+				return Result{constants.Lever.Value, 0, 1}
 			}
 		}
 
@@ -115,7 +130,6 @@ func Craft2x2(grid [4]int16) Result {
 			}
 		}
 	}
-
 	return Result{-1, 0, 0}
 }
 

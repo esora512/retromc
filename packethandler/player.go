@@ -191,7 +191,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	item := pl.Inventory.PeekItem(slot)
 	block := level.NewBlockById(p.ItemId, item.Metadata)
 
-	if block.TypeId == byte(constants.CobblestoneStairs.Value) || block.TypeId == byte(constants.WoodenStairs.Value) {
+	if block.IsDirectional() {
 		log.Println("Face", p.Face)
 		switch p.Face {
 		case 3:
