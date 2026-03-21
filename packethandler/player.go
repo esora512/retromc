@@ -130,11 +130,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 }
 
-func displayWorkbenchGUI(connection net.Conn) {
-	p := packets.NewCraftingTable()
-	connection.Write(p.Serialize())
-}
-
 // handlePlayerBlockPlacementInPacket handles block-place events.
 // It decrements the placed item from the player's in-memory inventory.
 // HotbarSlot is locked for the duration so that a HoldingChange packet
@@ -142,7 +137,14 @@ func displayWorkbenchGUI(connection net.Conn) {
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	if oldExisting.TypeId == 58 {
-		displayWorkbenchGUI(connection)
+		p := packets.NewCraftingTable()
+		connection.Write(p.Serialize())
+		return
+	}
+
+	if oldExisting.TypeId == byte(constants.Chest.Value) {
+		p := packets.NewChest()
+		connection.Write(p.Serialize())
 		return
 	}
 

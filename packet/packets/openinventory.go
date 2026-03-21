@@ -19,6 +19,26 @@ func NewCraftingTable() OpenInventoryOutPacket {
 	return p
 }
 
+func NewChest() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     0,
+		Title:    "Chest",
+		Size:     27,
+	}
+	return p
+}
+
+func NewDoubleChest() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     0,
+		Title:    "Chest",
+		Size:     54,
+	}
+	return p
+}
+
 func (p *OpenInventoryOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.OpenInventory)

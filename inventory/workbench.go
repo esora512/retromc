@@ -62,15 +62,6 @@ func (w *Workbench) PeekItem(slot int16) Item {
 	return w.Grid[slot-1]
 }
 
-// GetGridItemPtr returns a pointer to a grid item for in-place modification.
-// Slot is 1-indexed (1-9).
-func (w *Workbench) GetGridItemPtr(slot int16) *Item {
-	loc := slot - 1
-	if loc > 8 || loc < 0 {
-		return nil
-	}
-	return &w.Grid[loc]
-}
 
 func (w *Workbench) GetGrid() [9]int16 {
 	var arr [9]int16
