@@ -207,7 +207,8 @@ func shiftClick(pl *player.Player, slot int16) {
 	} else if pl.InventoryType == player.ChestInventory {
 		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
 		targetContainer = chest
-		shiftMoveToRegion(slot, inventory.ChestStart, inventory.ChestEnd, sourceContainer, targetContainer)
+		chestEnd := chest.Size - 1
+		shiftMoveToRegion(slot, inventory.ChestStart, int(chestEnd), sourceContainer, targetContainer)
 
 	} else if pl.Inventory.IsHotbarSlot(slot) {
 		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)

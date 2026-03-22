@@ -125,9 +125,18 @@ func unregisterSingleAdjacentChest(x, y, z int32) {
 	}
 }
 
-func registerDoubleAdjacentChest(x, y, z int32) {
+func registerDoubleAdjacentChest(x, y, z int32, excludePosition ChestPosition) {
 	for _, n := range neighbourKeys(x, y, z) {
+		if n == chestKey(excludePosition.X, excludePosition.Y, excludePosition.Z) {
+			continue
+		}
 		forbiddenSlots[n] = struct{}{}
+	}
+}
+
+func unregisterDoubleAdjacentChest(x, y, z int32) {
+	for _, n := range neighbourKeys(x, y, z) {
+		delete(forbiddenSlots, n)
 	}
 }
 
@@ -152,32 +161,24 @@ func RemoveChest(x, y, z int32) {
 	chest := chestRegistry[key]
 
 	if chest.Size == DOUBLE_CHEST_SIZE {
-		// Remove target chest; ignore items; revert to the previous single chest state
-		secondPos := chest.SecondPosition
+		// Find surviving chest position
+		var sPos ChestPosition
+		if x == chest.Position.X && y == chest.Position.Y && z == chest.Position.Z {
+			sPos = chest.SecondPosition
+		} else {
+			sPos = chest.Position
+		}
+
 		chest.Size = CHEST_SIZE
 		chest.Items = chest.Items[:CHEST_SIZE]
 
 		delete(chestRegistry, key)
-		for _, n := range neighbourKeys(x, y, z) {
-			delete(forbiddenSlots, n)
-		}
-		log.Println("Deleting Target")
-		PrintForbidden()
-		for _, n := range neighbourKeys(secondPos.X, secondPos.Y, secondPos.Z) {
-			delete(forbiddenSlots, n)
-		}
-		log.Println("Deleting Other")
-		PrintForbidden()
+		unregisterDoubleAdjacentChest(x, y, z)
+		unregisterDoubleAdjacentChest(sPos.X, sPos.Y, sPos.Z)
 
-		var survivorX, survivorY, survivorZ int32
-		if x == chest.Position.X && y == chest.Position.Y && z == chest.Position.Z {
-			survivorX, survivorY, survivorZ = chest.SecondPosition.X, chest.SecondPosition.Y, chest.SecondPosition.Z
-		} else {
-			survivorX, survivorY, survivorZ = chest.Position.X, chest.Position.Y, chest.Position.Z
-		}
-
+		chest.Position = sPos
 		chest.SecondPosition = ChestPosition{}
-		registerSingleAdjacentChest(survivorX, survivorY, survivorZ)
+		registerSingleAdjacentChest(sPos.X, sPos.Y, sPos.Z)
 		return
 	}
 
@@ -216,8 +217,8 @@ func PlaceChest(x, y, z int32) bool {
 		delete(adjacentSlots, key)
 
 		// Double chest adjaency for PREVENTING placing new chest
-		registerDoubleAdjacentChest(nx, ny, nz)
-		registerDoubleAdjacentChest(x, y, z)
+		registerDoubleAdjacentChest(nx, ny, nz, ChestPosition{x, y, z})
+		registerDoubleAdjacentChest(x, y, z, existingChest.Position)
 		existingChest.SetSecondPosition(x, y, z)
 		return true
 	}
