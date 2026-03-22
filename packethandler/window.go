@@ -38,11 +38,12 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	}
 
 	if windowId == 1 && pl.InventoryType == player.ChestInventory {
+		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
 		log.Println("Chest inventory")
 		p.Print()
-		if slot > 26 {
+		if slot >= int16(chest.Size) {
 			windowId = 0
-			slot -= 18
+			slot = chest.ShiftSlot(slot)
 		} else {
 			if shift {
 				shiftClickChest(pl, slot)

@@ -1,11 +1,50 @@
 package inventory
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
+
+const CHEST_SIZE = 27
+const DOUBLE_CHEST_SIZE = 54
+const CHEST_SHIFT = 18        // Move from 27-18 = 9
+const DOUBLE_CHEST_SHIFT = 45 // Move from 54-45 = 9
+
+type ChestPosition struct {
+	X int32
+	Y int32
+	Z int32
+}
 
 // Treat single and double chest the same
 type Chest struct {
-	Size  uint16
-	Items []Item
+	Size           uint16
+	Items          []Item
+	Position       ChestPosition
+	SecondPosition ChestPosition
+}
+
+func (c *Chest) SetPosition(x, y, z int32) {
+	c.Position.X = x
+	c.Position.Y = y
+	c.Position.Z = z
+}
+
+func (c *Chest) SetSecondPosition(x, y, z int32) {
+	c.SecondPosition.X = x
+	c.SecondPosition.Y = y
+	c.SecondPosition.Z = z
+}
+
+func (c *Chest) ShiftSlot(slot int16) int16 {
+	if c.Size == CHEST_SIZE {
+		return slot - CHEST_SHIFT
+	}
+
+	if c.Size == DOUBLE_CHEST_SIZE {
+		return slot - DOUBLE_CHEST_SHIFT
+	}
+	return slot - CHEST_SHIFT
 }
 
 func NewChest(size uint16) Chest {
@@ -47,7 +86,50 @@ func (c *Chest) SetEmpty(slot int16) {
 	c.Items[slot] = NewItem(-1, 0, 0)
 }
 
+// Global chest management for all chests in the world
 var chestRegistry map[string]*Chest
+var adjacentSlots map[string]string
+var forbiddenSlots map[string]struct{}
+
+func initRegistries() {
+	if chestRegistry == nil {
+		chestRegistry = make(map[string]*Chest)
+	}
+	if adjacentSlots == nil {
+		adjacentSlots = make(map[string]string)
+	}
+	if forbiddenSlots == nil {
+		forbiddenSlots = make(map[string]struct{})
+	}
+}
+
+func neighbourKeys(x, y, z int32) [4]string {
+	return [4]string{
+		chestKey(x+1, y, z),
+		chestKey(x-1, y, z),
+		chestKey(x, y, z+1),
+		chestKey(x, y, z-1),
+	}
+}
+
+func registerSingleAdjacentChest(x, y, z int32) {
+	ownKey := chestKey(x, y, z)
+	for _, n := range neighbourKeys(x, y, z) {
+		adjacentSlots[n] = ownKey
+	}
+}
+
+func unregisterSingleAdjacentChest(x, y, z int32) {
+	for _, n := range neighbourKeys(x, y, z) {
+		delete(adjacentSlots, n)
+	}
+}
+
+func registerDoubleAdjacentChest(x, y, z int32) {
+	for _, n := range neighbourKeys(x, y, z) {
+		forbiddenSlots[n] = struct{}{}
+	}
+}
 
 func GetChest(x, y, z int32) *Chest {
 	if chestRegistry == nil {
@@ -67,15 +149,84 @@ func RemoveChest(x, y, z int32) {
 		return
 	}
 	key := chestKey(x, y, z)
+	chest := chestRegistry[key]
+
+	if chest.Size == DOUBLE_CHEST_SIZE {
+		// Remove target chest; ignore items; revert to the previous single chest state
+		secondPos := chest.SecondPosition
+		chest.Size = CHEST_SIZE
+		chest.Items = chest.Items[:CHEST_SIZE]
+
+		delete(chestRegistry, key)
+		for _, n := range neighbourKeys(x, y, z) {
+			delete(forbiddenSlots, n)
+		}
+		log.Println("Deleting Target")
+		PrintForbidden()
+		for _, n := range neighbourKeys(secondPos.X, secondPos.Y, secondPos.Z) {
+			delete(forbiddenSlots, n)
+		}
+		log.Println("Deleting Other")
+		PrintForbidden()
+
+		var survivorX, survivorY, survivorZ int32
+		if x == chest.Position.X && y == chest.Position.Y && z == chest.Position.Z {
+			survivorX, survivorY, survivorZ = chest.SecondPosition.X, chest.SecondPosition.Y, chest.SecondPosition.Z
+		} else {
+			survivorX, survivorY, survivorZ = chest.Position.X, chest.Position.Y, chest.Position.Z
+		}
+
+		chest.SecondPosition = ChestPosition{}
+		registerSingleAdjacentChest(survivorX, survivorY, survivorZ)
+		return
+	}
+
 	delete(chestRegistry, key)
+	unregisterSingleAdjacentChest(x, y, z)
+	for _, n := range neighbourKeys(x, y, z) {
+		delete(forbiddenSlots, n)
+	}
+	delete(adjacentSlots, key)
+	delete(forbiddenSlots, key)
 }
 
-func PlaceChest(x, y, z int32) {
-	chest := NewChest(27)
-	if chestRegistry == nil {
-		chestRegistry = make(map[string]*Chest)
+func PlaceChest(x, y, z int32) bool {
+	initRegistries()
+
+	key := chestKey(x, y, z)
+	if _, forbidden := forbiddenSlots[key]; forbidden {
+		return false
 	}
-	chestRegistry[chestKey(x, y, z)] = &chest
+
+	if neighbourKey, adjacent := adjacentSlots[key]; adjacent {
+		existingChest := chestRegistry[neighbourKey]
+
+		existingChest.Size = DOUBLE_CHEST_SIZE
+		extra := make([]Item, CHEST_SIZE)
+		for i := range extra {
+			extra[i] = NewItem(-1, 0, 0)
+		}
+		existingChest.Items = append(existingChest.Items, extra...)
+		// Point to same chest
+		chestRegistry[key] = existingChest
+
+		// Single chest adjacency for ALLOWING placing new chests
+		nx, ny, nz := existingChest.Position.X, existingChest.Position.Y, existingChest.Position.Z
+		unregisterSingleAdjacentChest(nx, ny, nz)
+		delete(adjacentSlots, key)
+
+		// Double chest adjaency for PREVENTING placing new chest
+		registerDoubleAdjacentChest(nx, ny, nz)
+		registerDoubleAdjacentChest(x, y, z)
+		existingChest.SetSecondPosition(x, y, z)
+		return true
+	}
+
+	chest := NewChest(CHEST_SIZE)
+	chest.SetPosition(x, y, z)
+	chestRegistry[key] = &chest
+	registerSingleAdjacentChest(x, y, z)
+	return true
 }
 
 func chestKey(x, y, z int32) string {
@@ -88,11 +239,17 @@ func (c *Chest) Print() {
 		if item.TypeId == -1 {
 			continue
 		}
-		fmt.Printf("  slot %2d | id %-5d | count %d\n", i, item.TypeId, item.Count)
+		fmt.Printf("  slot %2d | id %-5d | count %d | (%d %d %d)\n", i, item.TypeId, item.Count, c.Position.X, c.Position.Y, c.Position.Z)
 	}
 	fmt.Println("=================")
 }
 
-func (c *Chest) IsInChest (slot int16) bool {
+func PrintForbidden() {
+	for key := range forbiddenSlots {
+		log.Println("Forbidden", key)
+	}
+}
+
+func (c *Chest) IsInChest(slot int16) bool {
 	return slot >= 0 && slot < int16(c.Size)
 }

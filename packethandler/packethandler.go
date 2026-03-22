@@ -6,6 +6,7 @@ import (
 
 	"bufio"
 
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -68,6 +69,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		//log.Printf("Buffer size before: %d", reader.Buffered())
 		handleWindowClickInPacket(connection, p, pl)
 		sendCurrentInventory(connection, pl)
+		inventory.PrintForbidden()
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl)

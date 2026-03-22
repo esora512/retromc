@@ -96,9 +96,12 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		return
 	}
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
-	// Don't credit air — player somehow finished digging an empty cell.
 	if oldBlock.TypeId == 0x00 {
 		return
+	}
+
+	if oldBlock.TypeId == byte(constants.Chest.Value) {
+		inventory.RemoveChest(p.X, int32(p.Y), p.Z)
 	}
 
 	air := level.NewAirBlock()
@@ -145,18 +148,14 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if oldExisting.TypeId == byte(constants.Chest.Value) {
-		chestPacket := packets.NewChest()
+		chest := inventory.GetChest(p.X, int32(p.Y), p.Z)
+		chestPacket := packets.NewChest(byte(chest.Size))
 		connection.Write(chestPacket.Serialize())
 		pl.InventoryType = player.ChestInventory
 		pl.Chest.X = int32(p.X)
 		pl.Chest.Y = int32(p.Y)
 		pl.Chest.Z = int32(p.Z)
-
-		// Send chest contents to the client so items are visible.
-		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
-		if chest != nil {
-			sendChestContents(connection, chest)
-		}
+		sendChestContents(connection, chest)
 		return
 	}
 
@@ -207,7 +206,10 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if block.IsDirectional() {
 		if block.TypeId == byte(constants.Chest.Value) {
-			inventory.PlaceChest(int32(newX), int32(newY), int32(newZ))
+			check := inventory.PlaceChest(int32(newX), int32(newY), int32(newZ))
+			if !check {
+				return
+			}
 		}
 
 		log.Println("Face", p.Face)

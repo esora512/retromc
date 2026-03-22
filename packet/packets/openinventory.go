@@ -19,22 +19,12 @@ func NewCraftingTable() OpenInventoryOutPacket {
 	return p
 }
 
-func NewChest() OpenInventoryOutPacket {
+func NewChest(size byte) OpenInventoryOutPacket {
 	p := OpenInventoryOutPacket{
 		WindowID: byte(1),
 		Type:     0,
 		Title:    "Chest",
-		Size:     27,
-	}
-	return p
-}
-
-func NewDoubleChest() OpenInventoryOutPacket {
-	p := OpenInventoryOutPacket{
-		WindowID: byte(1),
-		Type:     0,
-		Title:    "Chest",
-		Size:     54,
+		Size:     size,
 	}
 	return p
 }
