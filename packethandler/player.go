@@ -104,6 +104,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		inventory.RemoveChest(p.X, int32(p.Y), p.Z)
 	}
 
+	if oldBlock.TypeId == byte(constants.Dispenser.Value) {
+		inventory.RemoveDispenser(p.X, int32(p.Y), p.Z)
+	}
+
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 
@@ -159,6 +163,36 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
+	if oldExisting.TypeId == byte(constants.Dispenser.Value) {
+		dispenser := inventory.GetDispenser(p.X, int32(p.Y), p.Z)
+		if dispenser == nil {
+			return
+		}
+		dispenserPacket := packets.NewDispenser()
+		connection.Write(dispenserPacket.Serialize())
+		pl.InventoryType = player.DispenserInventory
+		pl.Dispenser.X = int32(p.X)
+		pl.Dispenser.Y = int32(p.Y)  
+		pl.Dispenser.Z = int32(p.Z)
+		sendDispenserContents(connection, dispenser)
+		return
+	}
+
+	if oldExisting.TypeId == byte(constants.Furnace.Value) {
+		furnace := inventory.GetFurnace(p.X, int32(p.Y), p.Z)
+		if furnace == nil {
+			return
+		}
+		furnacePacket := packets.NewFurnace()
+		connection.Write(furnacePacket.Serialize())
+		pl.InventoryType = player.FurnaceInventory
+		pl.Furnace.X = int32(p.X)
+		pl.Furnace.Y = int32(p.Y)
+		pl.Furnace.Z = int32(p.Z)
+		sendFurnaceContents(connection, furnace)
+		return
+	}
+
 	pl.HotbarLocked.Store(true)
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
@@ -207,6 +241,20 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	if block.IsDirectional() {
 		if block.TypeId == byte(constants.Chest.Value) {
 			check := inventory.PlaceChest(int32(newX), int32(newY), int32(newZ))
+			if !check {
+				return
+			}
+		}
+
+		if block.TypeId == byte(constants.Dispenser.Value) {
+			check := inventory.PlaceDispenser(int32(newX), int32(newY), int32(newZ))
+			if !check {
+				return
+			}
+		}
+
+		if block.TypeId == byte(constants.Furnace.Value) {
+			check := inventory.PlaceFurnace(int32(newX), int32(newY), int32(newZ))
 			if !check {
 				return
 			}

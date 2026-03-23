@@ -29,6 +29,26 @@ func NewChest(size byte) OpenInventoryOutPacket {
 	return p
 }
 
+func NewDispenser() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     3,
+		Title:    "Dispenser",
+		Size:     9,
+	}
+	return p
+}
+
+func NewFurnace() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     2,
+		Title:    "Furnace",
+		Size:     3,
+	}
+	return p
+}
+
 func (p *OpenInventoryOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.OpenInventory)

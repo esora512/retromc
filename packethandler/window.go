@@ -39,8 +39,6 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 
 	if windowId == 1 && pl.InventoryType == player.ChestInventory {
 		chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
-		log.Println("Chest inventory")
-		p.Print()
 		if slot >= int16(chest.Size) {
 			windowId = 0
 			slot = chest.ShiftSlot(slot)
@@ -55,10 +53,57 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		}
 	}
 
+	if windowId == 1 && pl.InventoryType == player.DispenserInventory {
+		dispenser := inventory.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z)
+		if dispenser == nil {
+			return
+		}
+		if slot >= int16(dispenser.Size) {
+			windowId = 0
+		} else {
+			if shift {
+				// noop
+				// CLient with Beta Tweaks does not send shift click for dispenser
+			} else {
+				dispenserClick(pl, slot, rightClick)
+			}
+			acceptTransaction(connection, p)
+			return
+		}
+	}
+
+	if windowId == 1 && pl.InventoryType == player.FurnaceInventory {
+		furnace := inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+		if furnace == nil {
+			return
+		}
+		if slot >= int16(furnace.Size) {
+			windowId = 0
+			slot = furnace.ShiftSlot(slot)
+		} else {
+			if shift {
+				shiftClickFurnace(pl, slot)
+			} else {
+				slotItem := furnace.PeekItem(slot)
+				hasHeld := pl.SelectedItem.Selected
+				slotEmpty := slotItem.TypeId == -1
+				if slot == 2 {
+					if hasHeld || slotEmpty {
+						// noop if item in hand
+						return
+					}
+				} else {
+					// only bottom and top slot are clickable
+					furnaceClick(pl, slot, rightClick)
+				}
+			}
+			acceptTransaction(connection, p)
+			return
+		}
+	}
+
 	// Workbench actions
 	if windowId == 1 && pl.InventoryType == player.WorkbenchInventory {
-		log.Println("Workbench inventory")
-		p.Print()
 		if slot > 9 {
 			// If outside crafting grid, switch to inventory
 			windowId = 0
@@ -79,8 +124,6 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	// Regular inventory actions
 	// Includes 2x2 grid crafting
 	if windowId == 0 {
-		log.Println("Player inventory")
-		p.Print()
 		if slot == 0 {
 			craftInInventory(pl, shift, rightClick)
 			acceptTransaction(connection, p)
@@ -152,6 +195,21 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
 	}
+}
+
+func shiftClickFurnace(pl *player.Player, slot int16) {
+	furnace := inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	if furnace == nil {
+		return
+	}
+	sourceItem := furnace.PeekItem(slot)
+	if sourceItem.TypeId == -1 {
+		return
+	}
+	var sourceContainer inventory.ItemContainer = furnace
+	var targetContainer inventory.ItemContainer = &pl.Inventory
+	shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
+	furnace.Print()
 }
 
 func shiftClickChest(pl *player.Player, slot int16) {
@@ -344,6 +402,24 @@ func chestClick(pl *player.Player, slot int16, rightClick bool) {
 	}
 	guiClick(pl, chest, slot, rightClick)
 	chest.Print()
+}
+
+func dispenserClick(pl *player.Player, slot int16, rightClick bool) {
+	dispenser := inventory.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z)
+	if dispenser == nil {
+		return
+	}
+	guiClick(pl, dispenser, slot, rightClick)
+	dispenser.Print()
+}
+
+func furnaceClick(pl *player.Player, slot int16, rightClick bool) {
+	furnace := inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	if furnace == nil {
+		return
+	}
+	guiClick(pl, furnace, slot, rightClick)
+	furnace.Print()
 }
 
 func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {

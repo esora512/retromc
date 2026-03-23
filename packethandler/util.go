@@ -27,6 +27,24 @@ func sendChestContents(connection net.Conn, chest *inventory.Chest) {
 	}
 }
 
+func sendDispenserContents(connection net.Conn, dispenser *inventory.Dispenser) {
+	for i := int16(0); i < int16(dispenser.Size); i++ {
+		item := dispenser.PeekItem(i)
+		if item.TypeId != -1 {
+			sendSetSlot(connection, 1, i, item)
+		}
+	}
+}
+
+func sendFurnaceContents(connection net.Conn, furnace *inventory.Furnace) {
+	for i := int16(0); i < int16(furnace.Size); i++ {
+		item := furnace.PeekItem(i)
+		if item.TypeId != -1 {
+			sendSetSlot(connection, 1, i, item)
+		}
+	}
+}
+
 // presetInventory writes the starting items directly into the player's in-memory
 // inventory. The caller is responsible for sending the inventory to the client.
 func presetInventory(inv *inventory.Inventory) {
@@ -34,6 +52,7 @@ func presetInventory(inv *inventory.Inventory) {
 	inv.SetItem(37, constants.Stone.Value, 64, 0)
 	inv.SetItem(38, constants.Planks.Value, 64, 0)
 	inv.SetItem(40, constants.String.Value, 32, 0)
+	inv.SetItem(41, constants.Dispenser.Value, 16, 0)
 	//inv.SetItem(38, 326, 1) // Water Bucket
 	//inv.SetItem(39, 327, 1) // Lava Bucket
 }

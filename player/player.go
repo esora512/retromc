@@ -18,10 +18,20 @@ type PlayerChest struct {
 	X, Y, Z int32
 }
 
+type PlayerDispenser struct {
+	X, Y, Z int32
+}
+
+type PlayerFurnace struct {
+	X, Y, Z int32
+}
+
 const (
 	PlayerInventory    InventoryType = 0
 	WorkbenchInventory InventoryType = 1
 	ChestInventory     InventoryType = 2
+	DispenserInventory InventoryType = 3
+	FurnaceInventory   InventoryType = 4
 )
 
 type SelectedItem struct {
@@ -73,6 +83,9 @@ type Player struct {
 	Workbench     inventory.Workbench
 	InventoryType InventoryType
 	Chest         PlayerChest
+	Dispenser     PlayerDispenser
+	Furnace       PlayerFurnace
+
 }
 
 const (
@@ -102,5 +115,7 @@ func NewPlayer(conn net.Conn) *Player {
 		Workbench:     *inventory.NewWorkbench(),
 		InventoryType: PlayerInventory,
 		Chest:         PlayerChest{X: 0, Y: 0, Z: 0},
+		Dispenser:     PlayerDispenser{X: 0, Y: 0, Z: 0},
+		Furnace:       PlayerFurnace{X: 0, Y: 0, Z: 0},
 	}
 }
