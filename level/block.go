@@ -42,6 +42,58 @@ var directionalBlocks = map[int16]bool{
 	constants.Trapdoor.Value:            true,
 }
 
+type BlockDirections struct {
+	North byte
+	South byte
+	East  byte
+	West  byte
+}
+
+func (b *Block) GetDirections() BlockDirections {
+	if b.TypeId == byte(constants.WoodenStairs.Value) || b.TypeId == byte(constants.CobblestoneStairs.Value) {
+		return BlockDirections{
+			North: 0,
+			South: 1,
+			East:  2,
+			West:  3,
+		}
+	}
+
+	if b.TypeId == byte(constants.Torch.Value) || b.TypeId == byte(constants.RedstoneTorchOn.Value) || b.TypeId == byte(constants.RedstoneTorchOff.Value) || b.TypeId == byte(constants.Lever.Value) {
+		return BlockDirections{
+			North: 2,
+			South: 1,
+			East:  4,
+			West:  3,
+		}
+	}
+
+	if b.TypeId == byte(constants.Furnace.Value) || b.TypeId == byte(constants.FurnaceLit.Value) || b.TypeId == byte(constants.Dispenser.Value) || b.TypeId == byte(constants.Chest.Value) {
+		return BlockDirections{
+			North: 4,
+			South: 5,
+			East:  2,
+			West:  3,
+		}
+	}
+
+	if b.TypeId == byte(constants.Piston.Value) || b.TypeId == byte(constants.PistonHead.Value) {
+		return BlockDirections{
+			North: 4,
+			South: 5,
+			East:  2,
+			West:  3,
+		}
+	}
+
+	return BlockDirections{
+		North: 0,
+		South: 1,
+		East:  2,
+		West:  3,
+	}
+}
+
 func (b *Block) IsDirectional() bool {
 	return directionalBlocks[int16(b.TypeId)]
 }

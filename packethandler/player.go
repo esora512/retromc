@@ -193,6 +193,11 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
+	if pl.Inventory.PeekItem(pl.HotbarSlot).TypeId > 96 {
+		// Only place blocks if block is in hotbar slot
+		return
+	}
+
 	pl.HotbarLocked.Store(true)
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
@@ -261,19 +266,20 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		}
 
 		log.Println("Face", p.Face)
+		directions := block.GetDirections()
 		switch p.Face {
 		case 3:
 			// West
-			block.Metadata = 3
+			block.Metadata = directions.West
 		case 2:
 			// East
-			block.Metadata = 2
+			block.Metadata = directions.East
 		case 4:
 			// North
-			block.Metadata = 0
+			block.Metadata = directions.North
 		case 5:
 			// South
-			block.Metadata = 1
+			block.Metadata = directions.South
 		default:
 			block.Metadata = 0
 		}
