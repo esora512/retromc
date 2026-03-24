@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"net"
 	"time"
-	"bufio"
 
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -30,6 +30,7 @@ func main() {
 	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
 
 	world := level.NewWorld()
+	startGameLoop(world)
 
 	for {
 		// listen for incoming connections
@@ -38,7 +39,6 @@ func main() {
 			log.Fatalln("Failed to accept connection: ", err.Error())
 			continue
 		}
-
 		// handle connection
 		go handleConnection(connection, world)
 	}
@@ -69,15 +69,29 @@ func handleConnection(connection net.Conn, world *level.World) {
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
 
+	world.AddPlayer(pl)
+
 	reader := bufio.NewReader(connection)
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
+			world.RemovePlayer(pl)
 			close(done)
 			connection.Close()
 			return
 		}
-
 	}
+}
+
+func startGameLoop(world *level.World) {
+	go func() {
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			// For fast time, set it to + 20 
+			world.Tick = (world.Tick + 1) % 24000
+			world.BroadcastTime()
+		}
+	}()
 }

@@ -85,6 +85,8 @@ type Player struct {
 	Chest         PlayerChest
 	Dispenser     PlayerDispenser
 	Furnace       PlayerFurnace
+	TimeStarted   bool
+	LoggedIn      bool
 
 }
 

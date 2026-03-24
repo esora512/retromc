@@ -12,13 +12,13 @@ import (
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
 	log.Printf("Login Request: %+v", p)
 
-	sendLoginResponse(connection)
+	sendLoginResponse(connection, pl)
 	sendChunks(connection, world)
 	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)
 }
 
-func sendLoginResponse(connection net.Conn) {
+func sendLoginResponse(connection net.Conn, pl *player.Player) {
 	// create login response packet
 	outPacket := packets.LoginResponseOutPacket{
 		EntityId:  0,
@@ -29,6 +29,7 @@ func sendLoginResponse(connection net.Conn) {
 
 	// write login response packet
 	connection.Write(outData)
+	pl.LoggedIn = true
 }
 
 // sendChunks sends a 2x2 grid of chunks around the spawn point.

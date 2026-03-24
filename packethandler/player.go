@@ -111,7 +111,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 
-	// Notify client of the block change.
+	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
 		X:         p.X,
 		Y:         p.Y,
@@ -119,7 +119,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		BlockType: air.TypeId,
 		BlockMeta: air.Metadata,
 	}
-	connection.Write(blockChange.Serialize())
+	world.BroadcastPacket(blockChange.Serialize())
 
 	// Add the mined block to the in-memory inventory.
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
@@ -172,7 +172,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		connection.Write(dispenserPacket.Serialize())
 		pl.InventoryType = player.DispenserInventory
 		pl.Dispenser.X = int32(p.X)
-		pl.Dispenser.Y = int32(p.Y)  
+		pl.Dispenser.Y = int32(p.Y)
 		pl.Dispenser.Z = int32(p.Z)
 		sendDispenserContents(connection, dispenser)
 		return
@@ -287,7 +287,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	world.SetBlock(newX, byte(newY), newZ, block)
 
-	// Notify client of the block change.
+	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
 		X:         newX,
 		Y:         byte(newY),
@@ -295,7 +295,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		BlockType: block.TypeId,
 		BlockMeta: block.Metadata,
 	}
-	connection.Write(blockChange.Serialize())
+	world.BroadcastPacket(blockChange.Serialize())
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
