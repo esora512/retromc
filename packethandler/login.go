@@ -16,12 +16,15 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	sendChunks(connection, world)
 	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)
+	spawnPacket := packets.SpawnPlayerEntityPacket(pl)
+	world.MulticastPacket(spawnPacket, pl)
+
 }
 
 func sendLoginResponse(connection net.Conn, pl *player.Player) {
 	// create login response packet
 	outPacket := packets.LoginResponseOutPacket{
-		EntityId:  0,
+		EntityId:  pl.EntityId,
 		MapSeed:   0,
 		Dimension: 0,
 	}

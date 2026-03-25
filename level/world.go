@@ -18,10 +18,11 @@ type World struct {
 	chunks  map[ChunkCoord]*Chunk
 	Tick    int64
 	players []*player.Player
+	EntityCount int32
 }
 
 func NewWorld() *World {
-	return &World{chunks: make(map[ChunkCoord]*Chunk)}
+	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0}
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -74,6 +75,8 @@ func (w *World) AddPlayer(p *player.Player) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.players = append(w.players, p)
+	w.EntityCount++
+	p.EntityId = int(w.EntityCount)
 }
 
 func (w *World) RemovePlayer(p *player.Player) {
@@ -116,6 +119,16 @@ func (w *World) BroadcastPacket(data []byte) {
 	defer w.mu.RUnlock()
 	for _, pl := range w.players {
 		if pl.LoggedIn {
+			pl.Connection.Write(data)
+		}
+	}
+}
+
+func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	for _, pl := range w.players {
+		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
 		}
 	}

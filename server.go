@@ -70,7 +70,6 @@ func handleConnection(connection net.Conn, world *level.World) {
 	handleKeepAlive(connection, done)
 
 	world.AddPlayer(pl)
-
 	reader := bufio.NewReader(connection)
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl)
@@ -89,7 +88,7 @@ func startGameLoop(world *level.World) {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			// For fast time, set it to + 20 
+			// For fast time, set it to + 20
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 		}

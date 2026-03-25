@@ -2,7 +2,48 @@ package packets
 
 import (
 	"github.com/leNicDev/retromc/packet"
+	"github.com/leNicDev/retromc/player"
 )
+
+type SpawnPlayerEntityOutPacket struct {
+	EntityId int32
+	Username string
+	X        int32
+	Y        int32
+	Z        int32
+	Yaw      byte
+	Pitch    byte
+	HeldItem int16
+}
+
+func (p *SpawnPlayerEntityOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.SpawnPlayerEntity)
+	w.WriteInt32(p.EntityId)
+	w.WriteString16(p.Username)
+	w.WriteInt32(p.X)
+	w.WriteInt32(p.Y)
+	w.WriteInt32(p.Z)
+	w.WriteByte(p.Yaw)
+	w.WriteByte(p.Pitch)
+	w.WriteShort(uint16(p.HeldItem))
+	return w.Bytes()
+}
+
+func SpawnPlayerEntityPacket(pl *player.Player) []byte {
+	// The protocol encodes positions in entity space: 1 block = 32 units.
+	p := SpawnPlayerEntityOutPacket{
+		EntityId: int32(pl.EntityId),
+		Username: pl.Username,
+		X:        int32(pl.X * 32),
+		Y:        int32(pl.Y * 32),
+		Z:        int32(pl.Z * 32),
+		Yaw:      byte(pl.Yaw),
+		Pitch:    byte(pl.Pitch),
+		HeldItem: 0,
+	}
+	return p.Serialize()
+}
 
 type RespawnPacket struct {
 	World byte
