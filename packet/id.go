@@ -28,4 +28,5 @@ const (
 	Transaction           byte = 0x6a
 	OpenInventory         byte = 0x64
 	CloseWindow           byte = 0x65
+	EntityRelativePositionAndLook byte = 0x21
 )
