@@ -6,13 +6,14 @@ import (
 
 	"github.com/leNicDev/retromc/crafting"
 	"github.com/leNicDev/retromc/inventory"
+	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
 
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
-func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, pl *player.Player) {
+func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, world *level.World, pl *player.Player) {
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
@@ -48,6 +49,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 			} else {
 				chestClick(pl, slot, rightClick)
 			}
+			broadcastChestContents(world, pl, chest)
 			acceptTransaction(connection, p)
 			return
 		}
@@ -67,6 +69,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 			} else {
 				dispenserClick(pl, slot, rightClick)
 			}
+			broadcastDispenserContents(world, pl, dispenser)
 			acceptTransaction(connection, p)
 			return
 		}
@@ -97,6 +100,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 					furnaceClick(pl, slot, rightClick)
 				}
 			}
+			broadcastFurnaceContents(world, pl, furnace)
 			acceptTransaction(connection, p)
 			return
 		}
@@ -133,6 +137,13 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 		if shift {
 			// Based on decompiled Beta 1.7.3 code, shift click is the same for right & left
 			shiftClick(pl, slot)
+			// shiftClick may move items from the player inventory into an open chest
+			if pl.InventoryType == player.ChestInventory {
+				chest := inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+				if chest != nil {
+					broadcastChestContents(world, pl, chest)
+				}
+			}
 		} else {
 			normalClick(pl, slot, rightClick)
 		}

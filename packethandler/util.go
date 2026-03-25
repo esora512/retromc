@@ -5,7 +5,9 @@ import (
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
+	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
+	"github.com/leNicDev/retromc/player"
 )
 
 // sendSetSlot tells the client to update a single inventory slot.
@@ -43,6 +45,45 @@ func sendFurnaceContents(connection net.Conn, furnace *inventory.Furnace) {
 			sendSetSlot(connection, 1, i, item)
 		}
 	}
+}
+
+func broadcastChestContents(world *level.World, source *player.Player, chest *inventory.Chest) {
+	world.ForEachPlayer(func(pl *player.Player) {
+		if pl == source || pl.InventoryType != player.ChestInventory {
+			return
+		}
+		if inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z) == chest {
+			for i := int16(0); i < int16(chest.Size); i++ {
+				sendSetSlot(pl.Connection, 1, i, chest.PeekItem(i))
+			}
+		}
+	})
+}
+
+func broadcastDispenserContents(world *level.World, source *player.Player, dispenser *inventory.Dispenser) {
+	world.ForEachPlayer(func(pl *player.Player) {
+		if pl == source || pl.InventoryType != player.DispenserInventory {
+			return
+		}
+		if inventory.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z) == dispenser {
+			for i := int16(0); i < int16(dispenser.Size); i++ {
+				sendSetSlot(pl.Connection, 1, i, dispenser.PeekItem(i))
+			}
+		}
+	})
+}
+
+func broadcastFurnaceContents(world *level.World, source *player.Player, furnace *inventory.Furnace) {
+	world.ForEachPlayer(func(pl *player.Player) {
+		if pl == source || pl.InventoryType != player.FurnaceInventory {
+			return
+		}
+		if inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z) == furnace {
+			for i := int16(0); i < int16(furnace.Size); i++ {
+				sendSetSlot(pl.Connection, 1, i, furnace.PeekItem(i))
+			}
+		}
+	})
 }
 
 // presetInventory writes the starting items directly into the player's in-memory

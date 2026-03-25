@@ -120,3 +120,13 @@ func (w *World) BroadcastPacket(data []byte) {
 		}
 	}
 }
+
+func (w *World) ForEachPlayer(fn func(*player.Player)) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	for _, pl := range w.players {
+		if pl.LoggedIn {
+			fn(pl)
+		}
+	}
+}
