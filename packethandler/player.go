@@ -92,6 +92,7 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
+	log.Printf("Face %d Status %d", p.Face, p.Status)
 	if p.Status != 2 {
 		return
 	}

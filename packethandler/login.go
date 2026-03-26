@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/level"
@@ -10,15 +9,34 @@ import (
 )
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
-	log.Printf("Login Request: %+v", p)
-
+	pl.Username = p.Username
 	sendLoginResponse(connection, pl)
 	sendChunks(connection, world)
 	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)
 	spawnPacket := packets.SpawnPlayerEntityPacket(pl)
+	// Inform other players of the new player
 	world.MulticastPacket(spawnPacket, pl)
+	world.ForEachPlayer(func(other *player.Player) {
+		if other == pl {
+			return
+		}
+		packets.SetEquipment(pl, func(b []byte) {
+			other.Connection.Write(b)
+		})
+	})
 
+	// Inform the new player of other players
+	world.ForEachPlayer(func(other *player.Player) {
+		if other == pl {
+			return
+		}
+		spawnPacket := packets.SpawnPlayerEntityPacket(other)
+		pl.Connection.Write(spawnPacket)
+		packets.SetEquipment(other, func(b []byte) {
+			pl.Connection.Write(b)
+		})
+	})
 }
 
 func sendLoginResponse(connection net.Conn, pl *player.Player) {

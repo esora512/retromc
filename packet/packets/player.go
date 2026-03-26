@@ -5,6 +5,13 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type SetEquipmentOutPacket struct {
+	EntityId      int32
+	InventorySlot int16
+	ItemId        int16
+	ItemMetadata  int16
+}
+
 type SpawnPlayerEntityOutPacket struct {
 	EntityId int32
 	Username string
@@ -30,6 +37,16 @@ func (p *SpawnPlayerEntityOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
+func (p *SetEquipmentOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.SetEquipment)
+	w.WriteInt32(p.EntityId)
+	w.WriteShort(uint16(p.InventorySlot))
+	w.WriteShort(uint16(p.ItemId))
+	w.WriteShort(uint16(p.ItemMetadata))
+	return w.Bytes()
+}
+
 func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 	// The protocol encodes positions in entity space: 1 block = 32 units.
 	p := SpawnPlayerEntityOutPacket{
@@ -43,6 +60,26 @@ func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 		HeldItem: 0,
 	}
 	return p.Serialize()
+}
+
+func SetEquipment(pl *player.Player, send func([]byte)) {
+	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
+	data := map[int16]int16{
+		0: heldItem.TypeId,
+		1: -1,
+		2: -1,
+		3: -1,
+		4: -1,
+	}
+	for slot, itemId := range data {
+		p := &SetEquipmentOutPacket{
+			EntityId:      int32(pl.EntityId),
+			InventorySlot: slot,
+			ItemId:        itemId,
+			ItemMetadata:  0,
+		}
+		send(p.Serialize())
+	}
 }
 
 type RespawnPacket struct {

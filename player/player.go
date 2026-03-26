@@ -87,7 +87,6 @@ type Player struct {
 	Furnace       PlayerFurnace
 	TimeStarted   bool
 	LoggedIn      bool
-
 }
 
 const (
@@ -119,5 +118,6 @@ func NewPlayer(conn net.Conn) *Player {
 		Chest:         PlayerChest{X: 0, Y: 0, Z: 0},
 		Dispenser:     PlayerDispenser{X: 0, Y: 0, Z: 0},
 		Furnace:       PlayerFurnace{X: 0, Y: 0, Z: 0},
+		HotbarSlot:    36,
 	}
 }
