@@ -31,4 +31,5 @@ const (
 	EntityRelativePositionAndLook byte = 0x21
 	SpawnPlayerEntity             byte = 0x14
 	SetEquipment                  byte = 0x05
+	InteractWithEntity            byte = 0x07
 )

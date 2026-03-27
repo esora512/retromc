@@ -14,15 +14,15 @@ type ChunkCoord struct {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	mu      sync.RWMutex
-	chunks  map[ChunkCoord]*Chunk
-	Tick    int64
-	players []*player.Player
+	mu          sync.RWMutex
+	chunks      map[ChunkCoord]*Chunk
+	Tick        int64
+	Players     map[int32]*player.Player
 	EntityCount int32
 }
 
 func NewWorld() *World {
-	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0}
+	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player)}
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -74,20 +74,15 @@ func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
 func (w *World) AddPlayer(p *player.Player) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.players = append(w.players, p)
 	w.EntityCount++
 	p.EntityId = int(w.EntityCount)
+	w.Players[int32(p.EntityId)] = p
 }
 
 func (w *World) RemovePlayer(p *player.Player) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	for i, pl := range w.players {
-		if pl == p {
-			w.players = append(w.players[:i], w.players[i+1:]...)
-			return
-		}
-	}
+	delete(w.Players, int32(p.EntityId))
 }
 
 type SetTimePacket struct {
@@ -106,7 +101,7 @@ func (w *World) BroadcastTime() {
 	defer w.mu.Unlock()
 	packet := SetTimePacket{Time: w.Tick}
 	data := packet.Serialize()
-	for _, pl := range w.players {
+	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			pl.Connection.Write(data)
 		}
@@ -117,7 +112,7 @@ func (w *World) BroadcastTime() {
 func (w *World) BroadcastPacket(data []byte) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	for _, pl := range w.players {
+	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			pl.Connection.Write(data)
 		}
@@ -127,7 +122,7 @@ func (w *World) BroadcastPacket(data []byte) {
 func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	for _, pl := range w.players {
+	for _, pl := range w.Players {
 		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
 		}
@@ -137,7 +132,7 @@ func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
 func (w *World) ForEachPlayer(fn func(*player.Player)) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	for _, pl := range w.players {
+	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			fn(pl)
 		}
