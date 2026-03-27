@@ -34,4 +34,6 @@ const (
 	SetEquipment              byte = 0x05
 	InteractWithEntity        byte = 0x07
 	EntityPosition            byte = 0x1F
+	DespawnEntity             byte = 0x1D
+	Disconnect                byte = 0xFF
 )

@@ -60,7 +60,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handlePlayerDiggingInPacket(connection, p, world, pl)
 	case packet.HoldingChange:
 		p := packets.ReadHoldingChangeInPacket(packetReader)
-		handleHoldingChangeInPacket(p, pl)
+		handleHoldingChangeInPacket(p, pl, world)
 	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(packetReader)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
@@ -78,6 +78,9 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityInPacket(packetReader)
 		handleInteractWithEntityInPacket(p, pl, world)
+	case packet.Disconnect:
+		p := packets.ReadDisconnectInPacket(packetReader)
+		handleDisconnectInPacket(connection, p)
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}

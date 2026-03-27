@@ -28,6 +28,10 @@ type EntityLookOutPacket struct {
 	Pitch    byte
 }
 
+type EntityDespawnOutPacket struct {
+	EntityId int32
+}
+
 func (p *EntityPositionAndLookOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityPositionAndRotation) // write packet id
@@ -57,6 +61,20 @@ func (p *EntityLookOutPacket) Serialize() []byte {
 	writer.WriteByte(p.Yaw)             // write yaw
 	writer.WriteByte(p.Pitch)           // write pitch
 	return writer.Bytes()
+}
+
+func (p *EntityDespawnOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.DespawnEntity) // write packet id
+	writer.WriteInt32(p.EntityId)          // write entity id
+	return writer.Bytes()
+}
+
+func PlayerEntityDespawnPacket(pl *player.Player) []byte {
+	p := EntityDespawnOutPacket{
+		EntityId: int32(pl.EntityId),
+	}
+	return p.Serialize()
 }
 
 func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {

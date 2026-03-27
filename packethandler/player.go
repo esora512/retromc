@@ -104,6 +104,8 @@ func handlePlayerLookInPacket(connection net.Conn, p packets.PlayerLookInPacket,
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
 	log.Printf("Face %d Status %d", p.Face, p.Status)
+	world.MulticastPacket(packets.ArmSwing(pl), pl)
+
 	if p.Status != 2 {
 		return
 	}

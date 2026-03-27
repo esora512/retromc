@@ -75,6 +75,7 @@ func handleConnection(connection net.Conn, world *level.World) {
 		err := packethandler.HandlePacket(connection, reader, world, pl)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
+			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
 			world.RemovePlayer(pl)
 			close(done)
 			connection.Close()

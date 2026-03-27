@@ -12,7 +12,8 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 ## Tasks / Goals
 * Inventory Management ✔️ (Clicking & Moving)
     * One issue involving Beta Tweaks still present, too many packets sends and visible in client
-* Crafting 🚧
+* Crafting ✔️
+* Multiplayer ✔️
 * Block Placement & Mining 🚧
     * Block duplication fixed
     * Still a bit buggy; delays and undos of block placement
@@ -22,8 +23,7 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
     * Minecart
     * Sand/Gravel gravity
 * World Generation ❌
-* Dropping Items (Entity Rendering) ❌l
-* Multiplayer ❌
+* Dropping Items (Entity Rendering) ❌
 
 ## References
 * https://pixelbrush.dev/beta-wiki/ (has protocol information; may help in improving this build)

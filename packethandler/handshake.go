@@ -19,3 +19,7 @@ func handleHandshakeInPacket(connection net.Conn, p packets.HandshakeInPacket) {
 	// write handshake out packet
 	connection.Write(outData)
 }
+
+func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket) {
+	log.Printf("Disconnect: %s", p.Reason)
+}

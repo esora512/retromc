@@ -2,6 +2,18 @@ package packets
 
 import "github.com/leNicDev/retromc/packet"
 
+type DisconnectInPacket struct {
+	packet.Packet
+	Reason string // string16
+}
+
+func ReadDisconnectInPacket(reader *packet.PacketReader) DisconnectInPacket {
+	packet := DisconnectInPacket{}
+	packet.PacketId = reader.GetPacketId()
+	packet.Reason = reader.ReadString16()
+	return packet
+}
+
 type HandshakeInPacket struct {
 	packet.Packet
 	Username string // string16

@@ -5,6 +5,11 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type PlayerAnimation struct {
+	PlayerId int32
+	Action   byte
+}
+
 type SetEquipmentOutPacket struct {
 	EntityId      int32
 	InventorySlot int16
@@ -45,6 +50,22 @@ func (p *SetEquipmentOutPacket) Serialize() []byte {
 	w.WriteShort(uint16(p.ItemId))
 	w.WriteShort(uint16(p.ItemMetadata))
 	return w.Bytes()
+}
+
+func (p *PlayerAnimation) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.PlayerAnimation)
+	w.WriteInt32(p.PlayerId)
+	w.WriteByte(p.Action)
+	return w.Bytes()
+}
+
+func ArmSwing(pl *player.Player) []byte {
+	p := PlayerAnimation{
+		PlayerId: int32(pl.EntityId),
+		Action:   1,
+	}
+	return p.Serialize()
 }
 
 func SpawnPlayerEntityPacket(pl *player.Player) []byte {
