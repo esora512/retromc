@@ -42,14 +42,15 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleLoginRequestInPacket(connection, packet, world, pl)
 	case packet.PlayerPositionAndLook:
 		p := packets.ReadPlayerPositionAndLookInPacket(packetReader)
-		handlePlayerPositionAndLookInPacket(connection, p, pl)
+		handlePlayerPositionAndLookInPacket(connection, p, pl, world)
 	case packet.PlayerPosition:
 		p := packets.ReadPlayerPositionInPacket(packetReader)
-		handlePlayerPositionInPacket(connection, p, pl)
+		handlePlayerPositionInPacket(connection, p, pl, world)
 	case packet.PlayerOnGround:
 		packets.ReadPlayerOnGroundInPacket(packetReader)
 	case packet.PlayerLook:
-		packets.ReadPlayerLookInPacket(packetReader)
+		p := packets.ReadPlayerLookInPacket(packetReader)
+		handlePlayerLookInPacket(connection, p, pl, world)
 	case packet.EntityAction:
 		packets.ReadEntityActionInPacket(packetReader)
 	case packet.PlayerAnimation:

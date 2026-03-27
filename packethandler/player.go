@@ -56,17 +56,17 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 	connection.Write(p.Serialize())
 }
 
-func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player) {
+func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
 	if outOfBounds(p.X, p.Z) {
 		rubberBand(connection, pl)
 		return
 	}
-
 	if p.Y < 0 {
 		sendSetHealth(connection, 0)
 		return
 	}
-
+	ep := packets.PlayerEntityPositionAndLookPacket(pl, p.X, p.Y, p.Z, float64(p.Yaw), float64(p.Pitch), world)
+	world.MulticastPacket(ep, pl)
 	pl.X = p.X
 	pl.Y = p.Y
 	pl.Z = p.Z
@@ -76,15 +76,26 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	pl.OnGround = p.OnGround
 }
 
-func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player) {
+func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
 	if outOfBounds(p.X, p.Z) {
 		rubberBand(connection, pl)
 		return
 	}
+	ep := packets.PlayerEntityPositionPacket(pl, p.X, p.Y, p.Z, world)
+	world.MulticastPacket(ep, pl)
 	pl.X = p.X
 	pl.Y = p.Y
 	pl.Z = p.Z
 	pl.Stance = p.Stance
+	pl.OnGround = p.OnGround
+	//log.Printf("Player position: x %.2f y %.2f z %.2f", p.X, p.Y, p.Z)
+}
+
+func handlePlayerLookInPacket(connection net.Conn, p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
+	ep := packets.PlayerEntityLookPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	world.MulticastPacket(ep, pl)
+	pl.Yaw = p.Yaw
+	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
 }
 
