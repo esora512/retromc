@@ -81,6 +81,12 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.Disconnect:
 		p := packets.ReadDisconnectInPacket(packetReader)
 		handleDisconnectInPacket(connection, p)
+	case packet.ChatMessage:
+		p := packets.ReadChatMessageInPacket(packetReader)
+		isCommand := handleChatMessageInPacket(p, pl, world)
+		if isCommand {
+			sendCurrentInventory(connection, pl)
+		}
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}

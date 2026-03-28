@@ -5,6 +5,10 @@ import (
 	"net"
 	"sync/atomic"
 
+	"fmt"
+	"strings"
+
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 )
 
@@ -119,5 +123,36 @@ func NewPlayer(conn net.Conn) *Player {
 		Dispenser:     PlayerDispenser{X: 0, Y: 0, Z: 0},
 		Furnace:       PlayerFurnace{X: 0, Y: 0, Z: 0},
 		HotbarSlot:    36,
+	}
+}
+
+func (pl *Player) GivePlayer(input string) {
+	args := strings.Split(input, " ")
+	var amountInt int
+	log.Printf("GivePlayer: %+v", args)
+	if len(args) < 1 {
+		return
+	}
+	if len(args) < 2 {
+		amountInt = 1
+	} else {
+		_, err := fmt.Sscanf(args[1], "%d", &amountInt)
+		if err != nil {
+			return
+		}
+	}
+	name := args[0]
+	if amountInt <= 0 || amountInt > 64 {
+		return
+	}
+	block := constants.GetBlockByName(name)
+	if block.Value != -1 {
+		pl.Inventory.AddItem(block.Value, block.Meta, byte(amountInt))
+		return
+	}
+	item := constants.GetItemByName(name)
+	if item.Value != -1 {
+		pl.Inventory.AddItem(item.Value, item.Meta, byte(amountInt))
+		return
 	}
 }

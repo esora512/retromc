@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+	"unicode/utf16"
 )
 
 const (
@@ -100,4 +101,26 @@ func (r *PacketReader) ReadString16() string {
 
 	// convert strData to string
 	return string(strData)
+}
+
+func (r *PacketReader) ReadString16AndDecodeUTF16() string {
+	strLength := r.ReadShort()
+
+	// convert string length to bytes
+	strLengthBytes := int(strLength) * STRING_CHARACTER_SIZE
+
+	// read string bytes from reader
+	strData := make([]byte, strLengthBytes)
+	r.readFull(strData)
+
+	return decodeUTF16(strData)
+}
+
+func decodeUTF16(b []byte) string {
+	// Convert bytes to uint16 slice
+	u16 := make([]uint16, len(b)/2)
+	for i := range u16 {
+		u16[i] = binary.BigEndian.Uint16(b[i*2 : i*2+2])
+	}
+	return string(utf16.Decode(u16))
 }
