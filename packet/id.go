@@ -36,4 +36,5 @@ const (
 	EntityPosition            byte = 0x1F
 	DespawnEntity             byte = 0x1D
 	Disconnect                byte = 0xFF
+	EntityMetadata            byte = 0x28
 )

@@ -152,3 +152,41 @@ func ReadInteractWithEntityInPacket(reader *packet.PacketReader) InteractWithEnt
 	packet.Attack = reader.ReadBool()
 	return packet
 }
+
+type EntityMetadata struct {
+	EntityId int32
+	Metadata []byte
+}
+
+func sneakMetadata(sneaking bool) []byte {
+	var flags byte = 0x00
+	if sneaking {
+		flags = 0x02
+	}
+	metadataType := byte(0)                       // 0 = byte type
+	metadataIndex := byte(0)                      // 0 = entity flags field
+	header := (metadataType << 5) | metadataIndex // encode type and index into single byte
+
+	// S->C: Contains byte of id flag with value 0x02 if sneaking, 0x00 if not sneaking
+	return []byte{
+		header,
+		flags, // 0x02 = sneaking, 0x00 = not sneaking
+		0x7F,  // end of metadata
+	}
+}
+
+func (p *EntityMetadata) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.EntityMetadata) // write packet id
+	w.WriteInt32(p.EntityId)           // write entity id
+	w.Write(p.Metadata)                // write metadata
+	return w.Bytes()
+}
+
+func PlayerEntityMetadataPacket(pl *player.Player, sneaking bool) []byte {
+	p := EntityMetadata{
+		EntityId: int32(pl.EntityId),
+		Metadata: sneakMetadata(sneaking),
+	}
+	return p.Serialize()
+}
