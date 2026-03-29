@@ -83,6 +83,11 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 	}
 	ep := packets.PlayerEntityPositionPacket(pl, p.X, p.Y, p.Z, world)
 	world.MulticastPacket(ep, pl)
+
+	// TODO: Unclear if we need to do this for precision & avoiding drift or overkill
+	// pl.X = float64(int32(math.Floor(x * 32))) / 32.0
+	// pl.Y = float64(int32(math.Floor(y * 32))) / 32.0
+	// pl.Z = float64(int32(math.Floor(z * 32))) / 32.0
 	pl.X = p.X
 	pl.Y = p.Y
 	pl.Z = p.Z

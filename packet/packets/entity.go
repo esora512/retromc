@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"math"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
@@ -78,11 +80,14 @@ func PlayerEntityDespawnPacket(pl *player.Player) []byte {
 }
 
 func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
-	dX := int32((x - pl.X) * 32)
-	dY := int32((y - pl.Y) * 32)
-	dZ := int32((z - pl.Z) * 32)
-	dYaw := int32(yaw * 256 / 360)
-	dPitch := int32(pitch * 256 / 360)
+	encX := int32(math.Floor(x * 32))
+	encY := int32(math.Floor(y * 32))
+	encZ := int32(math.Floor(z * 32))
+	dX := encX - int32(math.Floor(pl.X*32))
+	dY := encY - int32(math.Floor(pl.Y*32))
+	dZ := encZ - int32(math.Floor(pl.Z*32))
+	dYaw := int32(math.Floor(yaw * 256 / 360))
+	dPitch := int32(math.Floor(pitch * 256 / 360))
 
 	p := EntityPositionAndLookOutPacket{
 		EntityId: int32(pl.EntityId),
@@ -96,9 +101,12 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 }
 
 func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
-	dX := int32((x - pl.X) * 32)
-	dY := int32((y - pl.Y) * 32)
-	dZ := int32((z - pl.Z) * 32)
+	encX := int32(math.Floor(x * 32))
+	encY := int32(math.Floor(y * 32))
+	encZ := int32(math.Floor(z * 32))
+	dX := encX - int32(math.Floor(pl.X*32))
+	dY := encY - int32(math.Floor(pl.Y*32))
+	dZ := encZ - int32(math.Floor(pl.Z*32))
 
 	p := EntityPositionOutPacket{
 		EntityId: int32(pl.EntityId),
@@ -110,8 +118,8 @@ func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level
 }
 
 func PlayerEntityLookPacket(pl *player.Player, yaw, pitch float64, world *level.World) []byte {
-	dYaw := int32(yaw * 256 / 360)
-	dPitch := int32(pitch * 256 / 360)
+	dYaw := int32(math.Floor(yaw * 256 / 360))
+	dPitch := int32(math.Floor(pitch * 256 / 360))
 
 	p := EntityLookOutPacket{
 		EntityId: int32(pl.EntityId),
