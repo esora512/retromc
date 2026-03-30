@@ -13,6 +13,10 @@ type PacketWriter struct {
 	buf bytes.Buffer
 }
 
+func (w PacketWriter) WriteString16AndEncodeUTF16(message string) {
+	panic("unimplemented")
+}
+
 func NewPacketWriter() PacketWriter {
 	return PacketWriter{}
 }
@@ -73,7 +77,8 @@ func (w *PacketWriter) WriteFloat64(value float64) {
 
 func (w *PacketWriter) WriteString16(s string) {
 	encoded, _, _ := transform.Bytes(unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM).NewEncoder(), []byte(s))
-	w.WriteShort(uint16(len(s)))
+	// Write the number of UTF-16 code units (each is 2 bytes)
+	w.WriteShort(uint16(len(encoded) / 2))
 	w.Write(encoded)
 }
 

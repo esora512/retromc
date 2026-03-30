@@ -24,6 +24,10 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		packets.SetEquipment(pl, func(b []byte) {
 			other.Connection.Write(b)
 		})
+		chatPacket := packets.ChatMessagePacket{
+			Message: "\u00a7e" + pl.Username + " joined the game",
+		}
+		other.Connection.Write(chatPacket.Serialize())
 	})
 
 	// Inform the new player of other players
