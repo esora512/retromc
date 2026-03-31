@@ -81,7 +81,6 @@ func (w *PacketWriter) WriteString16(s string) {
 	w.WriteShort(uint16(len(encoded) / 2))
 	w.Write(encoded)
 }
-
 func (w *PacketWriter) WriteString8(s string) {
 	w.WriteShort(uint16(len(s)))
 	w.Write([]byte(s))

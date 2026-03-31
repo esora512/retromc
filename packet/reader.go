@@ -89,18 +89,15 @@ func (r *PacketReader) ReadFloat64() float64 {
 }
 
 func (r *PacketReader) ReadString16() string {
-	// read the length of the string in characters
 	strLength := r.ReadShort()
-
-	// convert string length to bytes
 	strLengthBytes := int(strLength) * STRING_CHARACTER_SIZE
-
-	// read string bytes from reader
 	strData := make([]byte, strLengthBytes)
 	r.readFull(strData)
-
-	// convert strData to string
 	return string(strData)
+}
+
+func (r *PacketReader) Read (b []byte) {
+	r.readFull(b)
 }
 
 func (r *PacketReader) ReadString16AndDecodeUTF16() string {

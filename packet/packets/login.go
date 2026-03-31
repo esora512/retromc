@@ -13,7 +13,7 @@ type LoginRequestInPacket struct {
 func ReadLoginRequestInPacket(reader *packet.PacketReader) LoginRequestInPacket {
 	packet := LoginRequestInPacket{}
 	packet.ProtocolVersion = reader.ReadInt()
-	packet.Username = reader.ReadString16()
+	packet.Username = reader.ReadString16AndDecodeUTF16()
 	packet.MapSeed = reader.ReadLong()
 	packet.Dimension = reader.ReadByte()
 	return packet
