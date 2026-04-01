@@ -1,11 +1,27 @@
 package packets
 
 import (
+	"log"
+
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
-	"log"
 )
+
+type SetSlotOutPacket struct {
+	WindowId byte
+	Slot     int16
+	Item     inventory.Item
+}
+
+func (p *SetSlotOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.SetSlot)
+	writer.WriteByte(p.WindowId)
+	writer.WriteShort(uint16(p.Slot))
+	writer.Write(p.Item.Serialize())
+	return writer.Bytes()
+}
 
 type WindowItemsOutPacket struct {
 	WindowId byte
@@ -15,16 +31,12 @@ type WindowItemsOutPacket struct {
 
 func (p *WindowItemsOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-
-	writer.WriteByte(packet.WindowItems) // write packet id
-	writer.WriteByte(p.WindowId)         // write window id
-	writer.WriteInt16(p.Count)           // write inventory size (amount of slots)
-	writer.Write(p.Payload.Serialize())  // write inventory data
-
+	writer.WriteByte(packet.WindowItems)
+	writer.WriteByte(p.WindowId)
+	writer.WriteInt16(p.Count)
+	writer.Write(p.Payload.Serialize())
 	return writer.Bytes()
 }
-
-
 
 type WindowClickInPacket struct {
 	WindowId     byte
@@ -69,7 +81,6 @@ func ReadWindowClickInPacket(reader *packet.PacketReader) WindowClickInPacket {
 	return p
 }
 
-
 type CloseWindowInPacket struct {
 	packet.Packet
 	WindowId byte
@@ -83,4 +94,61 @@ func ReadCloseWindowInPacket(reader *packet.PacketReader, pl *player.Player) Clo
 		pl.Workbench.ClearGrid()
 	}
 	return p
+}
+
+type OpenInventoryOutPacket struct {
+	WindowID byte
+	Type     byte
+	Title    string
+	Size     byte
+}
+
+func NewCraftingTable() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     1,
+		Title:    "Crafting",
+		Size:     9,
+	}
+	return p
+}
+
+func NewChest(size byte) OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     0,
+		Title:    "Chest",
+		Size:     size,
+	}
+	return p
+}
+
+func NewDispenser() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     3,
+		Title:    "Dispenser",
+		Size:     9,
+	}
+	return p
+}
+
+func NewFurnace() OpenInventoryOutPacket {
+	p := OpenInventoryOutPacket{
+		WindowID: byte(1),
+		Type:     2,
+		Title:    "Furnace",
+		Size:     3,
+	}
+	return p
+}
+
+func (p *OpenInventoryOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.OpenInventory)
+	w.WriteByte(p.WindowID)
+	w.WriteByte(p.Type)
+	w.WriteString8(p.Title)
+	w.WriteByte(p.Size)
+	return w.Bytes()
 }

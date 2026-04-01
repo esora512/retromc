@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/crafting"
@@ -444,7 +443,6 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 
 func handleCloseWindowInPacket(p packets.CloseWindowInPacket, pl *player.Player) {
 	pl.InventoryType = player.PlayerInventory
-	log.Printf("CloseWindow: %+v", p)
 }
 
 func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, rightClick bool) {

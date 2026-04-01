@@ -319,4 +319,17 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+	if pl.Inventory.PeekItem(slot).TypeId == -1 {
+		sendEquipmentChangeForHotbarSlot(world, pl)
+	}
+}
+
+func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
+	// Drop the update while a BlockPlacement is in progress to avoid a race
+	// where a slot change arriving just after placement resets the wrong slot.
+	if pl.HotbarLocked.Load() {
+		return
+	}
+	pl.HotbarSlot = p.Slot + 36
+	sendEquipmentChangeForHotbarSlot(world, pl)
 }

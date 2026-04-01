@@ -5,6 +5,22 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type SpawnPositionOutPacket struct {
+	X int32
+	Y int32
+	Z int32
+}
+
+func (p *SpawnPositionOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.SpawnPosition) 
+	writer.WriteInt32(p.X)
+	writer.WriteInt32(p.Y)
+	writer.WriteInt32(p.Z)
+
+	return writer.Bytes()
+}
+
 type PlayerAnimation struct {
 	PlayerId int32
 	Action   byte
@@ -254,14 +270,14 @@ type PlayerPositionAndLookOutPacket struct {
 
 func (p *PlayerPositionAndLookOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.PlayerPositionAndLook) // write packet id
-	w.WriteFloat64(p.X)                       // write x position
-	w.WriteFloat64(p.Stance)                  // write stance
-	w.WriteFloat64(p.Y)                       // write y position
-	w.WriteFloat64(p.Z)                       // write z position
-	w.WriteFloat32(p.Yaw)                     // write yaw
-	w.WriteFloat32(p.Pitch)                   // write pitch
-	w.WriteBool(p.OnGround)                   // write on ground
+	w.WriteByte(packet.PlayerPositionAndLook)
+	w.WriteFloat64(p.X)                       
+	w.WriteFloat64(p.Stance)                 
+	w.WriteFloat64(p.Y)                      
+	w.WriteFloat64(p.Z)                    
+	w.WriteFloat32(p.Yaw)                    
+	w.WriteFloat32(p.Pitch)                
+	w.WriteBool(p.OnGround)                 
 	return w.Bytes()
 }
 
@@ -310,4 +326,36 @@ func ReadPlayerDiggingInPacket(reader *packet.PacketReader) PlayerDiggingInPacke
 	packet.Face = reader.ReadByte()
 	//log.Printf("Mine: %+v", packet)
 	return packet
+}
+
+type HoldingChangeInPacket struct {
+	packet.Packet
+	Slot int16
+}
+
+func ReadHoldingChangeInPacket(reader *packet.PacketReader) HoldingChangeInPacket {
+	packet := HoldingChangeInPacket{}
+	packet.PacketId = reader.GetPacketId()
+	packet.Slot = int16(reader.ReadShort())
+	//log.Printf("Holding change: %+v", packet)
+	return packet
+}
+
+type BlockChangeOutPacket struct {
+	X         int32
+	Y         byte
+	Z         int32
+	BlockType byte
+	BlockMeta byte
+}
+
+func (p *BlockChangeOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.BlockChange)
+	writer.WriteInt32(p.X)
+	writer.WriteByte(p.Y)
+	writer.WriteInt32(p.Z)
+	writer.WriteByte(p.BlockType)
+	writer.WriteByte(p.BlockMeta)
+	return writer.Bytes()
 }

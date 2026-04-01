@@ -93,6 +93,75 @@ func presetInventory(inv *inventory.Inventory) {
 	// inv.SetItem(38, constants.Planks.Value, 64, 0)
 	// inv.SetItem(40, constants.String.Value, 32, 0)
 	// inv.SetItem(41, constants.Dispenser.Value, 16, 0)
-	//inv.SetItem(38, 326, 1) // Water Bucket
-	//inv.SetItem(39, 327, 1) // Lava Bucket
+	// inv.SetItem(38, 326, 1) // Water Bucket
+	// inv.SetItem(39, 327, 1) // Lava Bucket
+}
+
+// sendChunks sends a 2x2 grid of chunks around the spawn point.
+// Each chunk needs a PreChunk (init) followed by its MapChunk (data).
+// Chunks are fetched from the world so any already-mutated state is preserved.
+func sendChunks(connection net.Conn, world *level.World) {
+	for cx := int32(-1); cx <= 0; cx++ {
+		for cz := int32(-1); cz <= 0; cz++ {
+			// pre-chunk: uses chunk coordinates
+			preChunkPacket := packets.PreChunkOutPacket{
+				X:    cx,
+				Z:    cz,
+				Mode: true,
+			}
+			connection.Write(preChunkPacket.Serialize())
+
+			// map-chunk: X/Z are block coordinates of the chunk's origin
+			chunk := world.GetOrCreateChunk(cx, cz)
+
+			mapChunkPacket := packets.MapChunkOutPacket{}
+			mapChunkPacket.Apply(*chunk)
+			connection.Write(mapChunkPacket.Serialize())
+		}
+	}
+}
+
+func sendSpawnPosition(connection net.Conn) {
+	spawnPositionPacket := packets.SpawnPositionOutPacket{
+		X: 0,
+		Y: 64,
+		Z: 0,
+	}
+	outData := spawnPositionPacket.Serialize()
+	connection.Write(outData)
+}
+
+func sendInventory(connection net.Conn, pl *player.Player) {
+	windowItemsPacket := packets.WindowItemsOutPacket{
+		WindowId: 0, // 0 = player inventory
+		Count:    int16(pl.Inventory.Size),
+		Payload:  pl.Inventory,
+	}
+	connection.Write(windowItemsPacket.Serialize())
+}
+
+func sendPlayerPositionAndLook(connection net.Conn) {
+	const spawnY = 64.0
+	packet := packets.PlayerPositionAndLookOutPacket{
+		X:        0,
+		Y:        spawnY,
+		Stance:   spawnY + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
+		Z:        0,
+		Yaw:      0,
+		Pitch:    0,
+		OnGround: true,
+	}
+	outData := packet.Serialize()
+	connection.Write(outData)
+}
+
+func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
+	world.ForEachPlayer(func(other *player.Player) {
+		if other == pl {
+			return
+		}
+		packets.SetEquipment(pl, func(b []byte) {
+			other.Connection.Write(b)
+		})
+	})
 }

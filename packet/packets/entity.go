@@ -36,39 +36,39 @@ type EntityDespawnOutPacket struct {
 
 func (p *EntityPositionAndLookOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.EntityPositionAndRotation) // write packet id
-	writer.WriteInt32(p.EntityId)                      // write entity id
-	writer.WriteByte(p.X)                              // write x position
-	writer.WriteByte(p.Y)                              // write y position
-	writer.WriteByte(p.Z)                              // write z position
-	writer.WriteByte(p.Yaw)                            // write yaw
-	writer.WriteByte(p.Pitch)                          // write pitch
+	writer.WriteByte(packet.EntityPositionAndRotation)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.X)
+	writer.WriteByte(p.Y)
+	writer.WriteByte(p.Z)
+	writer.WriteByte(p.Yaw)
+	writer.WriteByte(p.Pitch)
 	return writer.Bytes()
 }
 
 func (p *EntityPositionOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.EntityPosition) // write packet id
-	writer.WriteInt32(p.EntityId)           // write entity id
-	writer.WriteByte(p.X)                   // write x position
-	writer.WriteByte(p.Y)                   // write y position
-	writer.WriteByte(p.Z)                   // write z position
+	writer.WriteByte(packet.EntityPosition)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.X)
+	writer.WriteByte(p.Y)
+	writer.WriteByte(p.Z)
 	return writer.Bytes()
 }
 
 func (p *EntityLookOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.EntityLook) // write packet id
-	writer.WriteInt32(p.EntityId)       // write entity id
-	writer.WriteByte(p.Yaw)             // write yaw
-	writer.WriteByte(p.Pitch)           // write pitch
+	writer.WriteByte(packet.EntityLook)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.Yaw)
+	writer.WriteByte(p.Pitch)
 	return writer.Bytes()
 }
 
 func (p *EntityDespawnOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.DespawnEntity) // write packet id
-	writer.WriteInt32(p.EntityId)          // write entity id
+	writer.WriteByte(packet.DespawnEntity)
+	writer.WriteInt32(p.EntityId)
 	return writer.Bytes()
 }
 
@@ -141,7 +141,6 @@ func ReadEntityActionInPacket(reader *packet.PacketReader) EntityActionInPacket 
 	packet.EntityId = reader.ReadInt()
 	packet.ActionId = reader.ReadByte()
 	//log.Printf("Entity action: %+v", packet)
-
 	return packet
 }
 
@@ -185,9 +184,9 @@ func sneakMetadata(sneaking bool) []byte {
 
 func (p *EntityMetadata) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.EntityMetadata) // write packet id
-	w.WriteInt32(p.EntityId)           // write entity id
-	w.Write(p.Metadata)                // write metadata
+	w.WriteByte(packet.EntityMetadata)
+	w.WriteInt32(p.EntityId)
+	w.Write(p.Metadata)
 	return w.Bytes()
 }
 

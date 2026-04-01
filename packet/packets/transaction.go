@@ -12,9 +12,9 @@ type TransactionOutPacket struct {
 
 func (p *TransactionOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.Transaction) // write packet id
-	writer.WriteByte(p.WindowId)         // write window id
-	writer.WriteInt16(p.ActionNumber)    // write action number
-	writer.WriteBool(p.Accepted)         // write accepted
+	writer.WriteByte(packet.Transaction) 
+	writer.WriteByte(p.WindowId)        
+	writer.WriteInt16(p.ActionNumber)   
+	writer.WriteBool(p.Accepted)
 	return writer.Bytes()
 }

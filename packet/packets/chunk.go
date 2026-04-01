@@ -13,12 +13,10 @@ type PreChunkOutPacket struct {
 
 func (p *PreChunkOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-
-	writer.WriteByte(packet.PreChunk) // write packet id
-	writer.WriteInt32(p.X)            // write chunk x position
-	writer.WriteInt32(p.Z)            // write chunk z position
-	writer.WriteBool(p.Mode)          // write pre chunk mode
-
+	writer.WriteByte(packet.PreChunk)
+	writer.WriteInt32(p.X)   // write chunk x position
+	writer.WriteInt32(p.Z)   // write chunk z position
+	writer.WriteBool(p.Mode) // write pre chunk mode
 	return writer.Bytes()
 }
 
@@ -46,8 +44,7 @@ func (p *MapChunkOutPacket) Apply(chunk level.Chunk) {
 
 func (p *MapChunkOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-
-	writer.WriteByte(packet.MapChunk)   // write packet id
+	writer.WriteByte(packet.MapChunk)
 	writer.WriteInt32(p.X)              // write chunk x position
 	writer.WriteInt16(p.Y)              // write chunk y position
 	writer.WriteInt32(p.Z)              // write chunk z position
@@ -56,6 +53,5 @@ func (p *MapChunkOutPacket) Serialize() []byte {
 	writer.WriteByte(p.SizeZ)           // write chunk size z
 	writer.WriteInt32(p.CompressedSize) // write compressed chunk data size
 	writer.Write(p.CompressedData)      // write compressed chunk data
-
 	return writer.Bytes()
 }

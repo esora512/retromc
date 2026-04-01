@@ -22,7 +22,6 @@ func sendCurrentInventory(connection net.Conn, pl *player.Player) {
 }
 
 func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player) error {
-	// read packet
 	packetId, err := reader.ReadByte()
 	if err != nil {
 		log.Println("Failed to read packet id:", err.Error())
@@ -68,8 +67,13 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
 		//log.Printf("Buffer size before: %d", reader.Buffered())
+		before := pl.Inventory.PeekItem(pl.HotbarSlot)
 		handleWindowClickInPacket(connection, p, world, pl)
 		sendCurrentInventory(connection, pl)
+		after := pl.Inventory.PeekItem(pl.HotbarSlot)
+		if before != after {
+			sendEquipmentChangeForHotbarSlot(world, pl)
+		}
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl)

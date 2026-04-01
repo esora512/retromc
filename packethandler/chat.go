@@ -15,7 +15,12 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		log.Printf("Command: %s", message)
 		if strings.HasPrefix(message, "/give") {
 			command := strings.TrimPrefix(message, "/give ")
+			before := pl.Inventory.PeekItem(pl.HotbarSlot)
 			pl.GivePlayer(command)
+			after := pl.Inventory.PeekItem(pl.HotbarSlot)
+			if before != after {
+				sendEquipmentChangeForHotbarSlot(world, pl)
+			}
 		}
 		return true
 	}
