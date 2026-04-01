@@ -20,7 +20,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 
 	if slot == -999 {
 		// Outside-inventory click: drop held stack / single item.
-		// TODO: Impelment proper dropping in world
+		// TODO: Implement proper dropping in world
 		if pl.SelectedItem.Selected {
 			if rightClick {
 				// Drop one item from the held stack.

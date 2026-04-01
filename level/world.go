@@ -71,11 +71,15 @@ func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
 	return chunk.GetBlock(lx, int(worldY), lz)
 }
 
+func (w *World) NextEntityId() int32 {
+	w.EntityCount++
+	return w.EntityCount
+}
+
 func (w *World) AddPlayer(p *player.Player) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.EntityCount++
-	p.EntityId = int(w.EntityCount)
+	p.EntityId = int(w.NextEntityId())
 	w.Players[int32(p.EntityId)] = p
 }
 

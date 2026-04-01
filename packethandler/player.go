@@ -212,7 +212,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if pl.Inventory.PeekItem(pl.HotbarSlot).TypeId > 96 {
+	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
+	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value {
 		// Only place blocks if block is in hotbar slot
 		return
 	}
@@ -302,6 +303,37 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		default:
 			block.Metadata = 0
 		}
+	}
+
+	// Handle minecart placement
+	if heldItem.TypeId == constants.Minecart.Value {
+		beneath := world.GetBlock(newX, byte(newY-1), newZ)
+		isRail := beneath.TypeId == byte(constants.Rail.Value) ||
+			beneath.TypeId == byte(constants.PoweredRail.Value) ||
+			beneath.TypeId == byte(constants.DetectorRail.Value)
+		if !isRail {
+			return
+		}
+		entityId := world.NextEntityId()
+		spawnPacket := packets.SpawnObject{
+			EntityId:      entityId,
+			ObjectType:    10, // 10 for minecart
+			X:             int32(newX * 32),
+			Y:             int32(newY * 32),
+			Z:             int32(newZ * 32),
+			OwnerEntityId: int32(pl.EntityId),
+			VelocityX:     0,
+			VelocityY:     0,
+			VelocityZ:     0,
+		}
+		world.BroadcastPacket(spawnPacket.Serialize())
+
+		pl.Inventory.RemoveOne(slot)
+		sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+		if pl.Inventory.PeekItem(slot).TypeId == -1 {
+			sendEquipmentChangeForHotbarSlot(world, pl)
+		}
+		return
 	}
 
 	world.SetBlock(newX, byte(newY), newZ, block)

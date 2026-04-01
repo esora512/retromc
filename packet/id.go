@@ -37,4 +37,5 @@ const (
 	DespawnEntity             byte = 0x1D
 	Disconnect                byte = 0xFF
 	EntityMetadata            byte = 0x28
+	SpawnObject               byte = 0x17
 )

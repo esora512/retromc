@@ -85,7 +85,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleInteractWithEntityInPacket(p, pl, world)
 	case packet.Disconnect:
 		p := packets.ReadDisconnectInPacket(packetReader)
-		handleDisconnectInPacket(connection, p)
+		handleDisconnectInPacket(connection, p, world, pl)
 	case packet.ChatMessage:
 		p := packets.ReadChatMessageInPacket(packetReader)
 		isCommand := handleChatMessageInPacket(p, pl, world)

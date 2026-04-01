@@ -17,8 +17,12 @@ func handleHandshakeInPacket(connection net.Conn, p packets.HandshakeInPacket) {
 	connection.Write(outData)
 }
 
-func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket) {
-	log.Printf("Disconnect: %s", p.Reason)
+func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket, world *level.World, pl *player.Player) {
+	log.Printf("%s", p.Reason)
+	chatPacket := packets.ChatMessagePacket{
+		Message: "\u00a7e" + pl.Username + " left the game",
+	}
+	world.BroadcastPacket(chatPacket.Serialize())
 }
 
 func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
@@ -43,6 +47,10 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	spawnPacket := packets.SpawnPlayerEntityPacket(pl)
 	// Inform other players of the new player
 	world.MulticastPacket(spawnPacket, pl)
+	chatPacket := packets.ChatMessagePacket{
+		Message: "\u00a7e" + pl.Username + " joined the game",
+	}
+	world.BroadcastPacket(chatPacket.Serialize())
 	world.ForEachPlayer(func(other *player.Player) {
 		if other == pl {
 			return
@@ -50,10 +58,6 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		packets.SetEquipment(pl, func(b []byte) {
 			other.Connection.Write(b)
 		})
-		chatPacket := packets.ChatMessagePacket{
-			Message: "\u00a7e" + pl.Username + " joined the game",
-		}
-		other.Connection.Write(chatPacket.Serialize())
 	})
 
 	// Inform the new player of other players
@@ -80,4 +84,3 @@ func sendLoginResponse(connection net.Conn, pl *player.Player) {
 	connection.Write(outData)
 	pl.LoggedIn = true
 }
-

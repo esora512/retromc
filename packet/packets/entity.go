@@ -8,6 +8,18 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type SpawnObject struct {
+	EntityId      int32
+	ObjectType    byte
+	X             int32
+	Y             int32
+	Z             int32
+	OwnerEntityId int32
+	VelocityX     int16
+	VelocityY     int16
+	VelocityZ     int16
+}
+
 type EntityPositionAndLookOutPacket struct {
 	EntityId int32
 	X        byte
@@ -69,6 +81,21 @@ func (p *EntityDespawnOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.DespawnEntity)
 	writer.WriteInt32(p.EntityId)
+	return writer.Bytes()
+}
+
+func (p *SpawnObject) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.SpawnObject)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.ObjectType)
+	writer.WriteInt32(p.X)
+	writer.WriteInt32(p.Y)
+	writer.WriteInt32(p.Z)
+	writer.WriteInt32(p.OwnerEntityId)
+	writer.WriteInt16(p.VelocityX)
+	writer.WriteInt16(p.VelocityY)
+	writer.WriteInt16(p.VelocityZ)
 	return writer.Bytes()
 }
 
