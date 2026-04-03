@@ -8,6 +8,11 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type AddPassenger struct {
+	Passenger int32
+	Vehicle   int32
+}
+
 type SpawnObject struct {
 	EntityId      int32
 	ObjectType    byte
@@ -97,6 +102,22 @@ func (p *SpawnObject) Serialize() []byte {
 	writer.WriteInt16(p.VelocityY)
 	writer.WriteInt16(p.VelocityZ)
 	return writer.Bytes()
+}
+
+func (p *AddPassenger) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.AddPassenger)
+	writer.WriteInt32(p.Passenger)
+	writer.WriteInt32(p.Vehicle)
+	return writer.Bytes()
+}
+
+func AlicesRidesBob(alice, bob int32) []byte {
+	p := AddPassenger{
+		Passenger: alice,
+		Vehicle:   bob,
+	}
+	return p.Serialize()
 }
 
 func PlayerEntityDespawnPacket(pl *player.Player) []byte {

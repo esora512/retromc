@@ -326,6 +326,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			VelocityY:     0,
 			VelocityZ:     0,
 		}
+		world.AddRidable(entityId, float64(newX), float64(newY), float64(newZ), 0, 0, 0)
 		world.BroadcastPacket(spawnPacket.Serialize())
 
 		pl.Inventory.RemoveOne(slot)

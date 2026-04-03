@@ -10,8 +10,10 @@ import (
 
 func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World) {
 	player := world.Players[p.PlayerId]
-	other := world.Players[p.EntityId]
-	log.Printf("%s interacted with %s", player.Username, other.Username)
+	//other := world.Players[p.EntityId]
+	other := world.Entities[p.EntityId]
+
+	log.Printf("%s interacted with %s", player.Username, other.GetName())
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 }
 

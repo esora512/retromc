@@ -1,6 +1,7 @@
 package level
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/leNicDev/retromc/packet"
@@ -12,17 +13,41 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
+type IEntity interface {
+	GetName() string
+	GetPosition() (float64, float64, float64)
+}
+
+type RideableEntity struct {
+	Entityid  int32
+	X         float64
+	Y         float64
+	Z         float64
+	VelocityX float64
+	VelocityY float64
+	VelocityZ float64
+}
+
+func (r *RideableEntity) GetPosition() (float64, float64, float64) {
+	return r.X, r.Y, r.Z
+}
+
+func (r *RideableEntity) GetName() string {
+	return fmt.Sprintf("Entity %d", r.Entityid)
+}
+
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	mu          sync.RWMutex
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
+	Entities    map[int32]IEntity
 	EntityCount int32
 }
 
 func NewWorld() *World {
-	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player)}
+	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player), Entities: make(map[int32]IEntity)}
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -81,6 +106,22 @@ func (w *World) AddPlayer(p *player.Player) {
 	defer w.mu.Unlock()
 	p.EntityId = int(w.NextEntityId())
 	w.Players[int32(p.EntityId)] = p
+	w.Entities[int32(p.EntityId)] = p
+}
+
+func (w *World) AddRidable(entityId int32, x, y, z, vx, vy, vz float64) {
+	r := RideableEntity{
+		Entityid:  entityId,
+		X:         x,
+		Y:         y,
+		Z:         z,
+		VelocityX: vx,
+		VelocityY: vy,
+		VelocityZ: vz,
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.Entities[int32(entityId)] = &r
 }
 
 func (w *World) RemovePlayer(p *player.Player) {

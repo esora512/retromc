@@ -126,6 +126,14 @@ func NewPlayer(conn net.Conn) *Player {
 	}
 }
 
+func (pl *Player) GetName() string {
+	return pl.Username
+}
+
+func (pl *Player) GetPosition() (float64, float64, float64) {
+	return pl.X, pl.Y, pl.Z
+}
+
 func (pl *Player) GivePlayer(input string) {
 	args := strings.Split(input, " ")
 	var amountInt int

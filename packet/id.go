@@ -38,4 +38,5 @@ const (
 	Disconnect                byte = 0xFF
 	EntityMetadata            byte = 0x28
 	SpawnObject               byte = 0x17
+	AddPassenger			  byte = 0x27
 )
