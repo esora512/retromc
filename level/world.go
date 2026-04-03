@@ -16,24 +16,41 @@ type ChunkCoord struct {
 type IEntity interface {
 	GetName() string
 	GetPosition() (float64, float64, float64)
+	IsRideable() bool
+	GetEntityId() int32
+	IsPlayer() bool
 }
 
 type RideableEntity struct {
-	Entityid  int32
-	X         float64
-	Y         float64
-	Z         float64
-	VelocityX float64
-	VelocityY float64
-	VelocityZ float64
+	EntityId      int32
+	X             float64
+	Y             float64
+	Z             float64
+	VelocityX     float64
+	VelocityY     float64
+	VelocityZ     float64
+	OwnerEntityId int32
+	ObjectType    byte
+}
+
+func (r *RideableEntity) IsPlayer() bool {
+	return false
+}
+
+func (r *RideableEntity) GetEntityId() int32 {
+	return r.EntityId
 }
 
 func (r *RideableEntity) GetPosition() (float64, float64, float64) {
 	return r.X, r.Y, r.Z
 }
 
+func (r *RideableEntity) IsRideable() bool {
+	return true
+}
+
 func (r *RideableEntity) GetName() string {
-	return fmt.Sprintf("Entity %d", r.Entityid)
+	return fmt.Sprintf("Entity %d", r.EntityId)
 }
 
 // World holds all loaded chunks and is the single source of truth for block state.
@@ -109,15 +126,17 @@ func (w *World) AddPlayer(p *player.Player) {
 	w.Entities[int32(p.EntityId)] = p
 }
 
-func (w *World) AddRidable(entityId int32, x, y, z, vx, vy, vz float64) {
+func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz float64, objectType byte) {
 	r := RideableEntity{
-		Entityid:  entityId,
-		X:         x,
-		Y:         y,
-		Z:         z,
-		VelocityX: vx,
-		VelocityY: vy,
-		VelocityZ: vz,
+		EntityId:      entityId,
+		OwnerEntityId: ownerEntityId,
+		X:             x,
+		Y:             y,
+		Z:             z,
+		VelocityX:     vx,
+		VelocityY:     vy,
+		VelocityZ:     vz,
+		ObjectType: objectType,
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()

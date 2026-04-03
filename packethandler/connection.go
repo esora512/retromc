@@ -65,12 +65,17 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		if other == pl {
 			return
 		}
-		spawnPacket := packets.SpawnPlayerEntityPacket(other)
-		pl.Connection.Write(spawnPacket)
+		pl.Connection.Write(packets.SpawnPlayerEntityPacket(other))
 		packets.SetEquipment(other, func(b []byte) {
 			pl.Connection.Write(b)
 		})
 	})
+
+	for _, e := range world.Entities {
+		if !e.IsPlayer() {
+			pl.Connection.Write(packets.SpawnObjectPacket(e))
+		}
+	}
 }
 
 func sendLoginResponse(connection net.Conn, pl *player.Player) {

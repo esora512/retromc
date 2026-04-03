@@ -1,6 +1,7 @@
 package packets
 
 import (
+	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
 )
@@ -13,7 +14,7 @@ type SpawnPositionOutPacket struct {
 
 func (p *SpawnPositionOutPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.SpawnPosition) 
+	writer.WriteByte(packet.SpawnPosition)
 	writer.WriteInt32(p.X)
 	writer.WriteInt32(p.Y)
 	writer.WriteInt32(p.Z)
@@ -99,6 +100,23 @@ func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 		Yaw:      byte(pl.Yaw),
 		Pitch:    byte(pl.Pitch),
 		HeldItem: 0,
+	}
+	return p.Serialize()
+}
+
+func SpawnObjectPacket(e level.IEntity) []byte {
+	// NOTE: Bad practice but we wing it...
+	rideable, _ := e.(*level.RideableEntity)
+	p := SpawnObject{
+		EntityId:      e.GetEntityId(),
+		ObjectType:    rideable.ObjectType,
+		X:             int32(rideable.X * 32),
+		Y:             int32(rideable.Y * 32),
+		Z:             int32(rideable.Z * 32),
+		VelocityX:     int16(rideable.VelocityX),
+		VelocityY:     int16(rideable.VelocityY),
+		VelocityZ:     int16(rideable.VelocityZ),
+		OwnerEntityId: rideable.OwnerEntityId,
 	}
 	return p.Serialize()
 }
@@ -271,13 +289,13 @@ type PlayerPositionAndLookOutPacket struct {
 func (p *PlayerPositionAndLookOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.PlayerPositionAndLook)
-	w.WriteFloat64(p.X)                       
-	w.WriteFloat64(p.Stance)                 
-	w.WriteFloat64(p.Y)                      
-	w.WriteFloat64(p.Z)                    
-	w.WriteFloat32(p.Yaw)                    
-	w.WriteFloat32(p.Pitch)                
-	w.WriteBool(p.OnGround)                 
+	w.WriteFloat64(p.X)
+	w.WriteFloat64(p.Stance)
+	w.WriteFloat64(p.Y)
+	w.WriteFloat64(p.Z)
+	w.WriteFloat32(p.Yaw)
+	w.WriteFloat32(p.Pitch)
+	w.WriteBool(p.OnGround)
 	return w.Bytes()
 }
 

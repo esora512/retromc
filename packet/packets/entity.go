@@ -8,6 +8,15 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type TeleportEntity struct {
+	EntityId int32
+	X        int32
+	Y        int32
+	Z        int32
+	Yaw      byte
+	Pitch    byte
+}
+
 type AddPassenger struct {
 	Passenger int32
 	Vehicle   int32
@@ -112,6 +121,18 @@ func (p *AddPassenger) Serialize() []byte {
 	return writer.Bytes()
 }
 
+func (p *TeleportEntity) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.TeleportEntity)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteInt32(p.X)
+	writer.WriteInt32(p.Y)
+	writer.WriteInt32(p.Z)
+	writer.WriteByte(p.Yaw)
+	writer.WriteByte(p.Pitch)
+	return writer.Bytes()
+}
+
 func AlicesRidesBob(alice, bob int32) []byte {
 	p := AddPassenger{
 		Passenger: alice,
@@ -123,6 +144,26 @@ func AlicesRidesBob(alice, bob int32) []byte {
 func PlayerEntityDespawnPacket(pl *player.Player) []byte {
 	p := EntityDespawnOutPacket{
 		EntityId: int32(pl.EntityId),
+	}
+	return p.Serialize()
+}
+
+func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
+	encX := int32(math.Floor(x * 32))
+	encY := int32(math.Floor(y * 32))
+	encZ := int32(math.Floor(z * 32))
+	dX := encX - int32(math.Floor(pl.X*32))
+	dY := encY - int32(math.Floor(pl.Y*32))
+	dZ := encZ - int32(math.Floor(pl.Z*32))
+	dYaw := int32(math.Floor(yaw * 256 / 360))
+	dPitch := int32(math.Floor(pitch * 256 / 360))
+	p := TeleportEntity{
+		EntityId: pl.GetEntityId(),
+		X:        dX,
+		Y:        dY,
+		Z:        dZ,
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
 	}
 	return p.Serialize()
 }

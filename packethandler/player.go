@@ -21,6 +21,15 @@ const (
 
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
 	sendPlayerPositionAndLook(connection)
+	world.ForEachPlayer(func(other *player.Player) {
+		if other == pl {
+			return
+		}
+		packets.TeleportPlayerPacket(pl, 0, 0, 0, 0, 0, world)
+		packets.SetEquipment(pl, func(b []byte) {
+			other.Connection.Write(b)
+		})
+	})
 	sendRespawn(connection, p.World)
 }
 
@@ -326,7 +335,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			VelocityY:     0,
 			VelocityZ:     0,
 		}
-		world.AddRidable(entityId, float64(newX), float64(newY), float64(newZ), 0, 0, 0)
+		world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 10)
 		world.BroadcastPacket(spawnPacket.Serialize())
 
 		pl.Inventory.RemoveOne(slot)

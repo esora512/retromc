@@ -10,11 +10,12 @@ import (
 
 func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World) {
 	player := world.Players[p.PlayerId]
-	//other := world.Players[p.EntityId]
 	other := world.Entities[p.EntityId]
-
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
+	if other.IsRideable() {
+		world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), other.GetEntityId()))
+	}
 }
 
 func handleEntityActionInPacket(p packets.EntityActionInPacket, pl *player.Player, world *level.World) {

@@ -126,6 +126,18 @@ func NewPlayer(conn net.Conn) *Player {
 	}
 }
 
+func (pl *Player) IsPlayer() bool {
+	return true
+}
+
+func (pl *Player) GetEntityId() int32 {
+	return int32(pl.EntityId)
+}
+
+func (pl *Player) IsRideable() bool {
+	return false
+}
+
 func (pl *Player) GetName() string {
 	return pl.Username
 }
