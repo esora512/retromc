@@ -73,6 +73,7 @@ func handleConnection(connection net.Conn, world *level.World) {
 	reader := bufio.NewReader(connection)
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl)
+		//log.Printf("Player Health for %s: %d", pl.Username, pl.Health)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
 			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))

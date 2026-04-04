@@ -152,16 +152,13 @@ func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world 
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
-	dX := encX - int32(math.Floor(pl.X*32))
-	dY := encY - int32(math.Floor(pl.Y*32))
-	dZ := encZ - int32(math.Floor(pl.Z*32))
 	dYaw := int32(math.Floor(yaw * 256 / 360))
 	dPitch := int32(math.Floor(pitch * 256 / 360))
 	p := TeleportEntity{
 		EntityId: pl.GetEntityId(),
-		X:        dX,
-		Y:        dY,
-		Z:        dZ,
+		X:        encX,
+		Y:        encY,
+		Z:        encZ,
 		Yaw:      byte(dYaw),
 		Pitch:    byte(dPitch),
 	}

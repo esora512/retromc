@@ -20,17 +20,20 @@ const (
 )
 
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
-	sendPlayerPositionAndLook(connection)
-	world.ForEachPlayer(func(other *player.Player) {
-		if other == pl {
-			return
-		}
-		packets.TeleportPlayerPacket(pl, 0, 0, 0, 0, 0, world)
-		packets.SetEquipment(pl, func(b []byte) {
-			other.Connection.Write(b)
-		})
-	})
+	pl.X = player.SpawnX
+	pl.Y = player.SpawnY
+	pl.Z = player.SpawnZ
+	pl.Stance = player.SpawnStance
+	pl.Yaw = 0
+	pl.Pitch = 0
+	pl.OnGround = true
+
 	sendRespawn(connection, p.World)
+	sendSetHealth(connection, 20.0)
+	sendPlayerPositionAndLook(connection)
+
+	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
+	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
