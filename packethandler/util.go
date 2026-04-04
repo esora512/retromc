@@ -3,6 +3,7 @@ package packethandler
 import (
 	"net"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -88,13 +89,8 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 // presetInventory writes the starting items directly into the player's in-memory
 // inventory. The caller is responsible for sending the inventory to the client.
 func presetInventory(inv *inventory.Inventory) {
-	// inv.SetItem(36, constants.IronPickaxe.Value, 1, 0)
-	// inv.SetItem(37, constants.Stone.Value, 64, 0)
-	// inv.SetItem(38, constants.Planks.Value, 64, 0)
-	// inv.SetItem(40, constants.String.Value, 32, 0)
-	// inv.SetItem(41, constants.Dispenser.Value, 16, 0)
-	// inv.SetItem(38, 326, 1) // Water Bucket
-	// inv.SetItem(39, 327, 1) // Lava Bucket
+	inv.SetItem(36, constants.Rail.Value, 16, 0)
+	inv.SetItem(37, constants.Minecart.Value, 1, 0)
 }
 
 // sendChunks sends a 2x2 grid of chunks around the spawn point.
@@ -132,6 +128,7 @@ func sendSpawnPosition(connection net.Conn) {
 }
 
 func sendInventory(connection net.Conn, pl *player.Player) {
+	presetInventory(&pl.Inventory)
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),

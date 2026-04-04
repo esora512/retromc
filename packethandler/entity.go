@@ -14,15 +14,17 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 	if other.IsRideable() {
+		pl.Connection.Write(packets.PlayerEntityMetadataPacketRiding(pl, true))
 		world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), other.GetEntityId()))
+
 	}
 }
 
 func handleEntityActionInPacket(p packets.EntityActionInPacket, pl *player.Player, world *level.World) {
 	if p.ActionId == 1 {
-		world.MulticastPacket(packets.PlayerEntityMetadataPacket(pl, true), pl)
+		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, true), pl)
 	}
 	if p.ActionId == 2 {
-		world.MulticastPacket(packets.PlayerEntityMetadataPacket(pl, false), pl)
+		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, false), pl)
 	}
 }
