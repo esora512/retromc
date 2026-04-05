@@ -40,4 +40,6 @@ const (
 	SpawnObject               byte = 0x17
 	AddPassenger              byte = 0x27
 	TeleportEntity            byte = 0x22
+	UpdateSign                byte = 0x82
+	EntityVelocity            byte = 0x1c
 )

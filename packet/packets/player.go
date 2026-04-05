@@ -6,6 +6,43 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type UpdateSignPacket struct {
+	packet.Packet
+	X     int32
+	Y     int16
+	Z     int32
+	Text1 string
+	Text2 string
+	Text3 string
+	Text4 string
+}
+
+func ReadUpdateSignPacket(reader *packet.PacketReader) UpdateSignPacket {
+	packet := UpdateSignPacket{}
+	packet.PacketId = reader.GetPacketId()
+	packet.X = reader.ReadInt32()
+	packet.Y = int16(reader.ReadShort())
+	packet.Z = reader.ReadInt32()
+	packet.Text1 = reader.ReadString16AndDecodeUTF16()
+	packet.Text2 = reader.ReadString16AndDecodeUTF16()
+	packet.Text3 = reader.ReadString16AndDecodeUTF16()
+	packet.Text4 = reader.ReadString16AndDecodeUTF16()
+	return packet
+}
+
+func (p *UpdateSignPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.UpdateSign)
+	w.WriteInt32(p.X)
+	w.WriteShort(uint16(p.Y))
+	w.WriteInt32(p.Z)
+	w.WriteString16(p.Text1)
+	w.WriteString16(p.Text2)
+	w.WriteString16(p.Text3)
+	w.WriteString16(p.Text4)
+	return w.Bytes()
+}
+
 type SpawnPositionOutPacket struct {
 	X int32
 	Y int32

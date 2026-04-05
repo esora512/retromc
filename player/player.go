@@ -80,17 +80,19 @@ type Player struct {
 	HotbarLocked atomic.Bool // locked while a BlockPlacement is being processed
 
 	// Last valid position — used for boundary rubber-banding.
-	X, Y, Z       float64
-	Stance        float64
-	Yaw, Pitch    float32
-	OnGround      bool
-	Workbench     inventory.Workbench
-	InventoryType InventoryType
-	Chest         PlayerChest
-	Dispenser     PlayerDispenser
-	Furnace       PlayerFurnace
-	TimeStarted   bool
-	LoggedIn      bool
+	X, Y, Z              float64
+	Stance               float64
+	Yaw, Pitch           float32
+	OnGround             bool
+	Workbench            inventory.Workbench
+	InventoryType        InventoryType
+	Chest                PlayerChest
+	Dispenser            PlayerDispenser
+	Furnace              PlayerFurnace
+	TimeStarted          bool
+	LoggedIn             bool
+	IsRiding             bool
+	BelowZeroHeightCount int
 }
 
 const (
@@ -113,17 +115,23 @@ func NewPlayer(conn net.Conn) *Player {
 			Slot:         -1,
 			ActionNumber: -1,
 		},
-		X:             SpawnX,
-		Y:             SpawnY,
-		Z:             SpawnZ,
-		Stance:        SpawnStance,
-		Workbench:     *inventory.NewWorkbench(),
-		InventoryType: PlayerInventory,
-		Chest:         PlayerChest{X: 0, Y: 0, Z: 0},
-		Dispenser:     PlayerDispenser{X: 0, Y: 0, Z: 0},
-		Furnace:       PlayerFurnace{X: 0, Y: 0, Z: 0},
-		HotbarSlot:    36,
+		X:                    SpawnX,
+		Y:                    SpawnY,
+		Z:                    SpawnZ,
+		Stance:               SpawnStance,
+		Workbench:            *inventory.NewWorkbench(),
+		InventoryType:        PlayerInventory,
+		Chest:                PlayerChest{X: 0, Y: 0, Z: 0},
+		Dispenser:            PlayerDispenser{X: 0, Y: 0, Z: 0},
+		Furnace:              PlayerFurnace{X: 0, Y: 0, Z: 0},
+		HotbarSlot:           36,
+		IsRiding:             false,
+		BelowZeroHeightCount: 0,
 	}
+}
+
+func (pl *Player) SetPosition(x, y, z float64) {
+	pl.X, pl.Y, pl.Z = x, y, z
 }
 
 func (pl *Player) IsPlayer() bool {

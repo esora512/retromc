@@ -17,7 +17,7 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 * Block Placement & Mining 🚧
     * Block duplication fixed
     * Still a bit buggy; delays and undos of block placement
-    * Bug involving signs
+    * Bugs involving signs
 * Physics ❌
     * Water/Lava
     * Minecart
@@ -34,3 +34,7 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 * https://github.com/p2r3/bareiron (minimalist C Minecraft server, inspiration / some parts copied)
 * https://web.archive.org/web/20110902073903/http://www.minecraftwiki.net/wiki/Crafting (Crafting recipes for Beta 1.7.3)
 * https://github.com/jacobo-mc/mc_b1.7.3_release/blob/main/1.7.3-LTS/src/minecraft_server/net/minecraft/src/CraftingManager.java (Crafting recipes, how they were implemented in decompiled code)
+* Packet Inspection with `tshark`
+    * Run `sudo tshark -i lo -f "host 127.0.0.1 and tcp port 25565"` on a detached screen
+    * Run `python3 BetaPacketPlainTextifier.py -v` (tool can be found [here](https://github.com/OfficialPixelBrush/BetaPacketPlainTextifier))
+    * Allows you to inspects packets between client & server

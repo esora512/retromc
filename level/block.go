@@ -50,6 +50,15 @@ type BlockDirections struct {
 }
 
 func (b *Block) GetDirections() BlockDirections {
+	if b.TypeId == byte(constants.SignGround.Value) {
+		return BlockDirections{
+			North: 4,
+			South: 12,
+			East:  8,
+			West:  0,
+		}
+	}
+
 	if b.TypeId == byte(constants.WoodenStairs.Value) || b.TypeId == byte(constants.CobblestoneStairs.Value) {
 		return BlockDirections{
 			North: 0,
@@ -772,6 +781,8 @@ func NewBlockById(id int16, Meta byte) Block {
 		return NewLockedChestBlock()
 	case 0x60:
 		return NewTrapdoorBlock(Meta)
+	case constants.Sign.Value:
+		return NewGroundSignBlock(Meta)
 	default:
 		return NewAirBlock()
 	}

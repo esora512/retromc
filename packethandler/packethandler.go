@@ -92,6 +92,9 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		if isCommand {
 			sendCurrentInventory(connection, pl)
 		}
+	case packet.UpdateSign:
+		p := packets.ReadUpdateSignPacket(packetReader)
+		handleSignUpdateInPacket(p, world, pl)
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}

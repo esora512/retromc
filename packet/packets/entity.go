@@ -8,6 +8,13 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+type EntityVelocity struct {
+	EntityId int32
+	Vx       uint16
+	Vy       uint16
+	Vz       uint16
+}
+
 type TeleportEntity struct {
 	EntityId int32
 	X        int32
@@ -58,6 +65,16 @@ type EntityLookOutPacket struct {
 
 type EntityDespawnOutPacket struct {
 	EntityId int32
+}
+
+func (p *EntityVelocity) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.EntityVelocity)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteShort(p.Vx * 8000)
+	writer.WriteShort(p.Vy * 8000)
+	writer.WriteShort(p.Vz * 8000)
+	return writer.Bytes()
 }
 
 func (p *EntityPositionAndLookOutPacket) Serialize() []byte {

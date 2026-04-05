@@ -16,6 +16,7 @@ type ChunkCoord struct {
 type IEntity interface {
 	GetName() string
 	GetPosition() (float64, float64, float64)
+	SetPosition(x, y, z float64)
 	IsRideable() bool
 	GetEntityId() int32
 	IsPlayer() bool
@@ -31,6 +32,20 @@ type RideableEntity struct {
 	VelocityZ     float64
 	OwnerEntityId int32
 	ObjectType    byte
+}
+
+func (w *World) SnapshotEntities() []IEntity {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	snapshot := make([]IEntity, 0, len(w.Entities))
+	for _, e := range w.Entities {
+		snapshot = append(snapshot, e)
+	}
+	return snapshot
+}
+
+func (r *RideableEntity) SetPosition(x, y, z float64) {
+	r.X, r.Y, r.Z = x, y, z
 }
 
 func (r *RideableEntity) IsPlayer() bool {
@@ -136,7 +151,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		VelocityX:     vx,
 		VelocityY:     vy,
 		VelocityZ:     vz,
-		ObjectType: objectType,
+		ObjectType:    objectType,
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()

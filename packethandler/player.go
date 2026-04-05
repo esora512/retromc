@@ -19,6 +19,10 @@ const (
 	worldMaxZ = 16.0
 )
 
+func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
+	world.BroadcastPacket(p.Serialize())
+}
+
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
@@ -69,19 +73,28 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 }
 
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
-	if outOfBounds(p.X, p.Z) {
+	x, y, z := p.X, p.Y, p.Z
+	if pl.IsRiding {
+		x, y, z = pl.X, pl.Y, pl.Z
+	}
+	if outOfBounds(x, z) {
 		rubberBand(connection, pl)
 		return
 	}
-	if p.Y < 0 {
-		sendSetHealth(connection, 0)
-		return
+	if y < 0 {
+		pl.BelowZeroHeightCount++
+		if pl.BelowZeroHeightCount > 20 {
+			sendSetHealth(connection, 0)
+			return
+		}
 	}
-	ep := packets.PlayerEntityPositionAndLookPacket(pl, p.X, p.Y, p.Z, float64(p.Yaw), float64(p.Pitch), world)
+	pl.BelowZeroHeightCount = 0
+
+	ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
-	pl.X = p.X
-	pl.Y = p.Y
-	pl.Z = p.Z
+	pl.X = x
+	pl.Y = y
+	pl.Z = z
 	pl.Stance = p.Stance
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
@@ -89,6 +102,9 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
+	if pl.IsRiding {
+		return
+	}
 	if outOfBounds(p.X, p.Z) {
 		rubberBand(connection, pl)
 		return
@@ -121,6 +137,9 @@ func handlePlayerLookInPacket(connection net.Conn, p packets.PlayerLookInPacket,
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
 	log.Printf("Face %d Status %d", p.Face, p.Status)
+	if pl.IsRiding {
+		return
+	}
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 
 	if p.Status != 2 {
@@ -159,6 +178,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	blockMeta := oldBlock.Metadata
 	if blockItem == constants.Stone.Value {
 		blockItem = constants.Cobblestone.Value
+	}
+
+	if blockItem == constants.SignGround.Value {
+		blockItem = constants.Sign.Value
 	}
 
 	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
@@ -225,7 +248,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
-	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value {
+	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value {
 		// Only place blocks if block is in hotbar slot
 		return
 	}
@@ -298,6 +321,10 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		}
 
 		log.Println("Face", p.Face)
+		if block.TypeId == byte(constants.Sign.Value) {
+			block.TypeId = byte(constants.SignGround.Value)
+		}
+
 		directions := block.GetDirections()
 		switch p.Face {
 		case 3:
