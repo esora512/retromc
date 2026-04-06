@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
@@ -103,6 +104,7 @@ func tickPhysics(world *level.World) {
 	const (
 		pushRadius = 1.25
 		pushForce  = 0.3
+		friction   = 0.98 // velocity retained per tick
 	)
 
 	entities := world.SnapshotEntities()
@@ -126,56 +128,89 @@ func tickPhysics(world *level.World) {
 	for _, cart := range carts {
 		cx, _, cz := cart.GetPosition()
 
-		var vx, vz float64
-		pushed := false
-
+		// Accumulate push forces into the cart's persistent velocity
 		for _, pp := range players {
-			// if pp.entityId == cart.OwnerEntityId {
-			// 	continue
-			// }
-
 			dx := cx - pp.x
 			dz := cz - pp.z
 			dist := math.Sqrt(dx*dx + dz*dz)
 
 			if dist < pushRadius && dist > 0.001 {
 				scale := pushForce * (1.0 - dist/pushRadius)
-				vx += (dx / dist) * scale
-				vz += (dz / dist) * scale
-				pushed = true
+				cart.VelocityX += (dx / dist) * scale
+				cart.VelocityZ += (dz / dist) * scale
 			}
 		}
 
-		if !pushed {
-			//continue
+		// Apply friction to bleed off velocity over time
+		cart.VelocityX *= friction
+		cart.VelocityZ *= friction
+
+		if math.Abs(cart.VelocityX) < 0.001 {
+			cart.VelocityX = 0
+		}
+		if math.Abs(cart.VelocityZ) < 0.001 {
+			cart.VelocityZ = 0
 		}
 
-		const dt = 0.05
-		cart.SetPosition(cx+vx*dt*20, cart.Y, cz+vz*dt*20)
+		// Clamp velocity (3.9 blocks/tick max)
+		if cart.VelocityX < -3.9 {
+			cart.VelocityX = -3.9
+		}
+		if cart.VelocityX > 3.9 {
+			cart.VelocityX = 3.9
+		}
+		if cart.VelocityZ < -3.9 {
+			cart.VelocityZ = -3.9
+		}
+		if cart.VelocityZ > 3.9 {
+			cart.VelocityZ = 3.9
+		}
 
-		log.Printf("vx=%f, vz=%f", vx, vz)
-		vx = vx * 25
-		vz = vz * 25
-		if vx < -3.9 {
-			vx = -3.9
-		}
-		if vz < -3.9 {
-			vz = -3.9
+		nextX := cx + cart.VelocityX
+		nextZ := cz + cart.VelocityZ
+		railIds := map[byte]bool{
+			byte(constants.Rail.Value):         true,
+			byte(constants.PoweredRail.Value):  true,
+			byte(constants.DetectorRail.Value): true,
 		}
 
-		if vx > 3.9 {
-			vx = 3.9
+		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cart.Y-1)), int32(math.Floor(nextZ)))
+		blockAtFeet := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cart.Y)), int32(math.Floor(nextZ)))
+
+		hasRail := railIds[blockAtFeet.TypeId] || railIds[blockBelow.TypeId]
+
+		if !hasRail {
+			cart.VelocityX = 0
+			cart.VelocityZ = 0
+			nextX = cx
+			nextZ = cz
+
+		} else {
+			cart.SetPosition(nextX, cart.Y, nextZ)
 		}
-		if vz > 3.9 {
-			vz = 3.9
-		}
+
+		log.Printf("Cart Position x=%f, y=%f, z=%f", cart.X, cart.Y, cart.Z)
+		log.Printf("vx=%f, vz=%f", cart.VelocityX, cart.VelocityZ)
 
 		p := packets.EntityVelocity{
 			EntityId: cart.EntityId,
-			Vx:       uint16(vx),
-			Vy:       uint16(0),
-			Vz:       uint16(vz),
+			Vx:       int16(cart.VelocityX * 8000),
+			Vy:       0,
+			Vz:       int16(cart.VelocityZ * 8000),
 		}
 		world.BroadcastPacket(p.Serialize())
+
+		deltaX := int(math.Floor(nextX*32)) - int(math.Floor(cx*32))
+		deltaZ := int(math.Floor(nextZ*32)) - int(math.Floor(cz*32))
+
+		if deltaX != 0 || deltaZ != 0 {
+			pkt := packets.EntityPositionOutPacket{
+				EntityId: cart.EntityId,
+				X:        byte(deltaX),
+				Y:        byte(0),
+				Z:        byte(deltaZ),
+			}
+			world.BroadcastPacket(pkt.Serialize())
+		}
 	}
 }

@@ -91,6 +91,8 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 func presetInventory(inv *inventory.Inventory) {
 	inv.SetItem(36, constants.Rail.Value, 16, 0)
 	inv.SetItem(37, constants.Minecart.Value, 1, 0)
+	inv.SetItem(38, constants.Stone.Value, 64, 0)
+	inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 }
 
 // sendChunks sends a 2x2 grid of chunks around the spawn point.
