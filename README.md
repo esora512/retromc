@@ -1,5 +1,5 @@
 # retromc
-A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https://github.com/leNicDev/retromc
+A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDev/retromc).
 
 ## Plan
 * Create a functional Minecraft Beta 1.7.3 version
@@ -9,21 +9,37 @@ A Mincraft Beta 1.7.3 server written in Golang I found and forked GitHub: https:
 ## Side goals
 * Learn more about Minecraft networking
 
-## Tasks / Goals
-* Inventory Management ✔️ (Clicking & Moving)
-    * One issue involving Beta Tweaks still present, too many packets sends and visible in client
-* Crafting ✔️
-* Multiplayer ✔️
-* Block Placement & Mining 🚧
-    * Block duplication fixed
-    * Still a bit buggy; delays and undos of block placement
-    * Bugs involving signs
-* Physics ❌
-    * Water/Lava
-    * Minecart
-    * Sand/Gravel gravity
-* World Generation ❌
-* Dropping Items (Entity Rendering) ❌
+## Emojis
+* 🆗: Works mostly, has some bugs with low priority.
+* ✔️: Seems to work properly
+* ❌: Considered not ready/done
+* 🚧: Working on it right now
+* 🐞: Temporary tracking of bugs that should be fixed
+* 🕸️: Low priority bugs that will be fixed eventually/later
+* 🎯: Temporary goals that should be implemented during 🚧 state to get to 🆗/✔️ states
+* ℹ️: Information
+
+## Status
+* 🆗: Inventory Management (Clicking & Moving)
+    * 🕸️: Issue involving Beta Tweaks, too many packets sends and visible in client.
+* ✔️: Crafting
+* ✔️: Multiplayer
+    * ℹ️: Two client POV match what is happening on individual client (hopefully...)
+* 🆗: Block Placement & Mining
+    * 🕸️: Some delays and undos of block placement
+* ❌: Physics
+    * 🚧: Minecart
+        * 🐞: Lighting issues
+        * 🐞: Player is moving inside minecart when entering from further distance
+        * 🐞: Collision still not "smooth" enough but not high priority
+        * 🎯: Should work with powered rails
+        * 🎯: Should be breakable & collectable
+    * ❌: Boat
+    * ❌: Water/Lava
+    * ❌: Sand/Gravel gravity
+* ❌: World Generation
+    * ℹ️: Right now it's 16x16 stone platform, so a ~~sand~~ *stone* box.
+* ❌: Dropping Items (Entity Rendering) 
 
 ## References
 * https://pixelbrush.dev/beta-wiki/ (has protocol information; may help in improving this build)
