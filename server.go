@@ -189,9 +189,12 @@ func tickPhysics(world *level.World) {
 			cart.SetPosition(nextX, cart.Y, nextZ)
 		}
 
-		log.Printf("Cart Position x=%f, y=%f, z=%f", cart.X, cart.Y, cart.Z)
-		log.Printf("vx=%f, vz=%f", cart.VelocityX, cart.VelocityZ)
+		// log.Printf("Cart Position x=%f, y=%f, z=%f", cart.X, cart.Y, cart.Z)
+		// log.Printf("vx=%f, vz=%f", cart.VelocityX, cart.VelocityZ)
 
+		if cart.VelocityX != 0 || cart.VelocityZ != 0 {
+			log.Printf("Cart %d velocity: vx=%f, vz=%f", cart.EntityId, cart.VelocityX, cart.VelocityZ)
+		}
 		p := packets.EntityVelocity{
 			EntityId: cart.EntityId,
 			Vx:       int16(cart.VelocityX * 8000),

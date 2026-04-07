@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"log"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
@@ -217,7 +219,7 @@ func ReadPlayerAnimationInPacket(reader *packet.PacketReader) PlayerAnimationInP
 	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt()
 	packet.Animation = reader.ReadByte()
-	//log.Printf("Player animation: %+v", packet)
+	log.Printf("Player animation: %+v", packet)
 	return packet
 }
 

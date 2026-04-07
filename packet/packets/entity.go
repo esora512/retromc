@@ -1,6 +1,7 @@
 package packets
 
 import (
+	"log"
 	"math"
 
 	"github.com/leNicDev/retromc/level"
@@ -243,7 +244,7 @@ func ReadEntityActionInPacket(reader *packet.PacketReader) EntityActionInPacket 
 	packet.PacketId = reader.GetPacketId()
 	packet.EntityId = reader.ReadInt()
 	packet.ActionId = reader.ReadByte()
-	//log.Printf("Entity action: %+v", packet)
+	log.Printf("Entity action: %+v", packet)
 	return packet
 }
 
@@ -285,20 +286,18 @@ func sneakMetadata(sneaking bool) []byte {
 	}
 }
 
-func ridingMetadata(sneaking bool) []byte {
+func ridingMetadata(riding bool) []byte {
 	var flags byte = 0x00
-	if sneaking {
+	if riding {
 		flags = 0x04
 	}
 	metadataType := byte(0)                       // 0 = byte type
 	metadataIndex := byte(0)                      // 0 = entity flags field
 	header := (metadataType << 5) | metadataIndex // encode type and index into single byte
-
-	// S->C: Contains byte of id flag with value 0x02 if sneaking, 0x00 if not sneaking
 	return []byte{
 		header,
-		flags, // 0x02 = sneaking, 0x00 = not sneaking
-		0x7F,  // end of metadata
+		flags,
+		0x7F,
 	}
 }
 

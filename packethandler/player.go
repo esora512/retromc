@@ -17,6 +17,7 @@ const (
 	worldMaxX = 17.0
 	worldMinZ = -16.0
 	worldMaxZ = 16.0
+	ignoreY   = -999.0
 )
 
 func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
@@ -74,8 +75,15 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
 	x, y, z := p.X, p.Y, p.Z
-	if pl.IsRiding {
+	// If p.Y is set -999 by Client, that means the Server should ignore positions
+	// Happens if the player is entering/leaving minecarts
+	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
+	// TODO: It might be possible to make it work via channels; but again, not sure if it's worth it...
+	if p.Y <= ignoreY {
 		x, y, z = pl.X, pl.Y, pl.Z
+		if pl.IsRiding {
+			x, y, z = pl.Lx, pl.Ly, pl.Lz
+		}
 	}
 	if outOfBounds(x, z) {
 		rubberBand(connection, pl)
@@ -83,12 +91,14 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	}
 	if y < 0 {
 		pl.BelowZeroHeightCount++
-		if pl.BelowZeroHeightCount > 20 {
+		if pl.BelowZeroHeightCount > 10 {
 			sendSetHealth(connection, 0)
 			return
 		}
 	}
-	pl.BelowZeroHeightCount = 0
+	if y >= 0 {
+		pl.BelowZeroHeightCount = 0
+	}
 
 	ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
@@ -102,23 +112,30 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
-	if pl.IsRiding {
-		return
+	x, y, z := p.X, p.Y, p.Z
+	// If p.Y is set -999 by Client, that means the Server should ignore positions
+	// Happens if the player is entering/leaving minecarts
+	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
+	if p.Y <= ignoreY {
+		x, y, z = pl.X, pl.Y, pl.Z
+		if pl.IsRiding {
+			x, y, z = pl.Lx, pl.Ly, pl.Lz
+		}
 	}
-	if outOfBounds(p.X, p.Z) {
+	if outOfBounds(x, z) {
 		rubberBand(connection, pl)
 		return
 	}
-	ep := packets.PlayerEntityPositionPacket(pl, p.X, p.Y, p.Z, world)
+	ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
 	world.MulticastPacket(ep, pl)
 
 	// TODO: Unclear if we need to do this for precision & avoiding drift or overkill
 	// pl.X = float64(int32(math.Floor(x * 32))) / 32.0
 	// pl.Y = float64(int32(math.Floor(y * 32))) / 32.0
 	// pl.Z = float64(int32(math.Floor(z * 32))) / 32.0
-	pl.X = p.X
-	pl.Y = p.Y
-	pl.Z = p.Z
+	pl.X = x
+	pl.Y = y
+	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
 	//log.Printf("Player position: x %.2f y %.2f z %.2f", p.X, p.Y, p.Z)
@@ -197,6 +214,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // HotbarSlot is locked for the duration so that a HoldingChange packet
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
+	log.Printf("PlayerBlockPlacement: %+v", p)
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
