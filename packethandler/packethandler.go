@@ -49,7 +49,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		packets.ReadPlayerOnGroundInPacket(packetReader)
 	case packet.PlayerLook:
 		p := packets.ReadPlayerLookInPacket(packetReader)
-		handlePlayerLookInPacket(connection, p, pl, world)
+		handlePlayerLookInPacket(p, pl, world)
 	case packet.EntityAction:
 		p := packets.ReadEntityActionInPacket(packetReader)
 		handleEntityActionInPacket(p, pl, world)

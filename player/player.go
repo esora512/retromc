@@ -84,6 +84,7 @@ type Player struct {
 	Lx, Ly, Lz           float64
 	Stance               float64
 	Yaw, Pitch           float32
+	LYaw, LPitch         float32
 	OnGround             bool
 	Workbench            inventory.Workbench
 	InventoryType        InventoryType
@@ -92,7 +93,7 @@ type Player struct {
 	Furnace              PlayerFurnace
 	TimeStarted          bool
 	LoggedIn             bool
-	IsRiding             bool
+	IsRiding             int32
 	BelowZeroHeightCount int
 }
 
@@ -126,8 +127,10 @@ func NewPlayer(conn net.Conn) *Player {
 		Dispenser:            PlayerDispenser{X: 0, Y: 0, Z: 0},
 		Furnace:              PlayerFurnace{X: 0, Y: 0, Z: 0},
 		HotbarSlot:           36,
-		IsRiding:             false,
+		IsRiding:             -1,
 		BelowZeroHeightCount: 0,
+		LYaw: 0,
+		LPitch: 0,
 	}
 }
 

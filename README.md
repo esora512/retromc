@@ -30,7 +30,6 @@ A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDe
 * ❌: Physics
     * 🚧: Minecart
         * 🐞: Lighting issues
-        * 🐞: Player is moving inside minecart when entering from further distance
         * 🐞: Collision still not "smooth" enough but not high priority
         * 🎯: Should work with powered rails
         * 🎯: Should be breakable & collectable

@@ -79,10 +79,13 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	// Happens if the player is entering/leaving minecarts
 	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
 	// TODO: It might be possible to make it work via channels; but again, not sure if it's worth it...
-	if p.Y <= ignoreY {
-		x, y, z = pl.X, pl.Y, pl.Z
-		if pl.IsRiding {
-			x, y, z = pl.Lx, pl.Ly, pl.Lz
+	if p.Y <= ignoreY && pl.IsRiding != -1 {
+		maybeRidable := world.Entities[pl.IsRiding]
+		ridable, _ := maybeRidable.(*level.RideableEntity)
+		x, y, z = ridable.X, ridable.Y, ridable.Z
+		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
+			// Only multicast if different from before
+			return
 		}
 	}
 	if outOfBounds(x, z) {
@@ -117,10 +120,7 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 	// Happens if the player is entering/leaving minecarts
 	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
 	if p.Y <= ignoreY {
-		x, y, z = pl.X, pl.Y, pl.Z
-		if pl.IsRiding {
-			x, y, z = pl.Lx, pl.Ly, pl.Lz
-		}
+		return
 	}
 	if outOfBounds(x, z) {
 		rubberBand(connection, pl)
@@ -138,11 +138,11 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
-	//log.Printf("Player position: x %.2f y %.2f z %.2f", p.X, p.Y, p.Z)
 }
 
-func handlePlayerLookInPacket(connection net.Conn, p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
+func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
 	ep := packets.PlayerEntityLookPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	log.Printf("Multicasting player look yaw=%.2f pitch=%.2f", p.Yaw, p.Pitch)
 	world.MulticastPacket(ep, pl)
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
@@ -154,7 +154,7 @@ func handlePlayerLookInPacket(connection net.Conn, p packets.PlayerLookInPacket,
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
 	log.Printf("Face %d Status %d", p.Face, p.Status)
-	if pl.IsRiding {
+	if pl.IsRiding != -1 {
 		return
 	}
 	world.MulticastPacket(packets.ArmSwing(pl), pl)

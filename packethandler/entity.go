@@ -15,14 +15,14 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 	if other.IsRideable() {
-		if pl.IsRiding {
-			pl.IsRiding = false
+		if pl.IsRiding != -1 {
+			pl.IsRiding = -1
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
 			world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1))
 		} else {
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
 			world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), other.GetEntityId()))
-			pl.IsRiding = true
+			pl.IsRiding = other.GetEntityId()
 			pl.Lx = pl.X
 			pl.Ly = pl.Y
 			pl.Lz = pl.Z
