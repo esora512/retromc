@@ -100,18 +100,27 @@ func startGameLoop(world *level.World) {
 	}()
 }
 
+func clamp(v, min, max float64) float64 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
 func tickPhysics(world *level.World) {
 	const (
 		pushRadius = 1.25
 		pushForce  = 0.3
-		friction   = 0.98 // velocity retained per tick
+		friction   = 0.98
 	)
 
 	entities := world.SnapshotEntities()
 
 	type playerPos struct {
-		entityId int32
-		x, z     float64
+		x, z float64
 	}
 	var players []playerPos
 	var carts []*level.RideableEntity
@@ -119,29 +128,41 @@ func tickPhysics(world *level.World) {
 	for _, e := range entities {
 		if e.IsPlayer() {
 			x, _, z := e.GetPosition()
-			players = append(players, playerPos{e.GetEntityId(), x, z})
+			players = append(players, playerPos{x, z})
 		} else if cart, ok := e.(*level.RideableEntity); ok {
 			carts = append(carts, cart)
 		}
 	}
 
 	for _, cart := range carts {
-		cx, _, cz := cart.GetPosition()
+		cx, cy, cz := cart.GetPosition()
 
-		// Accumulate push forces into the cart's persistent velocity
+		// Snap Y to rail surface every tick
+		snapY := math.Floor(cy) + 0.125
+		if snapY != cy {
+			cart.SetPosition(cx, snapY, cz)
+			cy = snapY
+		}
+
+		prevVx, prevVz := cart.VelocityX, cart.VelocityZ
+
 		for _, pp := range players {
 			dx := cx - pp.x
 			dz := cz - pp.z
 			dist := math.Sqrt(dx*dx + dz*dz)
-
 			if dist < pushRadius && dist > 0.001 {
-				scale := pushForce * (1.0 - dist/pushRadius)
-				cart.VelocityX += (dx / dist) * scale
-				cart.VelocityZ += (dz / dist) * scale
+				// Stronger single impulse rather than tiny per-tick accumulation
+				nx := dx / dist
+				nz := dz / dist
+				// Only push if player is actually moving toward the cart
+				dot := nx*cart.VelocityX + nz*cart.VelocityZ
+				if dot >= 0 {
+					cart.VelocityX += nx * pushForce
+					cart.VelocityZ += nz * pushForce
+				}
 			}
 		}
 
-		// Apply friction to bleed off velocity over time
 		cart.VelocityX *= friction
 		cart.VelocityZ *= friction
 
@@ -152,31 +173,20 @@ func tickPhysics(world *level.World) {
 			cart.VelocityZ = 0
 		}
 
-		// Clamp velocity (3.9 blocks/tick max)
-		if cart.VelocityX < -3.9 {
-			cart.VelocityX = -3.9
-		}
-		if cart.VelocityX > 3.9 {
-			cart.VelocityX = 3.9
-		}
-		if cart.VelocityZ < -3.9 {
-			cart.VelocityZ = -3.9
-		}
-		if cart.VelocityZ > 3.9 {
-			cart.VelocityZ = 3.9
-		}
+		cart.VelocityX = clamp(cart.VelocityX, -3.9, 3.9)
+		cart.VelocityZ = clamp(cart.VelocityZ, -3.9, 3.9)
 
 		nextX := cx + cart.VelocityX
 		nextZ := cz + cart.VelocityZ
+
 		railIds := map[byte]bool{
 			byte(constants.Rail.Value):         true,
 			byte(constants.PoweredRail.Value):  true,
 			byte(constants.DetectorRail.Value): true,
 		}
 
-		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cart.Y-1)), int32(math.Floor(nextZ)))
-		blockAtFeet := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cart.Y)), int32(math.Floor(nextZ)))
-
+		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy-1)), int32(math.Floor(nextZ)))
+		blockAtFeet := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
 		hasRail := railIds[blockAtFeet.TypeId] || railIds[blockBelow.TypeId]
 
 		if !hasRail {
@@ -184,34 +194,34 @@ func tickPhysics(world *level.World) {
 			cart.VelocityZ = 0
 			nextX = cx
 			nextZ = cz
-
-		} else {
-			cart.SetPosition(nextX, cart.Y, nextZ)
 		}
 
-		// log.Printf("Cart Position x=%f, y=%f, z=%f", cart.X, cart.Y, cart.Z)
-		// log.Printf("vx=%f, vz=%f", cart.VelocityX, cart.VelocityZ)
+		// Capture fixed-point delta before mutating position
+		oldFX := int32(math.Floor(cx * 32))
+		oldFZ := int32(math.Floor(cz * 32))
+		cart.SetPosition(nextX, cy, nextZ)
+		newFX := int32(math.Floor(nextX * 32))
+		newFZ := int32(math.Floor(nextZ * 32))
 
-		if cart.VelocityX != 0 || cart.VelocityZ != 0 {
-			log.Printf("Cart %d velocity: vx=%f, vz=%f", cart.EntityId, cart.VelocityX, cart.VelocityZ)
+		// Only send velocity when it meaningfully changed
+		if cart.VelocityX != prevVx || cart.VelocityZ != prevVz {
+			p := packets.EntityVelocity{
+				EntityId: cart.EntityId,
+				Vx:       int16(cart.VelocityX * 8000),
+				Vy:       0,
+				Vz:       int16(cart.VelocityZ * 8000),
+			}
+			world.BroadcastPacket(p.Serialize())
 		}
-		p := packets.EntityVelocity{
-			EntityId: cart.EntityId,
-			Vx:       int16(cart.VelocityX * 8000),
-			Vy:       0,
-			Vz:       int16(cart.VelocityZ * 8000),
-		}
-		world.BroadcastPacket(p.Serialize())
 
-		deltaX := int(math.Floor(nextX*32)) - int(math.Floor(cx*32))
-		deltaZ := int(math.Floor(nextZ*32)) - int(math.Floor(cz*32))
-
-		if deltaX != 0 || deltaZ != 0 {
+		dX := newFX - oldFX
+		dZ := newFZ - oldFZ
+		if dX != 0 || dZ != 0 {
 			pkt := packets.EntityPositionOutPacket{
 				EntityId: cart.EntityId,
-				X:        byte(deltaX),
-				Y:        byte(0),
-				Z:        byte(deltaZ),
+				X:        byte(int8(dX)),
+				Y:        0,
+				Z:        byte(int8(dZ)),
 			}
 			world.BroadcastPacket(pkt.Serialize())
 		}
