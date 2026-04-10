@@ -68,13 +68,28 @@ type EntityDespawnOutPacket struct {
 	EntityId int32
 }
 
+
+func clamp(v, min, max float64) float64 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
 func (p *EntityVelocity) Serialize() []byte {
+	vx := clamp(float64(p.Vx), -3.9, 3.9) * 8000
+	vy := clamp(float64(p.Vy), -3.9, 3.9) * 8000
+	vz := clamp(float64(p.Vz), -3.9, 3.9) * 8000
+
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityVelocity)
 	writer.WriteInt32(p.EntityId)
-	writer.WriteShort(uint16(p.Vx))
-	writer.WriteShort(uint16(p.Vy))
-	writer.WriteShort(uint16(p.Vz))
+	writer.WriteShort(uint16(vx))
+	writer.WriteShort(uint16(vy))
+	writer.WriteShort(uint16(vz))
 	return writer.Bytes()
 }
 

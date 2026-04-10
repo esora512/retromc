@@ -306,7 +306,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	if existing.TypeId != 0x00 {
+	if !existing.IsAir() {
 		return
 	}
 
@@ -315,6 +315,94 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
 	block := level.NewBlockById(p.ItemId, item.Metadata)
+
+	if block.IsRail() {
+		railIds := map[byte]bool{
+			byte(constants.Rail.Value):         true,
+			byte(constants.PoweredRail.Value):  true,
+			byte(constants.DetectorRail.Value): true,
+		}
+
+		hasRail := func(x, y, z int32) bool {
+			b := world.GetBlock(x, byte(y), z)
+			return railIds[b.TypeId]
+		}
+
+		// computeMeta based on neighbouring rails:
+		computeMeta := func(x, y, z int32) byte {
+			north := hasRail(x, y, z-1)
+			south := hasRail(x, y, z+1)
+			east := hasRail(x+1, y, z)
+			west := hasRail(x-1, y, z)
+
+			northUp := hasRail(x, y+1, z-1)
+			southUp := hasRail(x, y+1, z+1)
+			eastUp := hasRail(x+1, y+1, z)
+			westUp := hasRail(x-1, y+1, z)
+
+			switch {
+			case eastUp:
+				return 2
+			case westUp:
+				return 3
+			case northUp:
+				return 4
+			case southUp:
+				return 5
+			case east && south:
+				return 6
+			case west && south:
+				return 7
+			case west && north:
+				return 8
+			case east && north:
+				return 9
+			case east || west:
+				return 1
+			default:
+				return 0
+			}
+		}
+
+		broadcastBlock := func(x, y, z int32, typeId, meta byte) {
+			pkt := packets.BlockChangeOutPacket{
+				X:         x,
+				Y:         byte(y),
+				Z:         z,
+				BlockType: typeId,
+				BlockMeta: meta,
+			}
+			world.BroadcastPacket(pkt.Serialize())
+		}
+
+		x, y, z := int32(newX), int32(newY), int32(newZ)
+
+		// Place the new rail with computed metadata
+		block.Metadata = computeMeta(x, y, z)
+		world.SetBlock(x, byte(y), z, block)
+		broadcastBlock(x, y, z, block.TypeId, block.Metadata)
+
+		// Recalc each flat neighbour now that the new rail exists in the world
+		recalcRail := func(nx, ny, nz int32) {
+			existing := world.GetBlock(nx, byte(ny), nz)
+			if !railIds[existing.TypeId] {
+				return
+			}
+			newMeta := computeMeta(nx, ny, nz)
+			if newMeta == existing.Metadata {
+				return
+			}
+			existing.Metadata = newMeta
+			world.SetBlock(nx, byte(ny), nz, existing)
+			broadcastBlock(nx, ny, nz, existing.TypeId, newMeta)
+		}
+
+		recalcRail(x, y, z-1) // north
+		recalcRail(x, y, z+1) // south
+		recalcRail(x+1, y, z) // east
+		recalcRail(x-1, y, z) // west
+		return
+	}
 
 	if block.IsDirectional() {
 		if block.TypeId == byte(constants.Chest.Value) {

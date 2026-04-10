@@ -21,14 +21,11 @@ var directionalBlocks = map[int16]bool{
 	constants.Sign.Value:                true,
 	constants.Ladder.Value:              true,
 	constants.Dispenser.Value:           true,
-	constants.PoweredRail.Value:         true,
-	constants.DetectorRail.Value:        true,
 	constants.StickyPiston.Value:        true,
 	constants.Piston.Value:              true,
 	constants.PistonHead.Value:          true,
 	constants.SignGround.Value:          true,
 	constants.SignWall.Value:            true,
-	constants.Rail.Value:                true,
 	constants.Lever.Value:               true,
 	constants.RedstoneTorchOn.Value:     true,
 	constants.RedstoneTorchOff.Value:    true,
@@ -47,6 +44,10 @@ type BlockDirections struct {
 	South byte
 	East  byte
 	West  byte
+}
+
+func (b *Block) IsRail() bool {
+	return b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
 
 func (b *Block) GetDirections() BlockDirections {
@@ -105,6 +106,10 @@ func (b *Block) GetDirections() BlockDirections {
 
 func (b *Block) IsDirectional() bool {
 	return directionalBlocks[int16(b.TypeId)]
+}
+
+func (b *Block) IsAir() bool {
+	return b.TypeId == 0
 }
 
 // ID 0 - Air

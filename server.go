@@ -100,21 +100,11 @@ func startGameLoop(world *level.World) {
 	}()
 }
 
-func clamp(v, min, max float64) float64 {
-	if v < min {
-		return min
-	}
-	if v > max {
-		return max
-	}
-	return v
-}
-
 func tickPhysics(world *level.World) {
 	const (
 		pushRadius = 1.25
 		pushForce  = 0.3
-		friction   = 0.98
+		friction   = 0.75
 	)
 
 	entities := world.SnapshotEntities()
@@ -151,10 +141,8 @@ func tickPhysics(world *level.World) {
 			dz := cz - pp.z
 			dist := math.Sqrt(dx*dx + dz*dz)
 			if dist < pushRadius && dist > 0.001 {
-				// Stronger single impulse rather than tiny per-tick accumulation
 				nx := dx / dist
 				nz := dz / dist
-				// Only push if player is actually moving toward the cart
 				dot := nx*cart.VelocityX + nz*cart.VelocityZ
 				if dot >= 0 {
 					cart.VelocityX += nx * pushForce
@@ -173,18 +161,37 @@ func tickPhysics(world *level.World) {
 			cart.VelocityZ = 0
 		}
 
-		cart.VelocityX = clamp(cart.VelocityX, -3.9, 3.9)
-		cart.VelocityZ = clamp(cart.VelocityZ, -3.9, 3.9)
-
-		nextX := cx + cart.VelocityX
-		nextZ := cz + cart.VelocityZ
-
 		railIds := map[byte]bool{
 			byte(constants.Rail.Value):         true,
 			byte(constants.PoweredRail.Value):  true,
 			byte(constants.DetectorRail.Value): true,
 		}
 
+		// Assume rails is only in x & z axis, so we can check them separately for easier logic
+		railInX := func(testX float64) bool {
+			bFeet := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
+			bBelow := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy-1)), int32(math.Floor(cz)))
+			return railIds[bFeet.TypeId] || railIds[bBelow.TypeId]
+		}
+		railInZ := func(testZ float64) bool {
+			bFeet := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(testZ)))
+			bBelow := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy-1)), int32(math.Floor(testZ)))
+			return railIds[bFeet.TypeId] || railIds[bBelow.TypeId]
+		}
+
+		if cart.VelocityX != 0 && !railInX(cx+cart.VelocityX) {
+			// No rail ahead on X — this axis isn't a valid direction here, kill it
+			cart.VelocityX = 0
+		}
+		if cart.VelocityZ != 0 && !railInZ(cz+cart.VelocityZ) {
+			// No rail ahead on Z — same reasoning
+			cart.VelocityZ = 0
+		}
+
+		nextX := cx + cart.VelocityX
+		nextZ := cz + cart.VelocityZ
+
+		// Broad rail check — if neither axis leads anywhere, stay put
 		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy-1)), int32(math.Floor(nextZ)))
 		blockAtFeet := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
 		hasRail := railIds[blockAtFeet.TypeId] || railIds[blockBelow.TypeId]
@@ -196,6 +203,24 @@ func tickPhysics(world *level.World) {
 			nextZ = cz
 		}
 
+		// Look ahead on each axis to prevent colliding with solid blocks.
+		if cart.VelocityX != 0 {
+			wallX := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
+			if !wallX.IsAir() && !railIds[wallX.TypeId] {
+				// Solid non-rail block directly ahead on X — stop
+				cart.VelocityX = 0
+				nextX = cx
+			}
+		}
+		if cart.VelocityZ != 0 {
+			wallZ := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
+			if !wallZ.IsAir() && !railIds[wallZ.TypeId] {
+				// Solid non-rail block directly ahead on Z — stop
+				cart.VelocityZ = 0
+				nextZ = cz
+			}
+		}
+
 		// Capture fixed-point delta before mutating position
 		oldFX := int32(math.Floor(cx * 32))
 		oldFZ := int32(math.Floor(cz * 32))
@@ -203,13 +228,13 @@ func tickPhysics(world *level.World) {
 		newFX := int32(math.Floor(nextX * 32))
 		newFZ := int32(math.Floor(nextZ * 32))
 
-		// Only send velocity when it meaningfully changed
+		// Only send velocity packet when it meaningfully changed
 		if cart.VelocityX != prevVx || cart.VelocityZ != prevVz {
 			p := packets.EntityVelocity{
 				EntityId: cart.EntityId,
-				Vx:       int16(cart.VelocityX * 8000),
+				Vx:       int16(cart.VelocityX),
 				Vy:       0,
-				Vz:       int16(cart.VelocityZ * 8000),
+				Vz:       int16(cart.VelocityZ),
 			}
 			world.BroadcastPacket(p.Serialize())
 		}
