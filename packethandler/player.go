@@ -142,7 +142,7 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 
 func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
 	ep := packets.PlayerEntityLookPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
-	log.Printf("Multicasting player look yaw=%.2f pitch=%.2f", p.Yaw, p.Pitch)
+	//log.Printf("Multicasting player look yaw=%.2f pitch=%.2f", p.Yaw, p.Pitch)
 	world.MulticastPacket(ep, pl)
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch

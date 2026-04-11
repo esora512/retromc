@@ -126,14 +126,6 @@ func tickPhysics(world *level.World) {
 
 	for _, cart := range carts {
 		cx, cy, cz := cart.GetPosition()
-
-		// Snap Y to rail surface every tick
-		snapY := math.Floor(cy) + 0.125
-		if snapY != cy {
-			cart.SetPosition(cx, snapY, cz)
-			cy = snapY
-		}
-
 		prevVx, prevVz := cart.VelocityX, cart.VelocityZ
 
 		for _, pp := range players {
@@ -167,34 +159,30 @@ func tickPhysics(world *level.World) {
 			byte(constants.DetectorRail.Value): true,
 		}
 
-		// Assume rails is only in x & z axis, so we can check them separately for easier logic
 		railInX := func(testX float64) bool {
-			bFeet := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
+			bInside := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
 			bBelow := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy-1)), int32(math.Floor(cz)))
-			return railIds[bFeet.TypeId] || railIds[bBelow.TypeId]
+			return railIds[bInside.TypeId] || railIds[bBelow.TypeId]
 		}
 		railInZ := func(testZ float64) bool {
-			bFeet := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(testZ)))
+			bInside := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(testZ)))
 			bBelow := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy-1)), int32(math.Floor(testZ)))
-			return railIds[bFeet.TypeId] || railIds[bBelow.TypeId]
+			return railIds[bInside.TypeId] || railIds[bBelow.TypeId]
 		}
 
 		if cart.VelocityX != 0 && !railInX(cx+cart.VelocityX) {
-			// No rail ahead on X — this axis isn't a valid direction here, kill it
 			cart.VelocityX = 0
 		}
 		if cart.VelocityZ != 0 && !railInZ(cz+cart.VelocityZ) {
-			// No rail ahead on Z — same reasoning
 			cart.VelocityZ = 0
 		}
 
 		nextX := cx + cart.VelocityX
 		nextZ := cz + cart.VelocityZ
 
-		// Broad rail check — if neither axis leads anywhere, stay put
 		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy-1)), int32(math.Floor(nextZ)))
-		blockAtFeet := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
-		hasRail := railIds[blockAtFeet.TypeId] || railIds[blockBelow.TypeId]
+		blockInside := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
+		hasRail := railIds[blockInside.TypeId] || railIds[blockBelow.TypeId]
 
 		if !hasRail {
 			cart.VelocityX = 0
@@ -203,11 +191,9 @@ func tickPhysics(world *level.World) {
 			nextZ = cz
 		}
 
-		// Look ahead on each axis to prevent colliding with solid blocks.
 		if cart.VelocityX != 0 {
 			wallX := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
 			if !wallX.IsAir() && !railIds[wallX.TypeId] {
-				// Solid non-rail block directly ahead on X — stop
 				cart.VelocityX = 0
 				nextX = cx
 			}
@@ -215,20 +201,50 @@ func tickPhysics(world *level.World) {
 		if cart.VelocityZ != 0 {
 			wallZ := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
 			if !wallZ.IsAir() && !railIds[wallZ.TypeId] {
-				// Solid non-rail block directly ahead on Z — stop
 				cart.VelocityZ = 0
 				nextZ = cz
 			}
 		}
 
+		// Derive Y from the rail block at the current position
+		bx := int32(math.Floor(cx))
+		by := byte(math.Floor(cy))
+		bz := int32(math.Floor(cz))
+
+		if railIds[world.GetBlock(bx, by-1, bz).TypeId] {
+			by--
+		}
+
+		// Powered rail logic
+		// TODO: Something is off, boost should be lower somehow...
+		currentRail := world.GetBlock(bx, by, bz)
+		if currentRail.TypeId == byte(constants.PoweredRail.Value) {
+			log.Println("Powered Rail Hit")
+			speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
+			if speed > 0.01 {
+				const boost = 0.5
+				cart.VelocityX += cart.VelocityX / speed * boost
+				cart.VelocityZ += cart.VelocityZ / speed * boost
+			}
+		}
+
+		railBlock := world.GetBlock(bx, by, bz)
+		trackY := float64(by)
+		if railIds[railBlock.TypeId] && railBlock.Metadata >= 2 && railBlock.Metadata <= 5 {
+			// Ascending rail: Y is always blockY+1, same as vanilla's trackY = blockY + 1
+			trackY = float64(by) + 1.0
+		}
+		nextY := trackY + 0.125 // standingEyeHeight offset, equivalent to BetaSharp's setTrackAlignedPosition
+
 		// Capture fixed-point delta before mutating position
 		oldFX := int32(math.Floor(cx * 32))
+		oldFY := int32(math.Floor(cy * 32))
 		oldFZ := int32(math.Floor(cz * 32))
-		cart.SetPosition(nextX, cy, nextZ)
+		cart.SetPosition(nextX, nextY, nextZ)
 		newFX := int32(math.Floor(nextX * 32))
+		newFY := int32(math.Floor(nextY * 32))
 		newFZ := int32(math.Floor(nextZ * 32))
 
-		// Only send velocity packet when it meaningfully changed
 		if cart.VelocityX != prevVx || cart.VelocityZ != prevVz {
 			p := packets.EntityVelocity{
 				EntityId: cart.EntityId,
@@ -240,12 +256,15 @@ func tickPhysics(world *level.World) {
 		}
 
 		dX := newFX - oldFX
+		dY := newFY - oldFY
 		dZ := newFZ - oldFZ
-		if dX != 0 || dZ != 0 {
+		if dX != 0 || dY != 0 || dZ != 0 {
+			// TODO: Logic still not clean; if y-position desync, breaks...
+			log.Printf("Cart Position X=%.2f, Y=%.2f Z=%.2f", nextX, nextY, nextZ)
 			pkt := packets.EntityPositionOutPacket{
 				EntityId: cart.EntityId,
 				X:        byte(int8(dX)),
-				Y:        0,
+				Y:        byte(int8(dY)),
 				Z:        byte(int8(dZ)),
 			}
 			world.BroadcastPacket(pkt.Serialize())
