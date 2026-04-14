@@ -164,6 +164,12 @@ func (w *World) RemovePlayer(p *player.Player) {
 	delete(w.Players, int32(p.EntityId))
 }
 
+func (w *World) RemoveEntity(entityId int32) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.Entities, entityId)
+}
+
 type SetTimePacket struct {
 	Time int64
 }

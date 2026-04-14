@@ -95,12 +95,12 @@ func startGameLoop(world *level.World) {
 			// For fast time, set it to + 20
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
-			tickPhysics(world)
+			minecartPhysics(world)
 		}
 	}()
 }
 
-func tickPhysics(world *level.World) {
+func minecartPhysics(world *level.World) {
 	const (
 		pushRadius = 1.25
 		pushForce  = 0.3
@@ -124,10 +124,56 @@ func tickPhysics(world *level.World) {
 		}
 	}
 
+	railIds := map[byte]bool{
+		byte(constants.Rail.Value):         true,
+		byte(constants.PoweredRail.Value):  true,
+		byte(constants.DetectorRail.Value): true,
+	}
+
+	// findRail returns the Y of the rail block at (bx, by, bz),
+	// also check one block below to handle the cart sitting above the rail.
+	findRail := func(bx int32, by byte, bz int32) (byte, bool) {
+		if railIds[world.GetBlock(bx, by, bz).TypeId] {
+			return by, true
+		}
+		if by > 0 && railIds[world.GetBlock(bx, by-1, bz).TypeId] {
+			return by - 1, true
+		}
+		return 0, false
+	}
+
+	var toRemove []int32
+
 	for _, cart := range carts {
 		cx, cy, cz := cart.GetPosition()
+
+		// Find rail at the cart's current block position.
+		bx := int32(math.Floor(cx))
+		by := byte(math.Floor(cy))
+		bz := int32(math.Floor(cz))
+
+		railY, hasRail := findRail(bx, by, bz)
+		if !hasRail {
+			// Destroy cart if no rail found (e.g. rail destroyed while cart on it).
+			despawn := packets.EntityDespawnOutPacket{EntityId: cart.EntityId}
+			world.BroadcastPacket(despawn.Serialize())
+			toRemove = append(toRemove, cart.EntityId)
+			continue
+		}
+		by = railY
+
+		railBlock := world.GetBlock(bx, by, bz)
+		rawMeta := railBlock.Metadata
+		// Powered/detector rails store power state in bit 3; strip it for direction.
+		meta := rawMeta
+		if railBlock.TypeId == byte(constants.PoweredRail.Value) ||
+			railBlock.TypeId == byte(constants.DetectorRail.Value) {
+			meta &= 0x07
+		}
+
 		prevVx, prevVz := cart.VelocityX, cart.VelocityZ
 
+		// Apply player push forces.
 		for _, pp := range players {
 			dx := cx - pp.x
 			dz := cz - pp.z
@@ -143,9 +189,31 @@ func tickPhysics(world *level.World) {
 			}
 		}
 
+		// Powered rail boost: vanilla uses 0.06 per tick when powered
+		if railBlock.TypeId == byte(constants.PoweredRail.Value) {
+			speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
+			if speed > 0.01 {
+				const boost = 0.06 * 10
+				cart.VelocityX += cart.VelocityX / speed * boost
+				cart.VelocityZ += cart.VelocityZ / speed * boost
+			}
+		}
+
+		// Constrain velocity to the rail's axis, then apply friction.
+		// meta 0: flat N-S (Z axis)  → zero X velocity
+		// meta 1: flat E-W (X axis)  → zero Z velocity
+		// meta 2,3: ascending E-W    → zero Z velocity
+		// meta 4,5: ascending N-S    → zero X velocity
+		// meta 6-9: curves           → allow both axes
+		switch meta {
+		case 0, 4, 5:
+			cart.VelocityX = 0
+		case 1, 2, 3:
+			cart.VelocityZ = 0
+		}
+
 		cart.VelocityX *= friction
 		cart.VelocityZ *= friction
-
 		if math.Abs(cart.VelocityX) < 0.001 {
 			cart.VelocityX = 0
 		}
@@ -153,97 +221,80 @@ func tickPhysics(world *level.World) {
 			cart.VelocityZ = 0
 		}
 
-		railIds := map[byte]bool{
-			byte(constants.Rail.Value):         true,
-			byte(constants.PoweredRail.Value):  true,
-			byte(constants.DetectorRail.Value): true,
+		// Compute candidate next position, snapping the perpendicular axis to
+		// the rail block's centre (keeps the cart on the track).
+		var nextX, nextZ float64
+		switch meta {
+		case 0, 4, 5: // N-S and ascending N-S
+			nextX = float64(bx) + 0.5 // snap X to rail centre
+			nextZ = cz + cart.VelocityZ
+		case 1, 2, 3: // E-W and ascending E-W
+			nextZ = float64(bz) + 0.5 // snap Z to rail centre
+			nextX = cx + cart.VelocityX
+		default: // curves
+			nextX = cx + cart.VelocityX
+			nextZ = cz + cart.VelocityZ
 		}
 
-		railInX := func(testX float64) bool {
-			bInside := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
-			bBelow := world.GetBlock(int32(math.Floor(testX)), byte(math.Floor(cy-1)), int32(math.Floor(cz)))
-			return railIds[bInside.TypeId] || railIds[bBelow.TypeId]
-		}
-		railInZ := func(testZ float64) bool {
-			bInside := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(testZ)))
-			bBelow := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy-1)), int32(math.Floor(testZ)))
-			return railIds[bInside.TypeId] || railIds[bBelow.TypeId]
-		}
-
-		if cart.VelocityX != 0 && !railInX(cx+cart.VelocityX) {
-			cart.VelocityX = 0
-		}
-		if cart.VelocityZ != 0 && !railInZ(cz+cart.VelocityZ) {
-			cart.VelocityZ = 0
-		}
-
-		nextX := cx + cart.VelocityX
-		nextZ := cz + cart.VelocityZ
-
-		blockBelow := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy-1)), int32(math.Floor(nextZ)))
-		blockInside := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
-		hasRail := railIds[blockInside.TypeId] || railIds[blockBelow.TypeId]
-
-		if !hasRail {
-			cart.VelocityX = 0
-			cart.VelocityZ = 0
-			nextX = cx
-			nextZ = cz
-		}
-
-		if cart.VelocityX != 0 {
-			wallX := world.GetBlock(int32(math.Floor(nextX)), byte(math.Floor(cy)), int32(math.Floor(cz)))
-			if !wallX.IsAir() && !railIds[wallX.TypeId] {
+		// If the candidate block differs, verify a rail exists there (same Y,
+		// one above for ascending exit, or one below for descending entry).
+		nextBx := int32(math.Floor(nextX))
+		nextBz := int32(math.Floor(nextZ))
+		if nextBx != bx || nextBz != bz {
+			_, okSame := findRail(nextBx, by, nextBz)
+			_, okAbove := findRail(nextBx, by+1, nextBz)
+			if !okSame && !okAbove {
+				// No rail in the next block — stop the cart at the current rail centre.
 				cart.VelocityX = 0
-				nextX = cx
-			}
-		}
-		if cart.VelocityZ != 0 {
-			wallZ := world.GetBlock(int32(math.Floor(cx)), byte(math.Floor(cy)), int32(math.Floor(nextZ)))
-			if !wallZ.IsAir() && !railIds[wallZ.TypeId] {
 				cart.VelocityZ = 0
-				nextZ = cz
+				nextX = float64(bx) + 0.5
+				nextZ = float64(bz) + 0.5
 			}
 		}
 
-		// Derive Y from the rail block at the current position
-		bx := int32(math.Floor(cx))
-		by := byte(math.Floor(cy))
-		bz := int32(math.Floor(cz))
-
-		if railIds[world.GetBlock(bx, by-1, bz).TypeId] {
-			by--
-		}
-
-		// Powered rail logic
-		// TODO: Something is off, boost should be lower somehow...
-		currentRail := world.GetBlock(bx, by, bz)
-		if currentRail.TypeId == byte(constants.PoweredRail.Value) {
-			log.Println("Powered Rail Hit")
-			speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
-			if speed > 0.01 {
-				const boost = 0.5
-				cart.VelocityX += cart.VelocityX / speed * boost
-				cart.VelocityZ += cart.VelocityZ / speed * boost
+		// Derive Y from the rail geometry at the *destination* block.
+		// We must re-look-up the rail at (floor(nextX), floor(nextZ)) because when
+		// the cart crosses a block boundary the destination rail may be at a
+		// different Y than the current one (e.g. ascending → flat one level up).
+		// Using the current block's `by`/`meta` for a position in the next block
+		// produces the wrong Y, causing findRail to fail on the following tick and
+		// the cart to be incorrectly despawned.
+		destBx := int32(math.Floor(nextX))
+		destBz := int32(math.Floor(nextZ))
+		destRailY := by // default: same level as current rail
+		if !railIds[world.GetBlock(destBx, by, destBz).TypeId] {
+			if by > 0 && railIds[world.GetBlock(destBx, by-1, destBz).TypeId] {
+				destRailY = by - 1 // descending into lower block
+			} else if railIds[world.GetBlock(destBx, by+1, destBz).TypeId] {
+				destRailY = by + 1 // ascending into higher block
 			}
 		}
-
-		railBlock := world.GetBlock(bx, by, bz)
-		trackY := float64(by)
-		if railIds[railBlock.TypeId] && railBlock.Metadata >= 2 && railBlock.Metadata <= 5 {
-			// Ascending rail: Y is always blockY+1, same as vanilla's trackY = blockY + 1
-			trackY = float64(by) + 1.0
+		destBlock := world.GetBlock(destBx, destRailY, destBz)
+		destMeta := destBlock.Metadata
+		if destBlock.TypeId == byte(constants.PoweredRail.Value) ||
+			destBlock.TypeId == byte(constants.DetectorRail.Value) {
+			destMeta &= 0x07
 		}
-		nextY := trackY + 0.125 // standingEyeHeight offset, equivalent to BetaSharp's setTrackAlignedPosition
 
-		// Capture fixed-point delta before mutating position
-		oldFX := int32(math.Floor(cx * 32))
-		oldFY := int32(math.Floor(cy * 32))
-		oldFZ := int32(math.Floor(cz * 32))
+		var nextY float64
+		switch destMeta {
+		case 2: // ascending east (+X rises)
+			t := nextX - math.Floor(nextX)
+			nextY = float64(destRailY) + 0.5 + t
+		case 3: // ascending west (-X rises)
+			t := nextX - math.Floor(nextX)
+			nextY = float64(destRailY) + 1.5 - t
+		case 4: // ascending north (-Z rises)
+			t := nextZ - math.Floor(nextZ)
+			nextY = float64(destRailY) + 1.5 - t
+		case 5: // ascending south (+Z rises)
+			t := nextZ - math.Floor(nextZ)
+			nextY = float64(destRailY) + 0.5 + t
+		default: // flat (meta 0, 1, 6-9)
+			nextY = float64(destRailY) + 0.5
+		}
+
 		cart.SetPosition(nextX, nextY, nextZ)
-		newFX := int32(math.Floor(nextX * 32))
-		newFY := int32(math.Floor(nextY * 32))
-		newFZ := int32(math.Floor(nextZ * 32))
 
 		if cart.VelocityX != prevVx || cart.VelocityZ != prevVz {
 			p := packets.EntityVelocity{
@@ -255,19 +306,22 @@ func tickPhysics(world *level.World) {
 			world.BroadcastPacket(p.Serialize())
 		}
 
-		dX := newFX - oldFX
-		dY := newFY - oldFY
-		dZ := newFZ - oldFZ
-		if dX != 0 || dY != 0 || dZ != 0 {
-			// TODO: Logic still not clean; if y-position desync, breaks...
-			log.Printf("Cart Position X=%.2f, Y=%.2f Z=%.2f", nextX, nextY, nextZ)
-			pkt := packets.EntityPositionOutPacket{
-				EntityId: cart.EntityId,
-				X:        byte(int8(dX)),
-				Y:        byte(int8(dY)),
-				Z:        byte(int8(dZ)),
-			}
-			world.BroadcastPacket(pkt.Serialize())
+		// TODO:
+		// There is a desync issue involving the Y-positions and I could not figure out why
+		// Thus, instead of using EntityPosition (relative), I use TeleportEntity (absolute)
+		log.Printf("Minecart Position X=%.2f Y=%.2f Z=%.2f", nextX, nextY, nextZ)
+		tpkt := packets.TeleportEntity{
+			EntityId: cart.EntityId,
+			X:        int32(math.Floor(nextX * 32)),
+			Y:        int32(math.Floor(nextY * 32)),
+			Z:        int32(math.Floor(nextZ * 32)),
+			Yaw:      0,
+			Pitch:    0,
 		}
+		world.BroadcastPacket(tpkt.Serialize())
+	}
+
+	for _, id := range toRemove {
+		world.RemoveEntity(id)
 	}
 }
