@@ -130,8 +130,6 @@ func minecartPhysics(world *level.World) {
 		byte(constants.DetectorRail.Value): true,
 	}
 
-	// findRail returns the Y of the rail block at (bx, by, bz),
-	// also check one block below to handle the cart sitting above the rail.
 	findRail := func(bx int32, by byte, bz int32) (byte, bool) {
 		if railIds[world.GetBlock(bx, by, bz).TypeId] {
 			return by, true
@@ -147,14 +145,12 @@ func minecartPhysics(world *level.World) {
 	for _, cart := range carts {
 		cx, cy, cz := cart.GetPosition()
 
-		// Find rail at the cart's current block position.
 		bx := int32(math.Floor(cx))
 		by := byte(math.Floor(cy))
 		bz := int32(math.Floor(cz))
 
 		railY, hasRail := findRail(bx, by, bz)
 		if !hasRail {
-			// Destroy cart if no rail found (e.g. rail destroyed while cart on it).
 			despawn := packets.EntityDespawnOutPacket{EntityId: cart.EntityId}
 			world.BroadcastPacket(despawn.Serialize())
 			toRemove = append(toRemove, cart.EntityId)
@@ -164,16 +160,9 @@ func minecartPhysics(world *level.World) {
 
 		railBlock := world.GetBlock(bx, by, bz)
 		rawMeta := railBlock.Metadata
-		// Powered/detector rails store power state in bit 3; strip it for direction.
 		meta := rawMeta
-		if railBlock.TypeId == byte(constants.PoweredRail.Value) ||
-			railBlock.TypeId == byte(constants.DetectorRail.Value) {
-			meta &= 0x07
-		}
-
 		prevVx, prevVz := cart.VelocityX, cart.VelocityZ
 
-		// Apply player push forces.
 		for _, pp := range players {
 			dx := cx - pp.x
 			dz := cz - pp.z
@@ -189,27 +178,46 @@ func minecartPhysics(world *level.World) {
 			}
 		}
 
-		// Powered rail boost: vanilla uses 0.06 per tick when powered
 		if railBlock.TypeId == byte(constants.PoweredRail.Value) {
 			speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
 			if speed > 0.01 {
-				const boost = 0.06 * 10
+				const boost = 0.70
 				cart.VelocityX += cart.VelocityX / speed * boost
 				cart.VelocityZ += cart.VelocityZ / speed * boost
 			}
 		}
 
-		// Constrain velocity to the rail's axis, then apply friction.
-		// meta 0: flat N-S (Z axis)  → zero X velocity
-		// meta 1: flat E-W (X axis)  → zero Z velocity
-		// meta 2,3: ascending E-W    → zero Z velocity
-		// meta 4,5: ascending N-S    → zero X velocity
-		// meta 6-9: curves           → allow both axes
+		// Constrain velocity to rail axis, distribute to both axes for curves.
+		// TODO: It works but has still some edge cases where it struggles to move...
 		switch meta {
-		case 0, 4, 5:
+		case 0, 4, 5: // flat N-S, ascending N-S → zero X
 			cart.VelocityX = 0
-		case 1, 2, 3:
+		case 1, 2, 3: // flat E-W, ascending E-W → zero Z
 			cart.VelocityZ = 0
+		case 6: // xMzP: connects -X and +Z
+			if cart.VelocityX == 0 {
+				cart.VelocityX = -cart.VelocityZ
+			} else if cart.VelocityZ == 0 {
+				cart.VelocityZ = -cart.VelocityX
+			}
+		case 7: // xPzP: connects +X and +Z
+			if cart.VelocityX == 0 {
+				cart.VelocityX = cart.VelocityZ
+			} else if cart.VelocityZ == 0 {
+				cart.VelocityZ = cart.VelocityX
+			}
+		case 8: // xPzM: connects +X and -Z
+			if cart.VelocityX == 0 {
+				cart.VelocityX = -cart.VelocityZ
+			} else if cart.VelocityZ == 0 {
+				cart.VelocityZ = -cart.VelocityX
+			}
+		case 9: // xMzM: connects -X and -Z
+			if cart.VelocityX == 0 {
+				cart.VelocityX = cart.VelocityZ
+			} else if cart.VelocityZ == 0 {
+				cart.VelocityZ = cart.VelocityX
+			}
 		}
 
 		cart.VelocityX *= friction
@@ -221,30 +229,25 @@ func minecartPhysics(world *level.World) {
 			cart.VelocityZ = 0
 		}
 
-		// Compute candidate next position, snapping the perpendicular axis to
-		// the rail block's centre (keeps the cart on the track).
 		var nextX, nextZ float64
 		switch meta {
-		case 0, 4, 5: // N-S and ascending N-S
-			nextX = float64(bx) + 0.5 // snap X to rail centre
+		case 0, 4, 5:
+			nextX = float64(bx) + 0.5
 			nextZ = cz + cart.VelocityZ
-		case 1, 2, 3: // E-W and ascending E-W
-			nextZ = float64(bz) + 0.5 // snap Z to rail centre
+		case 1, 2, 3:
+			nextZ = float64(bz) + 0.5
 			nextX = cx + cart.VelocityX
-		default: // curves
+		default:
 			nextX = cx + cart.VelocityX
 			nextZ = cz + cart.VelocityZ
 		}
 
-		// If the candidate block differs, verify a rail exists there (same Y,
-		// one above for ascending exit, or one below for descending entry).
 		nextBx := int32(math.Floor(nextX))
 		nextBz := int32(math.Floor(nextZ))
 		if nextBx != bx || nextBz != bz {
 			_, okSame := findRail(nextBx, by, nextBz)
 			_, okAbove := findRail(nextBx, by+1, nextBz)
 			if !okSame && !okAbove {
-				// No rail in the next block — stop the cart at the current rail centre.
 				cart.VelocityX = 0
 				cart.VelocityZ = 0
 				nextX = float64(bx) + 0.5
@@ -252,45 +255,34 @@ func minecartPhysics(world *level.World) {
 			}
 		}
 
-		// Derive Y from the rail geometry at the *destination* block.
-		// We must re-look-up the rail at (floor(nextX), floor(nextZ)) because when
-		// the cart crosses a block boundary the destination rail may be at a
-		// different Y than the current one (e.g. ascending → flat one level up).
-		// Using the current block's `by`/`meta` for a position in the next block
-		// produces the wrong Y, causing findRail to fail on the following tick and
-		// the cart to be incorrectly despawned.
 		destBx := int32(math.Floor(nextX))
 		destBz := int32(math.Floor(nextZ))
-		destRailY := by // default: same level as current rail
+		destRailY := by
 		if !railIds[world.GetBlock(destBx, by, destBz).TypeId] {
 			if by > 0 && railIds[world.GetBlock(destBx, by-1, destBz).TypeId] {
-				destRailY = by - 1 // descending into lower block
+				destRailY = by - 1
 			} else if railIds[world.GetBlock(destBx, by+1, destBz).TypeId] {
-				destRailY = by + 1 // ascending into higher block
+				destRailY = by + 1
 			}
 		}
 		destBlock := world.GetBlock(destBx, destRailY, destBz)
 		destMeta := destBlock.Metadata
-		if destBlock.TypeId == byte(constants.PoweredRail.Value) ||
-			destBlock.TypeId == byte(constants.DetectorRail.Value) {
-			destMeta &= 0x07
-		}
 
 		var nextY float64
 		switch destMeta {
-		case 2: // ascending east (+X rises)
+		case 2:
 			t := nextX - math.Floor(nextX)
 			nextY = float64(destRailY) + 0.5 + t
-		case 3: // ascending west (-X rises)
+		case 3:
 			t := nextX - math.Floor(nextX)
 			nextY = float64(destRailY) + 1.5 - t
-		case 4: // ascending north (-Z rises)
+		case 4:
 			t := nextZ - math.Floor(nextZ)
 			nextY = float64(destRailY) + 1.5 - t
-		case 5: // ascending south (+Z rises)
+		case 5:
 			t := nextZ - math.Floor(nextZ)
 			nextY = float64(destRailY) + 0.5 + t
-		default: // flat (meta 0, 1, 6-9)
+		default:
 			nextY = float64(destRailY) + 0.5
 		}
 
@@ -306,9 +298,6 @@ func minecartPhysics(world *level.World) {
 			world.BroadcastPacket(p.Serialize())
 		}
 
-		// TODO:
-		// There is a desync issue involving the Y-positions and I could not figure out why
-		// Thus, instead of using EntityPosition (relative), I use TeleportEntity (absolute)
 		log.Printf("Minecart Position X=%.2f Y=%.2f Z=%.2f", nextX, nextY, nextZ)
 		tpkt := packets.TeleportEntity{
 			EntityId: cart.EntityId,

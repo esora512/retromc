@@ -201,6 +201,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		blockItem = constants.Sign.Value
 	}
 
+	if blockItem == constants.Rail.Value {
+		log.Printf("Rail Meta %d", blockMeta)
+	}
+
 	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
 	if slot < 0 {
 		return
