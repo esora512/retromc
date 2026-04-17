@@ -109,9 +109,7 @@ func minecartPhysics(world *level.World) {
 
 	entities := world.SnapshotEntities()
 
-	type playerPos struct {
-		x, z float64
-	}
+	type playerPos struct{ x, z float64 }
 	var players []playerPos
 	var carts []*level.RideableEntity
 
@@ -130,12 +128,16 @@ func minecartPhysics(world *level.World) {
 		byte(constants.DetectorRail.Value): true,
 	}
 
+	// look ahead for rails
 	findRail := func(bx int32, by byte, bz int32) (byte, bool) {
 		if railIds[world.GetBlock(bx, by, bz).TypeId] {
 			return by, true
 		}
 		if by > 0 && railIds[world.GetBlock(bx, by-1, bz).TypeId] {
 			return by - 1, true
+		}
+		if railIds[world.GetBlock(bx, by+1, bz).TypeId] {
+			return by + 1, true
 		}
 		return 0, false
 	}
@@ -159,8 +161,7 @@ func minecartPhysics(world *level.World) {
 		by = railY
 
 		railBlock := world.GetBlock(bx, by, bz)
-		rawMeta := railBlock.Metadata
-		meta := rawMeta
+		meta := railBlock.Metadata
 		prevVx, prevVz := cart.VelocityX, cart.VelocityZ
 
 		for _, pp := range players {
@@ -178,45 +179,58 @@ func minecartPhysics(world *level.World) {
 			}
 		}
 
+		// curve handling
+		// 6, 7, 8, 9 = rails that curve in directions
+		switch meta {
+		case 0, 4, 5:
+			cart.VelocityX = 0
+		case 1, 2, 3:
+			cart.VelocityZ = 0
+		// connects -X and +Z  (corner: west ↔ south)
+		case 6: 
+			if math.Abs(cart.VelocityX) > math.Abs(cart.VelocityZ) {
+				cart.VelocityZ = -cart.VelocityX
+				cart.VelocityX = 0
+			} else {
+				cart.VelocityX = -cart.VelocityZ
+				cart.VelocityZ = 0
+			}
+		// connects +X and +Z  (corner: east ↔ south)
+		case 7: 
+			if math.Abs(cart.VelocityX) > math.Abs(cart.VelocityZ) {
+				cart.VelocityZ = cart.VelocityX
+				cart.VelocityX = 0
+			} else {
+				cart.VelocityX = cart.VelocityZ
+				cart.VelocityZ = 0
+			}
+		// connects +X and -Z  (corner: east ↔ north)
+		case 8:
+			if math.Abs(cart.VelocityX) > math.Abs(cart.VelocityZ) {
+				cart.VelocityZ = -cart.VelocityX
+				cart.VelocityX = 0
+			} else {
+				cart.VelocityX = -cart.VelocityZ
+				cart.VelocityZ = 0
+			}
+		// 9 connects -X and -Z  (corner: west ↔ north)
+		case 9:
+			if math.Abs(cart.VelocityX) > math.Abs(cart.VelocityZ) {
+				cart.VelocityZ = cart.VelocityX
+				cart.VelocityX = 0
+			} else {
+				cart.VelocityX = cart.VelocityZ
+				cart.VelocityZ = 0
+			}
+		}
+
+		// TODO: Only use powered rail when activated; for testing we make boost regardless of activation
 		if railBlock.TypeId == byte(constants.PoweredRail.Value) {
 			speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
 			if speed > 0.01 {
 				const boost = 0.70
 				cart.VelocityX += cart.VelocityX / speed * boost
 				cart.VelocityZ += cart.VelocityZ / speed * boost
-			}
-		}
-
-		// Constrain velocity to rail axis, distribute to both axes for curves.
-		// TODO: It works but has still some edge cases where it struggles to move...
-		switch meta {
-		case 0, 4, 5: // flat N-S, ascending N-S → zero X
-			cart.VelocityX = 0
-		case 1, 2, 3: // flat E-W, ascending E-W → zero Z
-			cart.VelocityZ = 0
-		case 6: // xMzP: connects -X and +Z
-			if cart.VelocityX == 0 {
-				cart.VelocityX = -cart.VelocityZ
-			} else if cart.VelocityZ == 0 {
-				cart.VelocityZ = -cart.VelocityX
-			}
-		case 7: // xPzP: connects +X and +Z
-			if cart.VelocityX == 0 {
-				cart.VelocityX = cart.VelocityZ
-			} else if cart.VelocityZ == 0 {
-				cart.VelocityZ = cart.VelocityX
-			}
-		case 8: // xPzM: connects +X and -Z
-			if cart.VelocityX == 0 {
-				cart.VelocityX = -cart.VelocityZ
-			} else if cart.VelocityZ == 0 {
-				cart.VelocityZ = -cart.VelocityX
-			}
-		case 9: // xMzM: connects -X and -Z
-			if cart.VelocityX == 0 {
-				cart.VelocityX = cart.VelocityZ
-			} else if cart.VelocityZ == 0 {
-				cart.VelocityZ = cart.VelocityX
 			}
 		}
 
@@ -250,8 +264,12 @@ func minecartPhysics(world *level.World) {
 			if !okSame && !okAbove {
 				cart.VelocityX = 0
 				cart.VelocityZ = 0
-				nextX = float64(bx) + 0.5
-				nextZ = float64(bz) + 0.5
+				if nextBx != bx {
+					nextX = float64(bx) + 0.25
+				}
+				if nextBz != bz {
+					nextZ = float64(bz) + 0.25
+				}
 			}
 		}
 
