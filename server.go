@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
@@ -179,7 +180,7 @@ func getRailPos(world *level.World, px, py, pz float64) (float64, float64, float
 
 // Use teleport packet to obtain absolute control over minecart
 // Too bad at math to get it to work with relative positions and mimicking client-side calculations...
-func broadcastTeleport(w *level.World, c *level.RideableEntity, cx, cy, cz float64) {
+func broadcastTeleport(w *level.World, c *entities.RideableEntity, cx, cy, cz float64) {
 	tpkt := packets.TeleportEntity{
 		EntityId: c.EntityId,
 		X:        int32(math.Floor(cx * 32)),
@@ -194,17 +195,17 @@ func broadcastTeleport(w *level.World, c *level.RideableEntity, cx, cy, cz float
 func minecartPhysics(world *level.World) {
 	const maxSpeed = 0.4
 
-	entities := world.SnapshotEntities()
-	var carts []*level.RideableEntity
+	allEntities := world.SnapshotEntities()
+	var carts []*entities.RideableEntity
 
 	type playerPos struct{ x, z float64 }
 	var players []playerPos
 
-	for _, e := range entities {
+	for _, e := range allEntities {
 		if e.IsPlayer() {
 			x, _, z := e.GetPosition()
 			players = append(players, playerPos{x, z})
-		} else if cart, ok := e.(*level.RideableEntity); ok {
+		} else if cart, ok := e.(*entities.RideableEntity); ok {
 			carts = append(carts, cart)
 		}
 	}

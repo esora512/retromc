@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -81,7 +82,7 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	// TODO: It might be possible to make it work via channels; but again, not sure if it's worth it...
 	if p.Y <= ignoreY && pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
-		ridable, _ := maybeRidable.(*level.RideableEntity)
+		ridable, _ := maybeRidable.(*entities.RideableEntity)
 		x, y, z = ridable.X, ridable.Y, ridable.Z
 		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
 			// Only multicast if different from before

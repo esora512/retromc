@@ -1,11 +1,12 @@
 package level
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
+	"github.com/leNicDev/retromc/entities"
+
 )
 
 // ChunkCoord is the map key for a chunk's position in the world.
@@ -13,7 +14,7 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
-type IEntity interface {
+type Entity interface {
 	GetName() string
 	GetPosition() (float64, float64, float64)
 	SetPosition(x, y, z float64)
@@ -22,51 +23,16 @@ type IEntity interface {
 	IsPlayer() bool
 }
 
-type RideableEntity struct {
-	EntityId      int32
-	X             float64
-	Y             float64
-	Z             float64
-	VelocityX     float64
-	VelocityY     float64
-	VelocityZ     float64
-	OwnerEntityId int32
-	ObjectType    byte
-}
-
-func (w *World) SnapshotEntities() []IEntity {
+func (w *World) SnapshotEntities() []Entity {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	snapshot := make([]IEntity, 0, len(w.Entities))
+	snapshot := make([]Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
 		snapshot = append(snapshot, e)
 	}
 	return snapshot
 }
 
-func (r *RideableEntity) SetPosition(x, y, z float64) {
-	r.X, r.Y, r.Z = x, y, z
-}
-
-func (r *RideableEntity) IsPlayer() bool {
-	return false
-}
-
-func (r *RideableEntity) GetEntityId() int32 {
-	return r.EntityId
-}
-
-func (r *RideableEntity) GetPosition() (float64, float64, float64) {
-	return r.X, r.Y, r.Z
-}
-
-func (r *RideableEntity) IsRideable() bool {
-	return true
-}
-
-func (r *RideableEntity) GetName() string {
-	return fmt.Sprintf("Entity %d", r.EntityId)
-}
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
@@ -74,12 +40,12 @@ type World struct {
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
-	Entities    map[int32]IEntity
+	Entities    map[int32]Entity
 	EntityCount int32
 }
 
 func NewWorld() *World {
-	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player), Entities: make(map[int32]IEntity)}
+	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player), Entities: make(map[int32]Entity)}
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -142,7 +108,7 @@ func (w *World) AddPlayer(p *player.Player) {
 }
 
 func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz float64, objectType byte) {
-	r := RideableEntity{
+	r := entities.RideableEntity{
 		EntityId:      entityId,
 		OwnerEntityId: ownerEntityId,
 		X:             x,
