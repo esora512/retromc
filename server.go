@@ -192,6 +192,33 @@ func broadcastTeleport(w *level.World, c *entities.RideableEntity, cx, cy, cz fl
 	w.BroadcastPacket(tpkt.Serialize())
 }
 
+func broadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
+	encPrevX := int32(math.Floor(prevX * 32))
+	encPrevY := int32(math.Floor(prevY * 32))
+	encPrevZ := int32(math.Floor(prevZ * 32))
+	encNextX := int32(math.Floor(nextX * 32))
+	encNextY := int32(math.Floor(nextY * 32))
+	encNextZ := int32(math.Floor(nextZ * 32))
+
+	dX := encNextX - encPrevX
+	dY := encNextY - encPrevY
+	dZ := encNextZ - encPrevZ
+
+	// delta overflow guard — fall back to teleport if moved more than 4 blocks
+	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
+		broadcastTeleport(w, c, nextX, nextY, nextZ)
+		return
+	}
+
+	p := packets.EntityPositionOutPacket{
+		EntityId: c.EntityId,
+		X:        byte(dX),
+		Y:        byte(dY),
+		Z:        byte(dZ),
+	}
+	w.BroadcastPacket(p.Serialize())
+}
+
 func minecartPhysics(world *level.World) {
 	const maxSpeed = 0.4
 
@@ -357,6 +384,7 @@ func minecartPhysics(world *level.World) {
 			cart.VelocityX = 0
 			cart.VelocityZ = 0
 			cart.VelocityY = 0
+			//broadcastPosition(world, cart, 0, 0, 0)
 			broadcastTeleport(world, cart, cx, cy, cz)
 			continue
 		}
@@ -373,7 +401,10 @@ func minecartPhysics(world *level.World) {
 			cart.VelocityZ = 0
 		}
 
+		// TODO: Make it work with broadcastPosition in the future...
+		//prevX, prevY, prevZ := cx, cy, cz
 		cart.SetPosition(nextX, nextY, nextZ)
+		//broadcastPosition(world, cart, prevX, prevY, prevZ, nextX, nextY, nextZ)
 		broadcastTeleport(world, cart, nextX, nextY, nextZ)
 	}
 
