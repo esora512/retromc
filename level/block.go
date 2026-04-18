@@ -50,6 +50,10 @@ func (b *Block) IsRail() bool {
 	return b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
 
+func (b *Block) IsPoweredRail() bool {
+	return b.TypeId == byte(constants.PoweredRail.Value)
+}
+
 func (b *Block) GetDirections() BlockDirections {
 	if b.TypeId == byte(constants.SignGround.Value) {
 		return BlockDirections{
