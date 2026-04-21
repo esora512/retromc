@@ -141,7 +141,6 @@ func broadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY,
 	w.BroadcastPacket(p.Serialize())
 }
 
-
 func broadcastRelativePosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
@@ -178,8 +177,8 @@ func minecartPhysics(world *level.World) {
 
 	for _, e := range allEntities {
 		if e.IsPlayer() {
-			x, _, z := e.GetPosition()
-			players = append(players, entities.PlayerPosition{X: x, Z: z})
+			x, y, z := e.GetPosition()
+			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z})
 		} else if cart, ok := e.(*entities.RideableEntity); ok {
 			carts = append(carts, cart)
 		}
@@ -198,19 +197,12 @@ func minecartPhysics(world *level.World) {
 
 	for _, cart := range carts {
 		cx, cy, cz := cart.GetPosition()
-		nx, ny, nz, action := cart.TickPhysics(getBlock, players)
-
-		dx := cx - nx
-		dz := cz - nz
-		var yaw byte
-		if dx*dx+dz*dz > 0.001 {
-			degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
-			yaw = byte(int(degrees*256.0/360.0) & 0xFF)
-		}
+		nx, ny, nz, yaw, action := cart.TickPhysics(getBlock, players)
 		switch action {
 		case entities.CartMoved:
 			cart.SetPosition(nx, ny, nz)
 			broadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
+			log.Printf("Cart %d moved to (%.2f, %.2f, %.2f)", cart.EntityId, nx, ny, nz)
 		case entities.CartStopped:
 			broadcastTeleport(world, cart, cx, cy, cz, yaw)
 		case entities.CartDespawned:

@@ -31,12 +31,12 @@ const (
 	CartDespawned
 )
 
-type PlayerPosition struct{ X, Z float64 }
+type PlayerPosition struct{ X, Y, Z float64 }
 
 func (cart *RideableEntity) TickPhysics(
 	getBlock GetBlockFunc,
 	players []PlayerPosition,
-) (newX, newY, newZ float64, action CartAction) {
+) (newX, newY, newZ float64, yaw byte, action CartAction) {
 	const maxSpeed = 0.4
 
 	cx, cy, cz := cart.GetPosition()
@@ -53,7 +53,7 @@ func (cart *RideableEntity) TickPhysics(
 
 	block = getBlock(bx, byte(by), bz)
 	if !block.IsRail {
-		return 0, 0, 0, CartDespawned
+		return 0, 0, 0, 0, CartDespawned
 	}
 
 	// Notchian off-rail behaviour
@@ -133,8 +133,9 @@ func (cart *RideableEntity) TickPhysics(
 	const pushRadius, pushForce = 1.25, 0.3
 	for _, pp := range players {
 		dx := cx - pp.X
+		dy := cy - pp.Y
 		dz := cz - pp.Z
-		dist := math.Sqrt(dx*dx + dz*dz)
+		dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
 		if dist < pushRadius && dist > 0.001 {
 			nx, nz := dx/dist, dz/dist
 			if nx*cart.VelocityX+nz*cart.VelocityZ >= 0 {
@@ -212,7 +213,7 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityX = 0
 		cart.VelocityZ = 0
 		cart.VelocityY = 0
-		return cx, cy, cz, CartStopped
+		return cx, cy, cz, 0, CartStopped
 	}
 
 	// friction: 0.96 unoccupied (0.997 if rider — add that check if you have passenger support)
@@ -227,7 +228,14 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityZ = 0
 	}
 
-	return nextX, nextY, nextZ, CartMoved
+	dx := cx - nextX
+	dz := cz - nextZ
+	if dx*dx+dz*dz > 0.001 {
+		degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
+		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
+	}
+
+	return nextX, nextY, nextZ, yaw, CartMoved
 }
 
 func clamp(v, min, max float64) float64 {
