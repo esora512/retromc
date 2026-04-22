@@ -119,6 +119,29 @@ func sendChunks(connection net.Conn, world *level.World) {
 	}
 }
 
+func GenerateWorld0(world *level.World) {
+	for cx := int32(-1); cx <= 0; cx++ {
+		for cz := int32(-1); cz <= 0; cz++ {
+			world.GetOrCreateChunk(cx, cz)
+		}
+	}
+}
+
+func SendLoadedChunks(conn net.Conn, world *level.World) {
+    for coord, chunk := range world.LoadChunks() {
+		if chunk == nil {
+			continue
+		}
+        pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
+        conn.Write(pre.Serialize())
+
+        mapChunk := packets.MapChunkOutPacket{}
+        mapChunk.Apply(*chunk)
+        conn.Write(mapChunk.Serialize())
+    }
+}
+
+
 func sendSpawnPosition(connection net.Conn) {
 	spawnPositionPacket := packets.SpawnPositionOutPacket{
 		X: 0,
@@ -138,6 +161,8 @@ func sendInventory(connection net.Conn, pl *player.Player) {
 	}
 	connection.Write(windowItemsPacket.Serialize())
 }
+
+
 
 func sendPlayerPositionAndLook(connection net.Conn) {
 	const spawnY = 64.0
@@ -164,3 +189,5 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 		})
 	})
 }
+
+

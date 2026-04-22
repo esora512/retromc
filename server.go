@@ -32,6 +32,9 @@ func main() {
 	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
 
 	world := level.NewWorld()
+	if err := world.LoadChanges("world.dat"); err != nil {
+		log.Println("Failed to load world save:", err)
+	}
 	startGameLoop(world)
 
 	for {
@@ -87,6 +90,8 @@ func handleConnection(connection net.Conn, world *level.World) {
 	}
 }
 
+const worldSavePath = "world.dat"
+
 func startGameLoop(world *level.World) {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
@@ -96,6 +101,13 @@ func startGameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
+
+			// Save world every 1200 ticks = every 60s
+			if world.Tick%1200 == 0 {
+				if err := world.SaveChanges(worldSavePath); err != nil {
+					log.Println("Failed to save world:", err)
+				}
+			}
 		}
 	}()
 }

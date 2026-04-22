@@ -3,15 +3,21 @@ package level
 import (
 	"sync"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
-	"github.com/leNicDev/retromc/entities"
-
 )
 
 // ChunkCoord is the map key for a chunk's position in the world.
 type ChunkCoord struct {
 	X, Z int32
+}
+
+// blockKey is the map key for a single block's world position.
+type blockKey struct {
+	X int32
+	Y byte
+	Z int32
 }
 
 type Entity interface {
@@ -33,11 +39,11 @@ func (w *World) SnapshotEntities() []Entity {
 	return snapshot
 }
 
-
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	mu          sync.RWMutex
 	chunks      map[ChunkCoord]*Chunk
+	changes     map[blockKey]Block
 	Tick        int64
 	Players     map[int32]*player.Player
 	Entities    map[int32]Entity
@@ -45,7 +51,17 @@ type World struct {
 }
 
 func NewWorld() *World {
-	return &World{chunks: make(map[ChunkCoord]*Chunk), EntityCount: 0, Players: make(map[int32]*player.Player), Entities: make(map[int32]Entity)}
+	return &World{
+		chunks:      make(map[ChunkCoord]*Chunk),
+		changes:     make(map[blockKey]Block),
+		EntityCount: 0,
+		Players:     make(map[int32]*player.Player),
+		Entities:    make(map[int32]Entity),
+	}
+}
+
+func (w *World) LoadChunks() map[ChunkCoord]*Chunk {
+	return w.chunks
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -69,6 +85,16 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 	c := NewChunk()
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
+
+	// Replay any persisted block changes that fall in this chunk.
+	for k, b := range w.changes {
+		if WorldToChunkCoord(k.X) == cx && WorldToChunkCoord(k.Z) == cz {
+			lx := WorldToLocalCoord(k.X)
+			lz := WorldToLocalCoord(k.Z)
+			c.SetBlock(lx, int(k.Y), lz, b)
+		}
+	}
+
 	w.chunks[key] = &c
 	return &c
 }
@@ -82,6 +108,11 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
+
+	// in-memory persistence
+	w.mu.Lock()
+	w.changes[blockKey{worldX, worldY, worldZ}] = block
+	w.mu.Unlock()
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {

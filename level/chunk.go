@@ -21,7 +21,6 @@ type Chunk struct {
 	Data  []byte
 }
 
-// compress chunk data using zlib
 func (c *Chunk) CompressData() []byte {
 	var buf bytes.Buffer
 	writer := zlib.NewWriter(&buf)
@@ -32,11 +31,11 @@ func (c *Chunk) CompressData() []byte {
 
 const GROUND_LEVEL = 64
 
-// generate fills the chunk: stone below GROUND_LEVEL, air above.
+// GenerateTemplate fills the chunk: stone below GROUND_LEVEL, air above.
 // Blocks are stored in XZY order so y = blockIndex % CHUNK_SIZE_Y.
 // Nibble arrays pack two 4-bit values per byte: even index → lower nibble (bits 0-3),
 // odd index → upper nibble (bits 4-7).
-func (c *Chunk) generate() {
+func (c *Chunk) GenerateTemplate() {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 
@@ -108,7 +107,6 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
 	}
 }
 
-// GetBlock returns the block at local coordinates (lx, ly, lz).
 func (c *Chunk) GetBlock(lx, ly, lz int) Block {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
@@ -134,6 +132,6 @@ func NewChunk() Chunk {
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
 	}
-	chunk.generate()
+	chunk.GenerateTemplate()
 	return chunk
 }
