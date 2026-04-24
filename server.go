@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"log"
-	"math"
 	"net"
 	"time"
 
@@ -112,76 +111,6 @@ func startGameLoop(world *level.World) {
 	}()
 }
 
-// Use teleport packet to obtain absolute control over minecart
-// Too bad at math to get it to work with relative positions and mimicking client-side calculations...
-func broadcastTeleport(w *level.World, c *entities.RideableEntity, cx, cy, cz float64, yaw byte) {
-	tpkt := packets.TeleportEntity{
-		EntityId: c.EntityId,
-		X:        int32(math.Floor(cx * 32)),
-		Y:        int32(math.Floor(cy * 32)),
-		Z:        int32(math.Floor(cz * 32)),
-		Yaw:      yaw,
-		Pitch:    0,
-	}
-	w.BroadcastPacket(tpkt.Serialize())
-}
-
-func broadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
-	encPrevX := int32(math.Floor(prevX * 32))
-	encPrevY := int32(math.Floor(prevY * 32))
-	encPrevZ := int32(math.Floor(prevZ * 32))
-	encNextX := int32(math.Floor(nextX * 32))
-	encNextY := int32(math.Floor(nextY * 32))
-	encNextZ := int32(math.Floor(nextZ * 32))
-
-	dX := encNextX - encPrevX
-	dY := encNextY - encPrevY
-	dZ := encNextZ - encPrevZ
-
-	// delta overflow guard — fall back to teleport if moved more than 4 blocks
-	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
-		broadcastTeleport(w, c, nextX, nextY, nextZ, 0)
-		return
-	}
-
-	p := packets.EntityPositionOutPacket{
-		EntityId: c.EntityId,
-		X:        byte(dX),
-		Y:        byte(dY),
-		Z:        byte(dZ),
-	}
-	w.BroadcastPacket(p.Serialize())
-}
-
-func broadcastRelativePosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
-	encPrevX := int32(math.Floor(prevX * 32))
-	encPrevY := int32(math.Floor(prevY * 32))
-	encPrevZ := int32(math.Floor(prevZ * 32))
-	encNextX := int32(math.Floor(nextX * 32))
-	encNextY := int32(math.Floor(nextY * 32))
-	encNextZ := int32(math.Floor(nextZ * 32))
-
-	dX := encNextX - encPrevX
-	dY := encNextY - encPrevY
-	dZ := encNextZ - encPrevZ
-
-	// delta overflow guard — fall back to teleport if moved more than 4 blocks
-	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
-		broadcastTeleport(w, c, nextX, nextY, nextZ, 0)
-		return
-	}
-
-	p := packets.EntityPositionAndLookOutPacket{
-		EntityId: c.EntityId,
-		X:        byte(dX),
-		Y:        byte(dY),
-		Z:        byte(dZ),
-		Yaw:      yaw,
-		Pitch:    0,
-	}
-	w.BroadcastPacket(p.Serialize())
-}
-
 func minecartPhysics(world *level.World) {
 	allEntities := world.SnapshotEntities()
 	var carts []*entities.RideableEntity
@@ -212,11 +141,11 @@ func minecartPhysics(world *level.World) {
 		nx, ny, nz, yaw, action := cart.TickPhysics(getBlock, players)
 		switch action {
 		case entities.CartMoved:
+			packethandler.BroadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
 			cart.SetPosition(nx, ny, nz)
-			broadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
 			log.Printf("Cart %d moved to (%.2f, %.2f, %.2f)", cart.EntityId, nx, ny, nz)
 		case entities.CartStopped:
-			broadcastTeleport(world, cart, cx, cy, cz, yaw)
+			packethandler.BroadcastTeleport(world, cart, cx, cy, cz, yaw)
 		case entities.CartDespawned:
 			despawn := packets.EntityDespawnOutPacket{EntityId: cart.EntityId}
 			world.BroadcastPacket(despawn.Serialize())
