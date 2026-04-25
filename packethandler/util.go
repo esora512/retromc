@@ -1,16 +1,17 @@
 package packethandler
 
 import (
+	"log"
 	"net"
 
+	"math"
+
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
-	"github.com/leNicDev/retromc/entities"
-	"math"
-
 )
 
 // sendSetSlot tells the client to update a single inventory slot.
@@ -131,19 +132,18 @@ func GenerateWorld0(world *level.World) {
 }
 
 func SendLoadedChunks(conn net.Conn, world *level.World) {
-    for coord, chunk := range world.LoadChunks() {
+	for coord, chunk := range world.LoadChunks() {
 		if chunk == nil {
 			continue
 		}
-        pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
-        conn.Write(pre.Serialize())
+		pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
+		conn.Write(pre.Serialize())
 
-        mapChunk := packets.MapChunkOutPacket{}
-        mapChunk.Apply(*chunk)
-        conn.Write(mapChunk.Serialize())
-    }
+		mapChunk := packets.MapChunkOutPacket{}
+		mapChunk.Apply(*chunk)
+		conn.Write(mapChunk.Serialize())
+	}
 }
-
 
 func sendSpawnPosition(connection net.Conn) {
 	spawnPositionPacket := packets.SpawnPositionOutPacket{
@@ -156,7 +156,13 @@ func sendSpawnPosition(connection net.Conn) {
 }
 
 func sendInventory(connection net.Conn, pl *player.Player) {
-	presetInventory(&pl.Inventory)
+	loaded, err := player.LoadInventory(pl.Username, &pl.Inventory)
+	if err != nil {
+		log.Printf("Failed to load inventory for %s: %v", pl.Username, err)
+	}
+	if !loaded {
+		presetInventory(&pl.Inventory)
+	}
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),
@@ -164,8 +170,6 @@ func sendInventory(connection net.Conn, pl *player.Player) {
 	}
 	connection.Write(windowItemsPacket.Serialize())
 }
-
-
 
 func sendPlayerPositionAndLook(connection net.Conn) {
 	const spawnY = 64.0
@@ -192,8 +196,6 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 		})
 	})
 }
-
-
 
 // Use teleport packet to obtain absolute control over minecart
 // Too bad at math to get it to work with relative positions and mimicking client-side calculations...

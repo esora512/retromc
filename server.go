@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/leNicDev/retromc/entities"
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
@@ -31,8 +32,11 @@ func main() {
 	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
 
 	world := level.NewWorld()
-	if err := world.LoadChanges("world.dat"); err != nil {
+	if err := world.LoadChanges(worldSavePath); err != nil {
 		log.Println("Failed to load world save:", err)
+	}
+	if err := inventory.LoadContainers(containerSavePath); err != nil {
+		log.Println("Failed to load container save:", err)
 	}
 	startGameLoop(world)
 
@@ -80,6 +84,11 @@ func handleConnection(connection net.Conn, world *level.World) {
 		//log.Printf("Player Health for %s: %d", pl.Username, pl.Health)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
+			if pl.Username != "" {
+				if saveErr := player.SaveInventory(pl.Username, pl.Inventory); saveErr != nil {
+					log.Println("Failed to save inventory:", saveErr)
+				}
+			}
 			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
 			world.RemovePlayer(pl)
 			close(done)
@@ -89,7 +98,8 @@ func handleConnection(connection net.Conn, world *level.World) {
 	}
 }
 
-const worldSavePath = "world.dat"
+const worldSavePath = "saves/world.dat"
+const containerSavePath = "saves/containers.dat"
 
 func startGameLoop(world *level.World) {
 	go func() {
@@ -105,6 +115,9 @@ func startGameLoop(world *level.World) {
 			if world.Tick%1200 == 0 {
 				if err := world.SaveChanges(worldSavePath); err != nil {
 					log.Println("Failed to save world:", err)
+				}
+				if err := inventory.SaveContainers(containerSavePath); err != nil {
+					log.Println("Failed to save containers:", err)
 				}
 			}
 		}
@@ -143,7 +156,7 @@ func minecartPhysics(world *level.World) {
 		case entities.CartMoved:
 			packethandler.BroadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
 			cart.SetPosition(nx, ny, nz)
-			log.Printf("Cart %d moved to (%.2f, %.2f, %.2f)", cart.EntityId, nx, ny, nz)
+			//log.Printf("Cart %d moved to (%.2f, %.2f, %.2f)", cart.EntityId, nx, ny, nz)
 		case entities.CartStopped:
 			packethandler.BroadcastTeleport(world, cart, cx, cy, cz, yaw)
 		case entities.CartDespawned:

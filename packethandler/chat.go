@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -22,6 +23,24 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendEquipmentChangeForHotbarSlot(world, pl)
 			}
 		}
+		if strings.HasPrefix(message, "/save") {
+			if err := world.SaveChanges("world.dat"); err != nil {
+				log.Println("Failed to save world:", err)
+			} else {
+				log.Println("World saved successfully.")
+			}
+			if err := player.SaveInventory(pl.Username, pl.Inventory); err != nil {
+				log.Println("Failed to save player data:", err)
+			} else {
+				log.Println("Player data saved successfully.")
+			}
+			if err := inventory.SaveContainers("containers.dat"); err != nil {
+				log.Println("Failed to save containers:", err)
+			} else {
+				log.Println("Containers saved successfully.")
+			}
+		}
+
 		return true
 	}
 	p.Message = "<" + pl.Username + "> " + message

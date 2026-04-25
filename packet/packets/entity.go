@@ -1,7 +1,6 @@
 package packets
 
 import (
-	"log"
 	"math"
 
 	"github.com/leNicDev/retromc/level"
@@ -259,7 +258,7 @@ func ReadEntityActionInPacket(reader *packet.PacketReader) EntityActionInPacket 
 	packet.PacketId = reader.GetPacketId()
 	packet.EntityId = reader.ReadInt()
 	packet.ActionId = reader.ReadByte()
-	log.Printf("Entity action: %+v", packet)
+	//log.Printf("Entity action: %+v", packet)
 	return packet
 }
 

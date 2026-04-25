@@ -154,7 +154,7 @@ func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, w
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
-	log.Printf("Face %d Status %d", p.Face, p.Status)
+	//log.Printf("Face %d Status %d", p.Face, p.Status)
 	if pl.IsRiding != -1 {
 		return
 	}
@@ -175,6 +175,11 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	if oldBlock.TypeId == byte(constants.Dispenser.Value) {
 		inventory.RemoveDispenser(p.X, int32(p.Y), p.Z)
 	}
+
+	if oldBlock.TypeId == byte(constants.Furnace.Value) {
+		inventory.RemoveFurnace(p.X, int32(p.Y), p.Z)
+	}
+
 
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
@@ -219,7 +224,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // HotbarSlot is locked for the duration so that a HoldingChange packet
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
-	log.Printf("PlayerBlockPlacement: %+v", p)
+	//log.Printf("PlayerBlockPlacement: %+v", p)
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
