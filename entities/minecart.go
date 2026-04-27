@@ -105,10 +105,10 @@ func (cart *RideableEntity) TickPhysics(
 	// snap cart position onto the rail segment, matching Java's onUpdate snap
 	var t float64
 	if segDX == 0.0 {
-		cx = float64(bx) + 0.5
+		//cx = float64(bx) + 0.5
 		t = cz - float64(bz)
 	} else if segDZ == 0.0 {
-		cz = float64(bz) + 0.5
+		//cz = float64(bz) + 0.5
 		t = cx - float64(bx)
 	} else {
 		t = ((cx-p1x)*segDX + (cz-p1z)*segDZ) * 2.0
@@ -126,8 +126,9 @@ func (cart *RideableEntity) TickPhysics(
 	cart.VelocityZ = speed * dirZ / dirLen
 
 	// then move
-	nextX := cx + cart.VelocityX
-	nextZ := cz + cart.VelocityZ
+	//nextX := cx + cart.VelocityX
+	//nextZ := cz + cart.VelocityZ
+	var nextX, nextZ float64
 
 	// player push
 	const pushRadius, pushForce = 1.25, 0.3
@@ -197,8 +198,8 @@ func (cart *RideableEntity) TickPhysics(
 	rx, nextY, rz, hasNext := getRailPos(getBlock, nextX, cy, nextZ)
 
 	if hasNext {
-		nextX = rx
-		nextZ = rz
+		nextX = rx 
+		nextZ = rz 
 		// hill momentum: going downhill adds speed, uphill removes it
 		if hasPrev {
 			slope := (prevY - nextY) * 0.05
@@ -282,10 +283,10 @@ func getRailPos(bInfo GetBlockFunc, px, py, pz float64) (float64, float64, float
 
 	var t float64
 	if dx == 0.0 {
-		px = float64(bx) + 0.5
+		//px = float64(bx) + 0.5
 		t = pz - float64(bz)
 	} else if dz == 0.0 {
-		pz = float64(bz) + 0.5
+		//pz = float64(bz) + 0.5
 		t = px - float64(bx)
 	} else {
 		t = ((px-x1)*dx + (pz-z1)*dz) * 2.0

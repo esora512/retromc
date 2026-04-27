@@ -24,7 +24,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 		}
 		if strings.HasPrefix(message, "/save") {
-			if err := world.SaveChanges("world.dat"); err != nil {
+			if err := world.SaveChanges("saves/world.dat"); err != nil {
 				log.Println("Failed to save world:", err)
 			} else {
 				log.Println("World saved successfully.")
@@ -34,7 +34,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			} else {
 				log.Println("Player data saved successfully.")
 			}
-			if err := inventory.SaveContainers("containers.dat"); err != nil {
+			if err := inventory.SaveContainers("saves/containers.dat"); err != nil {
 				log.Println("Failed to save containers:", err)
 			} else {
 				log.Println("Containers saved successfully.")
