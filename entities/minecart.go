@@ -1,6 +1,9 @@
 package entities
 
-import "math"
+import (
+	"log"
+	"math"
+)
 
 var railDirs = [10][2][3]int{
 	0: {{0, 0, -1}, {0, 0, 1}},
@@ -90,6 +93,19 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityZ -= 1.0 / 128.0
 	}
 
+	isCurve := meta >= 6
+	nextBX := int32(math.Floor(cx + cart.VelocityX))
+	nextBZ := int32(math.Floor(cz + cart.VelocityZ))
+	nextBlock := getBlock(nextBX, byte(by), nextBZ)
+	isApproachingCurve := !isCurve && nextBlock.IsRail && nextBlock.Metadata >= 6
+	if isCurve {
+		log.Println("On Curve")
+		//log.Printf("Cart %d is on a curve at block (%d, %d, %d)", cart.EntityId, bx, by, bz)
+	}
+	if isApproachingCurve {
+		log.Println("Approaching Curve")
+	}
+
 	dirs := railDirs[meta]
 	dirX := float64(dirs[1][0] - dirs[0][0])
 	dirZ := float64(dirs[1][2] - dirs[0][2])
@@ -105,16 +121,28 @@ func (cart *RideableEntity) TickPhysics(
 	// snap cart position onto the rail segment, matching Java's onUpdate snap
 	var t float64
 	if segDX == 0.0 {
-		//cx = float64(bx) + 0.5
+		log.Println("Pure Z")
+		cx = float64(bx) + 0.5
 		t = cz - float64(bz)
+		t = math.Max(0, math.Min(1, t))
+		cz = p1z + segDZ*t
 	} else if segDZ == 0.0 {
-		//cz = float64(bz) + 0.5
+		log.Println("Pure X")
+		cz = float64(bz) + 0.5
 		t = cx - float64(bx)
+		t = math.Max(0, math.Min(1, t))
+		cx = p1x + segDX*t
 	} else {
+		log.Println("Both X & Z")
 		t = ((cx-p1x)*segDX + (cz-p1z)*segDZ) * 2.0
+		//log.Printf("t=%.2f (t = ((cx-p1x)*segDX + (cz-p1z)*segDZ) * 2)", t)
+		t = math.Max(0, math.Min(1, t))
+		cx = p1x + segDX*t
+		cz = p1z + segDZ*t
+		// NOTE: Potential fix, reduce velocity when hitting curves; but does the server do that?
+		//cx = cx - (cart.VelocityX * 0.5)
+		//cz = cz - (cart.VelocityZ * 0.5)
 	}
-	cx = p1x + segDX*t
-	cz = p1z + segDZ*t
 
 	// now align velocity
 	dot := cart.VelocityX*dirX + cart.VelocityZ*dirZ
@@ -125,9 +153,6 @@ func (cart *RideableEntity) TickPhysics(
 	cart.VelocityX = speed * dirX / dirLen
 	cart.VelocityZ = speed * dirZ / dirLen
 
-	// then move
-	//nextX := cx + cart.VelocityX
-	//nextZ := cz + cart.VelocityZ
 	var nextX, nextZ float64
 
 	// player push
@@ -195,11 +220,11 @@ func (cart *RideableEntity) TickPhysics(
 
 	// get Y before and after for hill momentum transfer
 	_, prevY, _, hasPrev := getRailPos(getBlock, cx, cy, cz)
-	rx, nextY, rz, hasNext := getRailPos(getBlock, nextX, cy, nextZ)
+	_, nextY, _, hasNext := getRailPos(getBlock, nextX, cy, nextZ)
 
 	if hasNext {
-		nextX = rx 
-		nextZ = rz 
+		// nextX = rx
+		// nextZ = rz
 		// hill momentum: going downhill adds speed, uphill removes it
 		if hasPrev {
 			slope := (prevY - nextY) * 0.05
@@ -236,6 +261,9 @@ func (cart *RideableEntity) TickPhysics(
 		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
 	}
 
+	// log.Printf("Bx=%d, By=%d, Bz=%d", bx, by, bz)
+	// log.Printf("Cx=%.2f, Cy=%.2f, Cz=%.2f", cx, cy, cz)
+	// log.Printf("Return nextX=%.4f nextZ=%.4f", nextX, nextZ)
 	return nextX, nextY, nextZ, yaw, CartMoved
 }
 
@@ -254,13 +282,14 @@ func getRailPos(bInfo GetBlockFunc, px, py, pz float64) (float64, float64, float
 	by := int32(math.Floor(py))
 	bz := int32(math.Floor(pz))
 
-	block := bInfo(bx, byte(by), bz)
-	if !block.IsRail {
-		block = bInfo(bx, byte(by-1), bz)
+	block := bInfo(bx, byte(by-1), bz)
+	if block.IsRail {
+		by--
+	} else {
+		block = bInfo(bx, byte(by), bz)
 		if !block.IsRail {
 			return 0, 0, 0, false
 		}
-		by--
 	}
 
 	meta := int(block.Metadata)
@@ -269,7 +298,6 @@ func getRailPos(bInfo GetBlockFunc, px, py, pz float64) (float64, float64, float
 	}
 
 	dirs := railDirs[meta]
-	// endpoints of the rail segment in world space
 	x1 := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
 	y1 := float64(by) + 0.5 + float64(dirs[0][1])*0.5
 	z1 := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
@@ -283,10 +311,8 @@ func getRailPos(bInfo GetBlockFunc, px, py, pz float64) (float64, float64, float
 
 	var t float64
 	if dx == 0.0 {
-		//px = float64(bx) + 0.5
 		t = pz - float64(bz)
 	} else if dz == 0.0 {
-		//pz = float64(bz) + 0.5
 		t = px - float64(bx)
 	} else {
 		t = ((px-x1)*dx + (pz-z1)*dz) * 2.0

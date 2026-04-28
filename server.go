@@ -38,7 +38,7 @@ func main() {
 	if err := inventory.LoadContainers(containerSavePath); err != nil {
 		log.Println("Failed to load container save:", err)
 	}
-	startGameLoop(world)
+	gameLoop(world)
 
 	for {
 		// listen for incoming connections
@@ -101,7 +101,7 @@ func handleConnection(connection net.Conn, world *level.World) {
 const worldSavePath = "saves/world.dat"
 const containerSavePath = "saves/containers.dat"
 
-func startGameLoop(world *level.World) {
+func gameLoop(world *level.World) {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
@@ -156,7 +156,6 @@ func minecartPhysics(world *level.World) {
 		case entities.CartMoved:
 			packethandler.BroadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
 			cart.SetPosition(nx, ny, nz)
-			//log.Printf("Cart %d moved to (%.2f, %.2f, %.2f)", cart.EntityId, nx, ny, nz)
 		case entities.CartStopped:
 			packethandler.BroadcastTeleport(world, cart, cx, cy, cz, yaw)
 		case entities.CartDespawned:
