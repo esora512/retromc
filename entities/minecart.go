@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"log"
 	"math"
 )
 
@@ -95,17 +94,13 @@ func (cart *RideableEntity) TickPhysics(
 
 	// temporary helpers for debugging
 	isCurve := meta >= 6
-	nextBX := int32(math.Floor(cx + cart.VelocityX))
-	nextBZ := int32(math.Floor(cz + cart.VelocityZ))
-	nextBlock := getBlock(nextBX, byte(by), nextBZ)
-	isApproachingCurve := !isCurve && nextBlock.IsRail && nextBlock.Metadata >= 6
-	if isCurve {
-		log.Println("On Curve")
-		//log.Printf("Cart %d is on a curve at block (%d, %d, %d)", cart.EntityId, bx, by, bz)
-	}
-	if isApproachingCurve {
-		log.Println("Approaching Curve")
-	}
+	// nextBX := int32(math.Floor(cx + cart.VelocityX))
+	// nextBZ := int32(math.Floor(cz + cart.VelocityZ))
+	// nextBlock := getBlock(nextBX, byte(by), nextBZ)
+	// isApproachingCurve := !isCurve && nextBlock.IsRail && nextBlock.Metadata >= 6
+	// if isApproachingCurve {
+	// 	log.Println("Approaching Curve")
+	// }
 
 	// align velocity
 	dirs := railDirs[meta]
@@ -136,36 +131,39 @@ func (cart *RideableEntity) TickPhysics(
 	// 	currSpeed = 0
 	// }
 
-	p1x := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
-	p1z := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
-	p2x := float64(bx) + 0.5 + float64(dirs[1][0])*0.5
-	p2z := float64(bz) + 0.5 + float64(dirs[1][2])*0.5
-	dirX = p2x - p1x
-	dirZ = p2z - p1z
+	railStartX := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
+	railStartZ := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
+	railEndX := float64(bx) + 0.5 + float64(dirs[1][0])*0.5
+	railEndZ := float64(bz) + 0.5 + float64(dirs[1][2])*0.5
+	railDirX := railEndX - railStartX
+	railDirZ := railEndZ - railStartZ
 
 	// Java's opUpdate, line 265 - 289
-	t := 0.0
-	if dirX == 0.0 {
-		log.Println("Pure Z")
-		cx = float64(bx) + 0.5
-		t = cz - float64(bz)
-	} else if dirZ == 0.0 {
-		log.Println("Pure X")
-		cz = float64(bz) + 0.5
-		t = cx - float64(bx)
+	posAlongRail := 0.0
+	if railDirX == 0.0 {
+		//log.Println("Pure Z")
+		//cx = float64(bx) + 0.5
+		posAlongRail = cz - float64(bz)
+	} else if railDirZ == 0.0 {
+		//log.Println("Pure X")
+		//cz = float64(bz) + 0.5
+		posAlongRail = cx - float64(bx)
 	} else {
-		log.Println("Both X & Z")
-		t = ((cx-p1x)*dirX + (cz-p1z)*dirZ) * 2.0
+		//log.Println("Both X & Z")
+		posAlongRail = ((cx-railStartX)*railDirX + (cz-railStartZ)*railDirZ) * 2.0
 		// NOTE: Potential fix, reduce velocity when hitting curves; but does the server do that?
-		//cx = cx - (cart.VelocityX * 0.5)
-		//cz = cz - (cart.VelocityZ * 0.5)
 	}
-	cx = p1x + dirX*t
-	cz = p1z + dirZ*t
 
+	// if isCurve {
+	// 	disp := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
+	// 	log.Printf("[CURVE] block=(%d,%d,%d) meta=%d snapped=(%.4f, %.4f) vel=(%.4f, %.4f) speed=%.4f disp_per_tick=%.4f ticks_to_cross=%.1f",
+	// 		bx, by, bz, meta, cx, cz, cart.VelocityX, cart.VelocityZ, speed, disp, (math.Sqrt2)/disp)
+	// }
+
+	cx = railStartX + railDirX*posAlongRail
+	cz = railStartZ + railDirZ*posAlongRail
 
 	var nextX, nextZ float64
-
 	// collision / player push
 	const pushRadius, pushForce = 1.25, 0.3
 	for _, pp := range players {
@@ -187,7 +185,6 @@ func (cart *RideableEntity) TickPhysics(
 		isActivated := true
 		//isActivated := (block.Metadata & 8) != 0
 		if isActivated {
-			// boost
 			if speed > 0.01 {
 				cart.VelocityX += cart.VelocityX / speed * 0.06
 				cart.VelocityZ += cart.VelocityZ / speed * 0.06
@@ -206,11 +203,16 @@ func (cart *RideableEntity) TickPhysics(
 		}
 	}
 
-	// cap speed
+	// move
 	cart.VelocityX = clamp(cart.VelocityX, -maxSpeed, maxSpeed)
 	cart.VelocityZ = clamp(cart.VelocityZ, -maxSpeed, maxSpeed)
 
-	// move
+	// TODO: I'm going insane... I can't figure out how to remove the visual glitch besides slowing the Minecart at curves...
+	if isCurve {
+		cx = cx - (cart.VelocityX * 0.5)
+		cz = cz - (cart.VelocityZ * 0.5)
+	}
+
 	nextX = cx + cart.VelocityX
 	nextZ = cz + cart.VelocityZ
 
@@ -218,17 +220,12 @@ func (cart *RideableEntity) TickPhysics(
 	_, prevY, _, hasPrev := getRailPos(getBlock, cx, cy, cz)
 	_, nextY, _, hasNext := getRailPos(getBlock, nextX, cy, nextZ)
 
-	if hasNext {
-		// nextX = rx
-		// nextZ = rz
-		// hill momentum: going downhill adds speed, uphill removes it
-		if hasPrev {
-			slope := (prevY - nextY) * 0.05
-			speed = math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
-			if speed > 0 {
-				cart.VelocityX = cart.VelocityX / speed * (speed + slope)
-				cart.VelocityZ = cart.VelocityZ / speed * (speed + slope)
-			}
+	if hasNext && hasPrev {
+		slope := (prevY - nextY) * 0.05
+		speed = math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
+		if speed > 0 {
+			cart.VelocityX = cart.VelocityX / speed * (speed + slope)
+			cart.VelocityZ = cart.VelocityZ / speed * (speed + slope)
 		}
 	} else {
 		// stop cart when it is about to go off-rails
@@ -256,9 +253,6 @@ func (cart *RideableEntity) TickPhysics(
 		degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
 		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
 	}
-	// log.Printf("Bx=%d, By=%d, Bz=%d", bx, by, bz)
-	// log.Printf("Cx=%.2f, Cy=%.2f, Cz=%.2f", cx, cy, cz)
-	// log.Printf("Return nextX=%.4f nextZ=%.4f", nextX, nextZ)
 	return nextX, nextY, nextZ, yaw, CartMoved
 }
 
