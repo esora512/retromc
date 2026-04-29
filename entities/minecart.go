@@ -182,20 +182,6 @@ func (cart *RideableEntity) TickPhysics(
 		}
 	}
 
-	// align velocity to rail direction using the table
-	dirs = railDirs[meta]
-	dirX = float64(dirs[1][0] - dirs[0][0])
-	dirZ = float64(dirs[1][2] - dirs[0][2])
-	dirLen = math.Sqrt(dirX*dirX + dirZ*dirZ)
-
-	dot = cart.VelocityX*dirX + cart.VelocityZ*dirZ
-	if dot < 0 {
-		dirX, dirZ = -dirX, -dirZ
-	}
-	speed = math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
-	cart.VelocityX = speed * dirX / dirLen
-	cart.VelocityZ = speed * dirZ / dirLen
-
 	// powered rail: boost or brake
 	if block.IsPoweredRail {
 		isActivated := true
