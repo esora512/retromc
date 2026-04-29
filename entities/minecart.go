@@ -93,6 +93,7 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityZ -= 1.0 / 128.0
 	}
 
+	// temporary helpers for debugging
 	isCurve := meta >= 6
 	nextBX := int32(math.Floor(cx + cart.VelocityX))
 	nextBZ := int32(math.Floor(cz + cart.VelocityZ))
@@ -106,56 +107,66 @@ func (cart *RideableEntity) TickPhysics(
 		log.Println("Approaching Curve")
 	}
 
+	// align velocity
 	dirs := railDirs[meta]
 	dirX := float64(dirs[1][0] - dirs[0][0])
 	dirZ := float64(dirs[1][2] - dirs[0][2])
 	dirLen := math.Sqrt(dirX*dirX + dirZ*dirZ)
-
-	p1x := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
-	p1z := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
-	p2x := float64(bx) + 0.5 + float64(dirs[1][0])*0.5
-	p2z := float64(bz) + 0.5 + float64(dirs[1][2])*0.5
-	segDX := p2x - p1x
-	segDZ := p2z - p1z
-
-	// snap cart position onto the rail segment, matching Java's onUpdate snap
-	var t float64
-	if segDX == 0.0 {
-		log.Println("Pure Z")
-		cx = float64(bx) + 0.5
-		t = cz - float64(bz)
-		t = math.Max(0, math.Min(1, t))
-		cz = p1z + segDZ*t
-	} else if segDZ == 0.0 {
-		log.Println("Pure X")
-		cz = float64(bz) + 0.5
-		t = cx - float64(bx)
-		t = math.Max(0, math.Min(1, t))
-		cx = p1x + segDX*t
-	} else {
-		log.Println("Both X & Z")
-		t = ((cx-p1x)*segDX + (cz-p1z)*segDZ) * 2.0
-		//log.Printf("t=%.2f (t = ((cx-p1x)*segDX + (cz-p1z)*segDZ) * 2)", t)
-		t = math.Max(0, math.Min(1, t))
-		cx = p1x + segDX*t
-		cz = p1z + segDZ*t
-		// NOTE: Potential fix, reduce velocity when hitting curves; but does the server do that?
-		//cx = cx - (cart.VelocityX * 0.5)
-		//cz = cz - (cart.VelocityZ * 0.5)
-	}
-
-	// now align velocity
 	dot := cart.VelocityX*dirX + cart.VelocityZ*dirZ
-	if dot < 0 {
-		dirX, dirZ = -dirX, -dirZ
+	if dot < 0.0 {
+		dirX = -dirX
+		dirZ = -dirZ
 	}
 	speed := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
 	cart.VelocityX = speed * dirX / dirLen
 	cart.VelocityZ = speed * dirZ / dirLen
 
+	// Java code does the check here; unclear why
+	// if (block.IsPoweredRail) {
+	// 	currSpeed := math.Sqrt(cart.VelocityX * cart.VelocityX + cart.VelocityZ * cart.VelocityZ)
+	// 	if (currSpeed < 0.03) {
+	// 		cart.VelocityX *= 0
+	// 		cart.VelocityY *= 0
+	// 		cart.VelocityZ *= 0
+	// 	} else {
+	// 		cart.VelocityX *= 0.5
+	// 		cart.VelocityY *= 0.0
+	// 		cart.VelocityZ *= 0.5
+	// 	}
+	// 	currSpeed = 0
+	// }
+
+	p1x := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
+	p1z := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
+	p2x := float64(bx) + 0.5 + float64(dirs[1][0])*0.5
+	p2z := float64(bz) + 0.5 + float64(dirs[1][2])*0.5
+	dirX = p2x - p1x
+	dirZ = p2z - p1z
+
+	// Java's opUpdate, line 265 - 289
+	t := 0.0
+	if dirX == 0.0 {
+		log.Println("Pure Z")
+		cx = float64(bx) + 0.5
+		t = cz - float64(bz)
+	} else if dirZ == 0.0 {
+		log.Println("Pure X")
+		cz = float64(bz) + 0.5
+		t = cx - float64(bx)
+	} else {
+		log.Println("Both X & Z")
+		t = ((cx-p1x)*dirX + (cz-p1z)*dirZ) * 2.0
+		// NOTE: Potential fix, reduce velocity when hitting curves; but does the server do that?
+		//cx = cx - (cart.VelocityX * 0.5)
+		//cz = cz - (cart.VelocityZ * 0.5)
+	}
+	cx = p1x + dirX*t
+	cz = p1z + dirZ*t
+
+
 	var nextX, nextZ float64
 
-	// player push
+	// collision / player push
 	const pushRadius, pushForce = 1.25, 0.3
 	for _, pp := range players {
 		dx := cx - pp.X
@@ -181,7 +192,6 @@ func (cart *RideableEntity) TickPhysics(
 	if dot < 0 {
 		dirX, dirZ = -dirX, -dirZ
 	}
-
 	speed = math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
 	cart.VelocityX = speed * dirX / dirLen
 	cart.VelocityZ = speed * dirZ / dirLen
@@ -260,7 +270,6 @@ func (cart *RideableEntity) TickPhysics(
 		degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
 		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
 	}
-
 	// log.Printf("Bx=%d, By=%d, Bz=%d", bx, by, bz)
 	// log.Printf("Cx=%.2f, Cy=%.2f, Cz=%.2f", cx, cy, cz)
 	// log.Printf("Return nextX=%.4f nextZ=%.4f", nextX, nextZ)
