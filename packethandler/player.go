@@ -154,7 +154,6 @@ func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, w
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
-	//log.Printf("Face %d Status %d", p.Face, p.Status)
 	if pl.IsRiding != -1 {
 		return
 	}
@@ -180,7 +179,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		inventory.RemoveFurnace(p.X, int32(p.Y), p.Z)
 	}
 
-
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 
@@ -199,6 +197,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	blockItem := int16(oldBlock.TypeId)
 	blockMeta := oldBlock.Metadata
+	log.Printf("Meta: %d", blockMeta)
 	if blockItem == constants.Stone.Value {
 		blockItem = constants.Cobblestone.Value
 	}
@@ -207,8 +206,8 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		blockItem = constants.Sign.Value
 	}
 
-	if blockItem == constants.Rail.Value {
-		log.Printf("Rail Meta %d", blockMeta)
+	if blockItem == constants.Rail.Value || blockItem == constants.PoweredRail.Value || blockItem == constants.DetectorRail.Value {
+		blockMeta = byte(0)
 	}
 
 	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
@@ -224,7 +223,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // HotbarSlot is locked for the duration so that a HoldingChange packet
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
-	//log.Printf("PlayerBlockPlacement: %+v", p)
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
@@ -411,6 +409,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		recalcRail(x, y, z+1) // south
 		recalcRail(x+1, y, z) // east
 		recalcRail(x-1, y, z) // west
+		pl.Inventory.RemoveOne(slot)
 		return
 	}
 
@@ -492,17 +491,22 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	world.SetBlock(newX, byte(newY), newZ, block)
-
-	// Notify all players of the block change.
-	blockChange := packets.BlockChangeOutPacket{
-		X:         newX,
-		Y:         byte(newY),
-		Z:         newZ,
-		BlockType: block.TypeId,
-		BlockMeta: block.Metadata,
+	if block.IsLiquid() {
+		log.Println("Testing Waters...")
+		block = level.NewStillWaterBlock(byte(2))
 	}
-	world.BroadcastPacket(blockChange.Serialize())
+	// world.SetBlock(newX, byte(newY), newZ, block)
+
+	// // Notify all players of the block change.
+	// blockChange := packets.BlockChangeOutPacket{
+	// 	X:         newX,
+	// 	Y:         byte(newY),
+	// 	Z:         newZ,
+	// 	BlockType: block.TypeId,
+	// 	BlockMeta: block.Metadata,
+	// }
+	// world.BroadcastPacket(blockChange.Serialize())
+	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
@@ -510,6 +514,18 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
 	}
+}
+
+func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
+	world.SetBlock(x, byte(y), z, *block)
+	blockChange := packets.BlockChangeOutPacket{
+		X:         x,
+		Y:         byte(y),
+		Z:         z,
+		BlockType: block.TypeId,
+		BlockMeta: block.Metadata,
+	}
+	world.BroadcastPacket(blockChange.Serialize())
 }
 
 func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {

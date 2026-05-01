@@ -101,8 +101,53 @@ func handleConnection(connection net.Conn, world *level.World) {
 const worldSavePath = "saves/world.dat"
 const containerSavePath = "saves/containers.dat"
 
+func setFlowingWater(world *level.World, x int32, y int32, z int32, liquidHeight byte) {
+	flowingWater := level.NewFlowingWaterBlock(liquidHeight)
+	packethandler.SetBlockAndNotify(world, x, y, z, &flowingWater)
+}
+
+func waterPhysics(world *level.World) {
+	for key, height := range world.WaterSources {
+		x, y, z := key.X, key.Y, key.Z
+
+		if height >= 7 {
+			continue
+		}
+
+		nextHeight := height + 1
+
+		neighbors := []struct{ dx, dz int32 }{
+			{1, 0}, {-1, 0}, {0, 1}, {0, -1},
+		}
+
+		for _, n := range neighbors {
+			nx, nz := x+n.dx, z+n.dz
+
+			neighbor := world.GetBlock(nx, y, nz)
+			if !neighbor.IsAir() {
+				continue
+			}
+
+			key := level.BlockKey{X: nx, Y: y, Z: nz}
+			if existingHeight, exists := world.WaterSources[key]; exists {
+				if existingHeight <= nextHeight {
+					continue 
+				}
+			}
+
+			setFlowingWater(world, nx, int32(y), nz, nextHeight)
+		}
+
+		below := world.GetBlock(x, y-1, z)
+		if below.IsAir() {
+			setFlowingWater(world, x, int32(y-1), z, 0) 
+		}
+	}
+}
+
 func gameLoop(world *level.World) {
 	go func() {
+		//packethandler.SetBlockAndNotify
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
@@ -110,7 +155,9 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
-
+			if world.Tick%20 == 0 {
+				waterPhysics(world)
+			}
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {
 				if err := world.SaveChanges(worldSavePath); err != nil {

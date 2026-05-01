@@ -13,8 +13,8 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
-// blockKey is the map key for a single block's world position.
-type blockKey struct {
+// BlockKey is the map key for a single block's world position.
+type BlockKey struct {
 	X int32
 	Y byte
 	Z int32
@@ -41,22 +41,24 @@ func (w *World) SnapshotEntities() []Entity {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	mu          sync.RWMutex
-	chunks      map[ChunkCoord]*Chunk
-	changes     map[blockKey]Block
-	Tick        int64
-	Players     map[int32]*player.Player
-	Entities    map[int32]Entity
-	EntityCount int32
+	mu           sync.RWMutex
+	chunks       map[ChunkCoord]*Chunk
+	changes      map[BlockKey]Block
+	Tick         int64
+	Players      map[int32]*player.Player
+	Entities     map[int32]Entity
+	EntityCount  int32
+	WaterSources map[BlockKey]byte
 }
 
 func NewWorld() *World {
 	return &World{
-		chunks:      make(map[ChunkCoord]*Chunk),
-		changes:     make(map[blockKey]Block),
-		EntityCount: 0,
-		Players:     make(map[int32]*player.Player),
-		Entities:    make(map[int32]Entity),
+		chunks:       make(map[ChunkCoord]*Chunk),
+		changes:      make(map[BlockKey]Block),
+		EntityCount:  0,
+		Players:      make(map[int32]*player.Player),
+		Entities:     make(map[int32]Entity),
+		WaterSources: make(map[BlockKey]byte),
 	}
 }
 
@@ -111,7 +113,10 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 
 	// in-memory persistence
 	w.mu.Lock()
-	w.changes[blockKey{worldX, worldY, worldZ}] = block
+	w.changes[BlockKey{worldX, worldY, worldZ}] = block
+	if block.IsLiquid() {
+		w.WaterSources[BlockKey{worldX, worldY, worldZ}] = block.Metadata
+	}
 	w.mu.Unlock()
 }
 

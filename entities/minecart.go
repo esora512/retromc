@@ -92,16 +92,6 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityZ -= 1.0 / 128.0
 	}
 
-	// temporary helpers for debugging
-	isCurve := meta >= 6
-	// nextBX := int32(math.Floor(cx + cart.VelocityX))
-	// nextBZ := int32(math.Floor(cz + cart.VelocityZ))
-	// nextBlock := getBlock(nextBX, byte(by), nextBZ)
-	// isApproachingCurve := !isCurve && nextBlock.IsRail && nextBlock.Metadata >= 6
-	// if isApproachingCurve {
-	// 	log.Println("Approaching Curve")
-	// }
-
 	// align velocity
 	dirs := railDirs[meta]
 	dirX := float64(dirs[1][0] - dirs[0][0])
@@ -116,21 +106,6 @@ func (cart *RideableEntity) TickPhysics(
 	cart.VelocityX = speed * dirX / dirLen
 	cart.VelocityZ = speed * dirZ / dirLen
 
-	// Java code does the check here; unclear why
-	// if (block.IsPoweredRail) {
-	// 	currSpeed := math.Sqrt(cart.VelocityX * cart.VelocityX + cart.VelocityZ * cart.VelocityZ)
-	// 	if (currSpeed < 0.03) {
-	// 		cart.VelocityX *= 0
-	// 		cart.VelocityY *= 0
-	// 		cart.VelocityZ *= 0
-	// 	} else {
-	// 		cart.VelocityX *= 0.5
-	// 		cart.VelocityY *= 0.0
-	// 		cart.VelocityZ *= 0.5
-	// 	}
-	// 	currSpeed = 0
-	// }
-
 	railStartX := float64(bx) + 0.5 + float64(dirs[0][0])*0.5
 	railStartZ := float64(bz) + 0.5 + float64(dirs[0][2])*0.5
 	railEndX := float64(bx) + 0.5 + float64(dirs[1][0])*0.5
@@ -141,24 +116,13 @@ func (cart *RideableEntity) TickPhysics(
 	// Java's opUpdate, line 265 - 289
 	posAlongRail := 0.0
 	if railDirX == 0.0 {
-		//log.Println("Pure Z")
-		//cx = float64(bx) + 0.5
 		posAlongRail = cz - float64(bz)
 	} else if railDirZ == 0.0 {
-		//log.Println("Pure X")
-		//cz = float64(bz) + 0.5
 		posAlongRail = cx - float64(bx)
 	} else {
-		//log.Println("Both X & Z")
 		posAlongRail = ((cx-railStartX)*railDirX + (cz-railStartZ)*railDirZ) * 2.0
 		// NOTE: Potential fix, reduce velocity when hitting curves; but does the server do that?
 	}
-
-	// if isCurve {
-	// 	disp := math.Sqrt(cart.VelocityX*cart.VelocityX + cart.VelocityZ*cart.VelocityZ)
-	// 	log.Printf("[CURVE] block=(%d,%d,%d) meta=%d snapped=(%.4f, %.4f) vel=(%.4f, %.4f) speed=%.4f disp_per_tick=%.4f ticks_to_cross=%.1f",
-	// 		bx, by, bz, meta, cx, cz, cart.VelocityX, cart.VelocityZ, speed, disp, (math.Sqrt2)/disp)
-	// }
 
 	cx = railStartX + railDirX*posAlongRail
 	cz = railStartZ + railDirZ*posAlongRail
@@ -203,15 +167,8 @@ func (cart *RideableEntity) TickPhysics(
 		}
 	}
 
-	// move
 	cart.VelocityX = clamp(cart.VelocityX, -maxSpeed, maxSpeed)
 	cart.VelocityZ = clamp(cart.VelocityZ, -maxSpeed, maxSpeed)
-
-	// TODO: I'm going insane... I can't figure out how to remove the visual glitch besides slowing the Minecart at curves...
-	if isCurve {
-		cx = cx - (cart.VelocityX * 0.5)
-		cz = cz - (cart.VelocityZ * 0.5)
-	}
 
 	nextX = cx + cart.VelocityX
 	nextZ = cz + cart.VelocityZ

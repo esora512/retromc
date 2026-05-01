@@ -50,6 +50,10 @@ func (b *Block) IsRail() bool {
 	return b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
 
+func (b*Block) IsLiquid() bool {
+	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value) || b.TypeId == byte(constants.LavaStill.Value)
+}
+
 func (b *Block) IsPoweredRail() bool {
 	return b.TypeId == byte(constants.PoweredRail.Value)
 }

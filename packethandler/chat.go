@@ -4,6 +4,8 @@ import (
 	"log"
 	"strings"
 
+	"fmt"
+
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -39,6 +41,26 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			} else {
 				log.Println("Containers saved successfully.")
 			}
+		}
+
+		if strings.HasPrefix(message, "/destroy") {
+			var x, y, z int32
+			_, err := fmt.Sscanf(message, "/destroy %d %d %d", &x, &y, &z)
+			if err != nil {
+				log.Printf("Invalid destroy command format: %s", message)
+				return false
+			}
+			log.Printf("Destroying block x=%d, y=%d, z=%d", x, y, z)
+			air := level.NewAirBlock()
+			world.SetBlock(x, byte(y), z, air)
+			blockChange := packets.BlockChangeOutPacket{
+				X:        x,
+				Y:         byte(y),
+				Z:         z,
+				BlockType: air.TypeId,
+				BlockMeta: air.Metadata,
+			}
+			world.BroadcastPacket(blockChange.Serialize())
 		}
 
 		return true

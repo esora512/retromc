@@ -37,7 +37,6 @@ func (w *World) SaveChanges(path string) error {
 	return gob.NewEncoder(f).Encode(records)
 }
 
-
 func (w *World) LoadChanges(path string) error {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
@@ -56,7 +55,7 @@ func (w *World) LoadChanges(path string) error {
 
 	w.mu.Lock()
 	for _, r := range records {
-		w.changes[blockKey{r.X, r.Y, r.Z}] = Block{
+		w.changes[BlockKey{r.X, r.Y, r.Z}] = Block{
 			TypeId:   r.Type,
 			Metadata: r.Meta,
 			SkyLight: 0x0f,
