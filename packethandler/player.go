@@ -314,7 +314,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	if !existing.IsAir() {
+	if !existing.IsAir() && !existing.IsLiquid() {
 		return
 	}
 

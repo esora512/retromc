@@ -101,12 +101,50 @@ func handleConnection(connection net.Conn, world *level.World) {
 const worldSavePath = "saves/world.dat"
 const containerSavePath = "saves/containers.dat"
 
-func setFlowingWater(world *level.World, x int32, y int32, z int32, liquidHeight byte) {
+func setFlowingWater(world *level.World, x, y, z int32, liquidHeight byte) {
 	flowingWater := level.NewFlowingWaterBlock(liquidHeight)
 	packethandler.SetBlockAndNotify(world, x, y, z, &flowingWater)
 }
 
-func waterPhysics(world *level.World) {
+func setStillWater(world *level.World, x, y, z int32, liquidHeight byte) {
+	stillWater := level.NewStillWaterBlock(liquidHeight)
+	packethandler.SetBlockAndNotify(world, x, y, z, &stillWater)
+
+}
+
+func waterDecay(world *level.World) {
+	for key := range world.WaterSources {
+		x, y, z := key.X, key.Y, key.Z
+
+		neighbors := []struct{ dx, dy, dz int32 }{
+			{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0},
+		}
+
+		hasSource := false
+		for _, n := range neighbors {
+			nx, ny, nz := x+n.dx, y+byte(n.dy), z+n.dz
+			neighborKey := level.BlockKey{X: nx, Y: ny, Z: nz}
+
+			if _, exists := world.WaterSources[neighborKey]; exists {
+				hasSource = true
+				break
+			}
+
+			neighbor := world.GetBlock(nx, ny, nz)
+			if neighbor.IsLiquid() {
+				hasSource = true
+				break
+			}
+		}
+
+		if !hasSource {
+			world.SetBlock(x, y, z, level.NewAirBlock())
+			delete(world.WaterSources, key)
+		}
+	}
+}
+
+func waterSpreading(world *level.World) {
 	for key, height := range world.WaterSources {
 		x, y, z := key.X, key.Y, key.Z
 
@@ -131,7 +169,7 @@ func waterPhysics(world *level.World) {
 			key := level.BlockKey{X: nx, Y: y, Z: nz}
 			if existingHeight, exists := world.WaterSources[key]; exists {
 				if existingHeight <= nextHeight {
-					continue 
+					continue
 				}
 			}
 
@@ -140,7 +178,7 @@ func waterPhysics(world *level.World) {
 
 		below := world.GetBlock(x, y-1, z)
 		if below.IsAir() {
-			setFlowingWater(world, x, int32(y-1), z, 0) 
+			setFlowingWater(world, x, int32(y-1), z, 0)
 		}
 	}
 }
@@ -155,8 +193,11 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
+			if world.Tick%10 == 0 {
+				waterDecay(world)
+			}
 			if world.Tick%20 == 0 {
-				waterPhysics(world)
+				waterSpreading(world)
 			}
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {
