@@ -130,11 +130,11 @@ func waterDecay(world *level.World) {
 				break
 			}
 
-			neighbor := world.GetBlock(nx, ny, nz)
-			if neighbor.IsLiquid() {
-				hasSource = true
-				break
-			}
+			// neighbor := world.GetBlock(nx, ny, nz)
+			// if neighbor.IsLiquid() {
+			// 	hasSource = true
+			// 	break
+			// }
 		}
 
 		if !hasSource {
@@ -193,11 +193,9 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
-			if world.Tick%10 == 0 {
-				waterDecay(world)
-			}
 			if world.Tick%20 == 0 {
 				waterSpreading(world)
+				waterDecay(world)
 			}
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {

@@ -15,7 +15,7 @@ import (
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
-		log.Printf("Command: %s", message)
+		//log.Printf("Command: %s", message)
 		if strings.HasPrefix(message, "/give") {
 			command := strings.TrimPrefix(message, "/give ")
 			before := pl.Inventory.PeekItem(pl.HotbarSlot)
@@ -61,6 +61,21 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				BlockMeta: air.Metadata,
 			}
 			world.BroadcastPacket(blockChange.Serialize())
+		}
+
+		if strings.HasPrefix(message, "/debug") {
+			command := strings.TrimPrefix(message, "/debug ")
+			switch command {
+			case "water":
+				log.Printf("Water sources in world: %d", len(world.WaterSources))
+				for key := range world.WaterSources {
+					log.Printf("Water source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
+				}
+			default:
+				log.Printf("Unknown debug command: %s", command)
+			}
+
+
 		}
 
 		return true
