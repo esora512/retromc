@@ -1,46 +1,16 @@
 # retromc
 A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDev/retromc).
 
-## Plan
-* Create a functional Minecraft Beta 1.7.3 version
-* Fiddle with world generation to create interesting worlds
+## Goal
+* Create a functional Minecraft Beta 1.7.3 server 
+* Support initial Skyblock gameplay in a world with no mobs
 * Play and have fun on that server
 
 ## Side goals
 * Learn more about Minecraft networking
+* Fiddle with world generation to explore liminal worlds (distant goal)
 
-## Emojis
-* 🆗: Works mostly, has some bugs with low priority.
-* ✔️: Seems to work properly
-* ❌: Considered not ready/done
-* 🚧: Working on it right now
-* 🐞: Temporary tracking of bugs that should be fixed
-* 🕸️: Low priority bugs that will be fixed eventually/later
-* 🎯: Temporary goals that should be implemented during 🚧 state to get to 🆗/✔️ states
-* ℹ️: Information
-
-## Status
-* 🆗: Inventory Management (Clicking & Moving)
-    * 🕸️: Issue involving Beta Tweaks, too many packets sends and visible in client.
-* ✔️: Crafting
-* ✔️: Multiplayer
-    * ℹ️: Two client POV match what is happening on individual client (hopefully...)
-* 🆗: Block Placement & Mining
-    * 🕸️: Some delays and undos of block placement
-* ❌: Physics
-    * 🚧: Minecart
-        * 🐞: Lighting issues
-        * 🐞: Collision still not "smooth" enough but not high priority
-        * 🎯: Should work with powered rails
-        * 🎯: Should be breakable & collectable
-    * ❌: Boat
-    * ❌: Water/Lava
-    * ❌: Sand/Gravel gravity
-* ❌: World Generation
-    * ℹ️: Right now it's 16x16 stone platform, so a ~~sand~~ *stone* box.
-* ❌: Dropping Items (Entity Rendering) 
-
-## References
+## References / Help
 * https://pixelbrush.dev/beta-wiki/ (has protocol information; may help in improving this build)
 * https://minecraft.wiki/w/Java_Edition_protocol?oldid=2769711 (more accurate protocol information)
 * https://github.com/OfficialPixelBrush/BetrockServer (a functional Beta 1.7.3 server written in C++; may be a good reference)
