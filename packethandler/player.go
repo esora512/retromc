@@ -274,8 +274,25 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
-	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value {
+	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value {
 		// Only place blocks if block is in hotbar slot
+		return
+	}
+
+	if oldExisting.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
+		air := level.NewAirBlock()
+		SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
+		delete(world.WaterSources, level.BlockKey{X: p.X, Y: byte(p.Y), Z: p.Z})
+		delete(world.FlowingWater, level.BlockKey{X: p.X, Y: byte(p.Y), Z: p.Z})
+
+		var bucketItem inventory.Item
+		if oldExisting.IsWater() { 
+			bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
+		} else {
+			bucketItem = inventory.Item{TypeId: constants.LavaBucket.Value, Count: 1}
+		}
+		pl.Inventory.Items[pl.HotbarSlot] = bucketItem
+		sendSetSlot(connection, 0, pl.HotbarSlot, bucketItem)
 		return
 	}
 
@@ -491,21 +508,24 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if block.IsLiquid() {
-		log.Println("Testing Waters...")
-		block = level.NewStillWaterBlock(byte(2))
+	if block.IsLiquid() || heldItem.TypeId == constants.WaterBucket.Value {
+		block = level.NewStillWaterBlock(byte(0))
+		SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
+		if heldItem.TypeId == constants.WaterBucket.Value {
+			// Replace bucket with empty bucket
+			bucket := inventory.Item{
+				TypeId:   constants.Bucket.Value,
+				Count:    1,
+				Metadata: 0,
+			}
+			pl.Inventory.Items[slot] = bucket
+			sendSetSlot(connection, 0, slot, bucket)
+		} else {
+			pl.Inventory.RemoveOne(slot)
+			sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+		}
+		return
 	}
-	// world.SetBlock(newX, byte(newY), newZ, block)
-
-	// // Notify all players of the block change.
-	// blockChange := packets.BlockChangeOutPacket{
-	// 	X:         newX,
-	// 	Y:         byte(newY),
-	// 	Z:         newZ,
-	// 	BlockType: block.TypeId,
-	// 	BlockMeta: block.Metadata,
-	// }
-	// world.BroadcastPacket(blockChange.Serialize())
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
 
 	// Decrement the item in the in-memory inventory and sync to client.
@@ -519,6 +539,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 	key := level.BlockKey{X: x, Y: byte(y), Z: z}
 	delete(world.WaterSources, key)
+	delete(world.FlowingWater, level.BlockKey{X: x, Y: byte(y), Z: z})
 	world.SetBlock(x, byte(y), z, *block)
 	blockChange := packets.BlockChangeOutPacket{
 		X:         x,

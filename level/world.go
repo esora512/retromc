@@ -49,6 +49,7 @@ type World struct {
 	Entities     map[int32]Entity
 	EntityCount  int32
 	WaterSources map[BlockKey]byte
+	FlowingWater map[BlockKey]byte
 }
 
 func NewWorld() *World {
@@ -59,6 +60,7 @@ func NewWorld() *World {
 		Players:      make(map[int32]*player.Player),
 		Entities:     make(map[int32]Entity),
 		WaterSources: make(map[BlockKey]byte),
+		FlowingWater: make(map[BlockKey]byte),
 	}
 }
 

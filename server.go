@@ -104,81 +104,95 @@ const containerSavePath = "saves/containers.dat"
 func setFlowingWater(world *level.World, x, y, z int32, liquidHeight byte) {
 	flowingWater := level.NewFlowingWaterBlock(liquidHeight)
 	packethandler.SetBlockAndNotify(world, x, y, z, &flowingWater)
-}
-
-func setStillWater(world *level.World, x, y, z int32, liquidHeight byte) {
-	stillWater := level.NewStillWaterBlock(liquidHeight)
-	packethandler.SetBlockAndNotify(world, x, y, z, &stillWater)
-
+	key := level.BlockKey{X: x, Y: byte(y), Z: z}
+	world.FlowingWater[key] = liquidHeight
+	world.WaterSources[key] = liquidHeight
 }
 
 func waterDecay(world *level.World) {
+	visited := make(map[level.BlockKey]bool)
+	queue := []level.BlockKey{}
+
+	// Seed BFS with only true source blocks (not flowing water)
 	for key := range world.WaterSources {
+		if _, isFlowing := world.FlowingWater[key]; !isFlowing {
+			visited[key] = true
+			queue = append(queue, key)
+		}
+	}
+
+	// BFS to find all water reachable from a true source
+	spreadNeighbors := []struct{ dx, dy, dz int32 }{
+		{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0},
+	}
+	for len(queue) > 0 {
+		key := queue[0]
+		queue = queue[1:]
 		x, y, z := key.X, key.Y, key.Z
 
-		neighbors := []struct{ dx, dy, dz int32 }{
-			{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0},
-		}
-
-		hasSource := false
-		for _, n := range neighbors {
-			nx, ny, nz := x+n.dx, y+byte(n.dy), z+n.dz
-			neighborKey := level.BlockKey{X: nx, Y: ny, Z: nz}
-
-			if _, exists := world.WaterSources[neighborKey]; exists {
-				hasSource = true
-				break
+		for _, n := range spreadNeighbors {
+			nx := x + n.dx
+			ny := int32(y) + n.dy
+			nz := z + n.dz
+			if ny < 0 || ny > 255 {
+				continue
 			}
-
-			// neighbor := world.GetBlock(nx, ny, nz)
-			// if neighbor.IsLiquid() {
-			// 	hasSource = true
-			// 	break
-			// }
+			nKey := level.BlockKey{X: nx, Y: byte(ny), Z: nz}
+			if visited[nKey] {
+				continue
+			}
+			b := world.GetBlock(nx, byte(ny), nz)
+			if b.IsLiquid() {
+				visited[nKey] = true
+				queue = append(queue, nKey)
+			}
 		}
-
-		if !hasSource {
-			world.SetBlock(x, y, z, level.NewAirBlock())
+	}
+	for key := range world.FlowingWater {
+		if !visited[key] {
+			air := level.NewAirBlock()
+			packethandler.SetBlockAndNotify(world, key.X, int32(key.Y), key.Z, &air)
+			delete(world.FlowingWater, key)
 			delete(world.WaterSources, key)
 		}
 	}
 }
 
 func waterSpreading(world *level.World) {
-	for key, height := range world.WaterSources {
-		x, y, z := key.X, key.Y, key.Z
+	type waterEntry struct {
+		key    level.BlockKey
+		height byte
+	}
+	var allWater []waterEntry
+	for key, h := range world.WaterSources {
+		allWater = append(allWater, waterEntry{key, h})
+	}
+
+	for _, entry := range allWater {
+		x, y, z := entry.key.X, entry.key.Y, entry.key.Z
+		height := entry.height
 
 		if height >= 7 {
 			continue
 		}
-
 		nextHeight := height + 1
 
-		neighbors := []struct{ dx, dz int32 }{
-			{1, 0}, {-1, 0}, {0, 1}, {0, -1},
-		}
-
-		for _, n := range neighbors {
+		for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
 			nx, nz := x+n.dx, z+n.dz
-
-			neighbor := world.GetBlock(nx, y, nz)
-			if !neighbor.IsAir() {
+			b := world.GetBlock(nx, y, nz)
+			if !b.IsAir() {
 				continue
 			}
-
-			key := level.BlockKey{X: nx, Y: y, Z: nz}
-			if existingHeight, exists := world.WaterSources[key]; exists {
-				if existingHeight <= nextHeight {
-					continue
-				}
+			nKey := level.BlockKey{X: nx, Y: y, Z: nz}
+			if existing, exists := world.FlowingWater[nKey]; exists && existing <= nextHeight {
+				continue
 			}
-
 			setFlowingWater(world, nx, int32(y), nz, nextHeight)
 		}
 
-		below := world.GetBlock(x, y-1, z)
-		if below.IsAir() {
-			setFlowingWater(world, x, int32(y-1), z, 0)
+		b := world.GetBlock(x, y-1, z)
+		if y > 0 && b.IsAir() {
+			setFlowingWater(world, x, int32(y)-1, z, 0)
 		}
 	}
 }
@@ -194,8 +208,8 @@ func gameLoop(world *level.World) {
 			world.BroadcastTime()
 			minecartPhysics(world)
 			if world.Tick%20 == 0 {
-				waterSpreading(world)
 				waterDecay(world)
+				waterSpreading(world)
 			}
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {
