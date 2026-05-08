@@ -55,7 +55,7 @@ func (b*Block) IsLiquid() bool {
 }
 
 func (b*Block) IsWater() bool {
-	return b.TypeId == byte(constants.WaterStill.Value)
+	return b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.WaterFlowing.Value)
 }
 
 func (b *Block) IsPoweredRail() bool {

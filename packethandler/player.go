@@ -224,6 +224,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
+	log.Printf("oldExisting: typeId=%d", oldExisting.TypeId)
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
 		connection.Write(p.Serialize())
@@ -279,23 +280,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if oldExisting.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
-		air := level.NewAirBlock()
-		SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
-		delete(world.WaterSources, level.BlockKey{X: p.X, Y: byte(p.Y), Z: p.Z})
-		delete(world.FlowingWater, level.BlockKey{X: p.X, Y: byte(p.Y), Z: p.Z})
-
-		var bucketItem inventory.Item
-		if oldExisting.IsWater() { 
-			bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
-		} else {
-			bucketItem = inventory.Item{TypeId: constants.LavaBucket.Value, Count: 1}
-		}
-		pl.Inventory.Items[pl.HotbarSlot] = bucketItem
-		sendSetSlot(connection, 0, pl.HotbarSlot, bucketItem)
-		return
-	}
-
 	pl.HotbarLocked.Store(true)
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
@@ -335,11 +319,31 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
+	if existing.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
+		air := level.NewAirBlock()
+		SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
+		delete(world.WaterSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(world.FlowingWater, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+
+		var bucketItem inventory.Item
+		if existing.IsWater() {
+			bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
+		} else {
+			bucketItem = inventory.Item{TypeId: constants.LavaBucket.Value, Count: 1}
+		}
+		pl.Inventory.Items[pl.HotbarSlot] = bucketItem
+		sendSetSlot(connection, 0, pl.HotbarSlot, bucketItem)
+		return
+	}
+
 	// Verify the player actually has the item they're trying to place.
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
 	block := level.NewBlockById(p.ItemId, item.Metadata)
+	if heldItem.TypeId == -1 {
+		return
+	}
 
 	if block.IsRail() {
 		railIds := map[byte]bool{
