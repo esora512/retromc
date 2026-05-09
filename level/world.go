@@ -50,6 +50,8 @@ type World struct {
 	EntityCount  int32
 	WaterSources map[BlockKey]byte
 	FlowingWater map[BlockKey]byte
+	LavaSources map[BlockKey]byte
+	FlowingLava map[BlockKey]byte
 }
 
 func NewWorld() *World {
@@ -61,6 +63,8 @@ func NewWorld() *World {
 		Entities:     make(map[int32]Entity),
 		WaterSources: make(map[BlockKey]byte),
 		FlowingWater: make(map[BlockKey]byte),
+		LavaSources: make(map[BlockKey]byte),
+		FlowingLava: make(map[BlockKey]byte),
 	}
 }
 
@@ -116,8 +120,11 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	// in-memory persistence
 	w.mu.Lock()
 	w.changes[BlockKey{worldX, worldY, worldZ}] = block
-	if block.IsLiquid() {
+	if block.IsWater() {
 		w.WaterSources[BlockKey{worldX, worldY, worldZ}] = block.Metadata
+	}
+	if block.IsLava() {
+		w.LavaSources[BlockKey{worldX, worldY, worldZ}] = block.Metadata
 	}
 	w.mu.Unlock()
 }

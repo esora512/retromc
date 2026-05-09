@@ -21,6 +21,12 @@ const (
 	ignoreY   = -999.0
 )
 
+type fluidPlacement struct {
+	bucketId     int16
+	isFluidBlock func(*level.Block) bool
+	newBlock     level.Block
+}
+
 func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
 	world.BroadcastPacket(p.Serialize())
 }
@@ -275,7 +281,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
-	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value {
+	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value && heldItem.TypeId != constants.LavaBucket.Value {
 		// Only place blocks if block is in hotbar slot
 		return
 	}
@@ -324,6 +330,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
 		delete(world.WaterSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
 		delete(world.FlowingWater, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(world.LavaSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(world.FlowingLava, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
 
 		var bucketItem inventory.Item
 		if existing.IsWater() {
@@ -512,16 +520,17 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if block.IsLiquid() || heldItem.TypeId == constants.WaterBucket.Value {
-		block = level.NewStillWaterBlock(byte(0))
-		SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
-		if heldItem.TypeId == constants.WaterBucket.Value {
-			// Replace bucket with empty bucket
-			bucket := inventory.Item{
-				TypeId:   constants.Bucket.Value,
-				Count:    1,
-				Metadata: 0,
-			}
+	for _, fp := range []fluidPlacement{
+		{constants.WaterBucket.Value, func(b *level.Block) bool { return b.IsWater() }, level.NewStillWaterBlock(0)},
+		{constants.LavaBucket.Value, func(b *level.Block) bool { return b.IsLava() }, level.NewStillLavaBlock(0)},
+	} {
+		if !fp.isFluidBlock(&block) && heldItem.TypeId != fp.bucketId {
+			continue
+		}
+		b := fp.newBlock
+		SetBlockAndNotify(world, newX, int32(newY), newZ, &b)
+		if heldItem.TypeId == fp.bucketId {
+			bucket := inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
 			pl.Inventory.Items[slot] = bucket
 			sendSetSlot(connection, 0, slot, bucket)
 		} else {
@@ -543,7 +552,9 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 	key := level.BlockKey{X: x, Y: byte(y), Z: z}
 	delete(world.WaterSources, key)
+	delete(world.LavaSources, key)
 	delete(world.FlowingWater, level.BlockKey{X: x, Y: byte(y), Z: z})
+	delete(world.FlowingLava, level.BlockKey{X: x, Y: byte(y), Z: z})
 	world.SetBlock(x, byte(y), z, *block)
 	blockChange := packets.BlockChangeOutPacket{
 		X:         x,
