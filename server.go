@@ -140,7 +140,6 @@ func setFlowingFluid(world *level.World, x, y, z int32, liquidHeight byte, cfg F
 	packethandler.SetBlockAndNotify(world, x, y, z, &block)
 	key := level.BlockKey{X: x, Y: byte(y), Z: z}
 	cfg.Flowing[key] = liquidHeight
-	cfg.Sources[key] = liquidHeight
 }
 
 func fluidDecay(world *level.World, cfg FluidConfig) {
@@ -185,7 +184,6 @@ func fluidDecay(world *level.World, cfg FluidConfig) {
 			air := level.NewAirBlock()
 			packethandler.SetBlockAndNotify(world, key.X, int32(key.Y), key.Z, &air)
 			delete(cfg.Flowing, key)
-			delete(cfg.Sources, key)
 		}
 	}
 }
@@ -335,10 +333,6 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
-			// if world.Tick%20 == 0 {
-			// 	waterDecay(world)
-			// 	waterSpreading(world)
-			// }
 			if world.Tick%20 == 0 {
 				waterCfg := newWaterConfig(world)
 				fluidDecay(world, waterCfg)
