@@ -147,6 +147,7 @@ func fluidDecay(world *level.World, cfg FluidConfig) {
 	queue := []level.BlockKey{}
 
 	for key := range cfg.Sources {
+		// NOTE: without this check, decay breaks
 		if _, isFlowing := cfg.Flowing[key]; !isFlowing {
 			visited[key] = true
 			queue = append(queue, key)
@@ -156,6 +157,7 @@ func fluidDecay(world *level.World, cfg FluidConfig) {
 	spreadNeighbors := []struct{ dx, dy, dz int32 }{
 		{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0},
 	}
+	// BFS to find all possible flowing blocks connected to sources
 	for len(queue) > 0 {
 		key := queue[0]
 		queue = queue[1:]
@@ -188,6 +190,50 @@ func fluidDecay(world *level.World, cfg FluidConfig) {
 	}
 }
 
+func abs(x int32) int32 {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func findHoleNearSource(world *level.World, sourceKey level.BlockKey, cfg FluidConfig) (level.BlockKey, bool) {
+	const maxDist = 4
+	x, y, z := sourceKey.X, sourceKey.Y, sourceKey.Z
+
+	visited := make(map[level.BlockKey]bool)
+	queue := []level.BlockKey{{X: x, Y: y, Z: z}}
+	visited[sourceKey] = true
+
+	// BFS to find the nearest reachable hole
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+
+		b := world.GetBlock(cur.X, cur.Y-1, cur.Z)
+		if cur.Y > 0 && (b.IsAir() || b.IsFLowing()) {
+			return cur, true
+		}
+
+		if abs(cur.X-x) >= int32(maxDist) || abs(cur.Z-z) >= int32(maxDist) {
+			continue
+		}
+
+		for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			nx, nz := cur.X+n.dx, cur.Z+n.dz
+			nKey := level.BlockKey{X: nx, Y: y, Z: nz}
+			if visited[nKey] {
+				continue
+			}
+			visited[nKey] = true
+			if b := world.GetBlock(nx, y, nz); b.IsAir() || cfg.IsFluid(b) {
+				queue = append(queue, nKey)
+			}
+		}
+	}
+	return level.BlockKey{}, false
+}
+
 func fluidSpreading(world *level.World, cfg FluidConfig) {
 	type fluidEntry struct {
 		key    level.BlockKey
@@ -202,12 +248,37 @@ func fluidSpreading(world *level.World, cfg FluidConfig) {
 		x, y, z := entry.key.X, entry.key.Y, entry.key.Z
 		height := entry.height
 
+		b := world.GetBlock(x, y-1, z)
+		if y > 0 && b.IsAir() {
+			setFlowingFluid(world, x, int32(y)-1, z, 0, cfg)
+			continue
+		}
+
 		if height >= cfg.MaxSpreadHeight {
 			continue
 		}
 		nextHeight := height + 1
 
-		for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		type offset struct{ dx, dz int32 }
+		neighbors := []offset{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+		holeTarget, holeFound := findHoleNearSource(world, entry.key, cfg)
+		if holeFound {
+			var biased []offset
+			for _, n := range neighbors {
+				nx, nz := x+n.dx, z+n.dz
+				curDist := abs(x-holeTarget.X) + abs(z-holeTarget.Z)
+				newDist := abs(nx-holeTarget.X) + abs(nz-holeTarget.Z)
+				if newDist < curDist {
+					biased = append(biased, n)
+				}
+			}
+			neighbors = biased
+			if len(neighbors) == 0 {
+				continue
+			}
+		}
+
+		for _, n := range neighbors {
 			nx, nz := x+n.dx, z+n.dz
 			b := world.GetBlock(nx, y, nz)
 			if !b.IsAir() {
@@ -218,107 +289,6 @@ func fluidSpreading(world *level.World, cfg FluidConfig) {
 				continue
 			}
 			setFlowingFluid(world, nx, int32(y), nz, nextHeight, cfg)
-		}
-
-		b := world.GetBlock(x, y-1, z)
-		if y > 0 && b.IsAir() {
-			setFlowingFluid(world, x, int32(y)-1, z, 0, cfg)
-		}
-	}
-}
-
-func setFlowingWater(world *level.World, x, y, z int32, liquidHeight byte) {
-	flowingWater := level.NewFlowingWaterBlock(liquidHeight)
-	packethandler.SetBlockAndNotify(world, x, y, z, &flowingWater)
-	key := level.BlockKey{X: x, Y: byte(y), Z: z}
-	world.FlowingWater[key] = liquidHeight
-	world.WaterSources[key] = liquidHeight
-}
-
-func waterDecay(world *level.World) {
-	visited := make(map[level.BlockKey]bool)
-	queue := []level.BlockKey{}
-
-	// Seed BFS with only true source blocks (not flowing water)
-	for key := range world.WaterSources {
-		if _, isFlowing := world.FlowingWater[key]; !isFlowing {
-			visited[key] = true
-			queue = append(queue, key)
-		}
-	}
-
-	// BFS to find all water reachable from a true source
-	spreadNeighbors := []struct{ dx, dy, dz int32 }{
-		{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0},
-	}
-	for len(queue) > 0 {
-		key := queue[0]
-		queue = queue[1:]
-		x, y, z := key.X, key.Y, key.Z
-
-		for _, n := range spreadNeighbors {
-			nx := x + n.dx
-			ny := int32(y) + n.dy
-			nz := z + n.dz
-			if ny < 0 || ny > 255 {
-				continue
-			}
-			nKey := level.BlockKey{X: nx, Y: byte(ny), Z: nz}
-			if visited[nKey] {
-				continue
-			}
-			b := world.GetBlock(nx, byte(ny), nz)
-			if b.IsLiquid() {
-				visited[nKey] = true
-				queue = append(queue, nKey)
-			}
-		}
-	}
-	for key := range world.FlowingWater {
-		if !visited[key] {
-			air := level.NewAirBlock()
-			packethandler.SetBlockAndNotify(world, key.X, int32(key.Y), key.Z, &air)
-			delete(world.FlowingWater, key)
-			delete(world.WaterSources, key)
-		}
-	}
-}
-
-func waterSpreading(world *level.World) {
-	type waterEntry struct {
-		key    level.BlockKey
-		height byte
-	}
-	var allWater []waterEntry
-	for key, h := range world.WaterSources {
-		allWater = append(allWater, waterEntry{key, h})
-	}
-
-	for _, entry := range allWater {
-		x, y, z := entry.key.X, entry.key.Y, entry.key.Z
-		height := entry.height
-
-		if height >= 7 {
-			continue
-		}
-		nextHeight := height + 1
-
-		for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
-			nx, nz := x+n.dx, z+n.dz
-			b := world.GetBlock(nx, y, nz)
-			if !b.IsAir() {
-				continue
-			}
-			nKey := level.BlockKey{X: nx, Y: y, Z: nz}
-			if existing, exists := world.FlowingWater[nKey]; exists && existing <= nextHeight {
-				continue
-			}
-			setFlowingWater(world, nx, int32(y), nz, nextHeight)
-		}
-
-		b := world.GetBlock(x, y-1, z)
-		if y > 0 && b.IsAir() {
-			setFlowingWater(world, x, int32(y)-1, z, 0)
 		}
 	}
 }
@@ -333,15 +303,15 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
-			if world.Tick%20 == 0 {
+			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := newWaterConfig(world)
+				lavaCfg := newLavaConfig(world)
 				fluidDecay(world, waterCfg)
 				fluidSpreading(world, waterCfg)
-			}
-			if world.Tick%60 == 0 {
-				lavaCfg := newLavaConfig(world)
 				fluidDecay(world, lavaCfg)
-				fluidSpreading(world, lavaCfg)
+				if world.Tick%60 == 0 {
+					fluidSpreading(world, lavaCfg)
+				}
 			}
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {

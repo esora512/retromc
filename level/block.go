@@ -54,6 +54,10 @@ func (b*Block) IsLiquid() bool {
 	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value) || b.TypeId == byte(constants.LavaStill.Value)
 }
 
+func (b*Block) IsFLowing() bool {
+	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.LavaFlowing.Value)
+}
+
 func (b*Block) IsWater() bool {
 	return b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.WaterFlowing.Value)
 }
