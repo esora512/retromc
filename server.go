@@ -72,6 +72,50 @@ func handleKeepAlive(connection net.Conn, stop chan struct{}) {
 	}()
 }
 
+func checkLavaHarden(world *level.World) {
+	neighbors := []struct{ dx, dy, dz int32 }{
+		{0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}, {0, 1, 0},
+	}
+
+	touchesWater := func(x, y, z int32) bool {
+		for _, n := range neighbors {
+			b := world.GetBlock(x+n.dx, byte(y+n.dy), z+n.dz)
+			if b.IsWater() {
+				return true
+			}
+		}
+		return false
+	}
+
+	for key, height := range world.FlowingLava {
+		x, y, z := key.X, int32(key.Y), key.Z
+		if !touchesWater(x, y, z) {
+			continue
+		}
+		if height <= 4 {
+			cobble := level.NewCobblestoneBlock()
+			delete(world.FlowingLava, key)
+			packethandler.SetBlockAndNotify(world, x, y, z, &cobble)
+		}
+	}
+
+	for key := range world.LavaSources {
+		x, y, z := key.X, int32(key.Y), key.Z
+		// Make sure it wasn't already replaced this tick
+		b := world.GetBlock(x, byte(y), z)
+		if !b.IsLava() {
+			delete(world.LavaSources, key)
+			continue
+		}
+		if !touchesWater(x, y, z) {
+			continue
+		}
+		obsidian := level.NewObsidianBlock()
+		packethandler.SetBlockAndNotify(world, x, y, z, &obsidian)
+		delete(world.LavaSources, key)
+	}
+}
+
 func handleConnection(connection net.Conn, world *level.World) {
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
@@ -305,6 +349,7 @@ func gameLoop(world *level.World) {
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
 			minecartPhysics(world)
+			checkLavaHarden(world)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := newWaterConfig(world)
 				lavaCfg := newLavaConfig(world)
