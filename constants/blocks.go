@@ -42,6 +42,21 @@ var (
 	Piston           = Block{Value: 33, Meta: 0}
 	PistonHead       = Block{Value: 34, Meta: 0}
 	Wool             = Block{Value: 35, Meta: 0}
+	OrangeWool       = Block{Value: 35, Meta: 1}
+	MagentaWool      = Block{Value: 35, Meta: 2}
+	LightBlueWool    = Block{Value: 35, Meta: 3}
+	YellowWool       = Block{Value: 35, Meta: 4}
+	LimeWool         = Block{Value: 35, Meta: 5}
+	PinkWool         = Block{Value: 35, Meta: 6}
+	GrayWool         = Block{Value: 35, Meta: 7}
+	LightGrayWool    = Block{Value: 35, Meta: 8}
+	CyanWool         = Block{Value: 35, Meta: 9}
+	PurpleWool       = Block{Value: 35, Meta: 10}
+	BlueWool         = Block{Value: 35, Meta: 11}
+	BrownWool        = Block{Value: 35, Meta: 12}
+	GreenWool        = Block{Value: 35, Meta: 13}
+	RedWool          = Block{Value: 35, Meta: 14}
+	BlackWool        = Block{Value: 35, Meta: 15}
 	Dandelion        = Block{Value: 37, Meta: 0}
 	Rose             = Block{Value: 38, Meta: 0}
 	BrownMushroom    = Block{Value: 39, Meta: 0}
@@ -147,6 +162,21 @@ var blockCommandMap = map[string]Block{
 	"piston":                  Piston,
 	"piston_head":             PistonHead,
 	"wool":                    Wool,
+	"orange_wool":             OrangeWool,
+	"magenta_wool":            MagentaWool,
+	"light_blue_wool":         LightBlueWool,
+	"yellow_wool":             YellowWool,
+	"lime_wool":               LimeWool,
+	"pink_wool":               PinkWool,
+	"gray_wool":               GrayWool,
+	"light_gray_wool":         LightGrayWool,
+	"cyan_wool":               CyanWool,
+	"purple_wool":             PurpleWool,
+	"blue_wool":               BlueWool,
+	"brown_wool":              BrownWool,
+	"green_wool":              GreenWool,
+	"red_wool":                RedWool,
+	"black_wool":              BlackWool,
 	"yellow_flower":           Dandelion,
 	"red_flower":              Rose,
 	"brown_mushroom":          BrownMushroom,

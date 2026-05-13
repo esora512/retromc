@@ -95,6 +95,7 @@ type Player struct {
 	LoggedIn             bool
 	IsRiding             int32
 	BelowZeroHeightCount int
+	IsCreative		   bool
 }
 
 const (
@@ -131,6 +132,7 @@ func NewPlayer(conn net.Conn) *Player {
 		BelowZeroHeightCount: 0,
 		LYaw: 0,
 		LPitch: 0,
+		IsCreative: false,
 	}
 }
 

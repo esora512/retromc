@@ -1,9 +1,7 @@
 package packethandler
 
 import (
-	"log"
 	"net"
-
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -149,7 +147,6 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 
 func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
 	ep := packets.PlayerEntityLookPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
-	//log.Printf("Multicasting player look yaw=%.2f pitch=%.2f", p.Yaw, p.Pitch)
 	world.MulticastPacket(ep, pl)
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
@@ -165,9 +162,11 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 
-	if p.Status != 2 {
+	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
+	if !finishedDigging {
 		return
 	}
+
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
 	if oldBlock.TypeId == 0x00 {
 		return
@@ -203,7 +202,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	blockItem := int16(oldBlock.TypeId)
 	blockMeta := oldBlock.Metadata
-	log.Printf("Meta: %d", blockMeta)
 	if blockItem == constants.Stone.Value {
 		blockItem = constants.Cobblestone.Value
 	}
@@ -230,7 +228,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
-	log.Printf("oldExisting: typeId=%d", oldExisting.TypeId)
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
 		connection.Write(p.Serialize())
@@ -464,7 +461,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			}
 		}
 
-		log.Println("Face", p.Face)
 		if block.TypeId == byte(constants.Sign.Value) {
 			block.TypeId = byte(constants.SignGround.Value)
 		}

@@ -211,6 +211,8 @@ func findHoleNearSource(world *level.World, sourceKey level.BlockKey, cfg FluidC
 		queue = queue[1:]
 
 		b := world.GetBlock(cur.X, cur.Y-1, cur.Z)
+		// a hole must be either air or flowing water
+		// latter allows us to keep the same state even if the hole is filled with flowing water
 		if cur.Y > 0 && (b.IsAir() || b.IsFLowing()) {
 			return cur, true
 		}

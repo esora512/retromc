@@ -63,6 +63,25 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			world.BroadcastPacket(blockChange.Serialize())
 		}
 
+		if strings.HasPrefix(message, "/gamemode") {
+			var mode int
+			_, err := fmt.Sscanf(message, "/gamemode %d", &mode)
+			if err != nil {
+				log.Printf("Invalid gamemode command format: %s", message)
+				return false
+			}
+			switch mode {
+			case 0:
+				pl.IsCreative = false
+				log.Printf("Player %s switched to Survival mode", pl.Username)
+			case 1:
+				pl.IsCreative = true
+				log.Printf("Player %s switched to Creative mode", pl.Username)
+			default:
+				log.Printf("Unknown gamemode: %d", mode)
+			}
+		}
+
 		if strings.HasPrefix(message, "/debug") {
 			command := strings.TrimPrefix(message, "/debug ")
 			switch command {
@@ -74,8 +93,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			default:
 				log.Printf("Unknown debug command: %s", command)
 			}
-
-
 		}
 
 		return true
