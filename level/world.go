@@ -39,6 +39,13 @@ func (w *World) SnapshotEntities() []Entity {
 	return snapshot
 }
 
+type WorldType int
+
+const (
+	Stones WorldType = iota
+	SkyGrid
+)
+
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	mu           sync.RWMutex
@@ -50,12 +57,14 @@ type World struct {
 	EntityCount  int32
 	WaterSources map[BlockKey]byte
 	FlowingWater map[BlockKey]byte
-	LavaSources map[BlockKey]byte
-	FlowingLava map[BlockKey]byte
+	LavaSources  map[BlockKey]byte
+	FlowingLava  map[BlockKey]byte
+	WorldType    WorldType
 }
 
-func NewWorld() *World {
+func NewWorld(worldType WorldType) *World {
 	return &World{
+		WorldType:    worldType,
 		chunks:       make(map[ChunkCoord]*Chunk),
 		changes:      make(map[BlockKey]Block),
 		EntityCount:  0,
@@ -63,8 +72,8 @@ func NewWorld() *World {
 		Entities:     make(map[int32]Entity),
 		WaterSources: make(map[BlockKey]byte),
 		FlowingWater: make(map[BlockKey]byte),
-		LavaSources: make(map[BlockKey]byte),
-		FlowingLava: make(map[BlockKey]byte),
+		LavaSources:  make(map[BlockKey]byte),
+		FlowingLava:  make(map[BlockKey]byte),
 	}
 }
 
@@ -90,7 +99,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 		return c
 	}
 
-	c := NewChunk()
+	c := NewChunk(w.WorldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 

@@ -2,6 +2,7 @@ package level
 
 import (
 	"github.com/leNicDev/retromc/constants"
+	"math/rand"
 )
 
 type Block struct {
@@ -123,6 +124,15 @@ func (b *Block) GetDirections() BlockDirections {
 		West:  3,
 	}
 }
+
+func NewRandomBlock() Block {
+	val := rand.Intn(94)
+	if val == int(constants.Grass.Value) || val == int(constants.Chest.Value) || val == int(constants.Furnace.Value) || val == int(constants.Dispenser.Value) || val == int(constants.FurnaceLit.Value) || val == int(constants.LavaFlowing.Value) || val == int(constants.WaterFlowing.Value) {
+		val = int(constants.Stone.Value)
+	}
+	return NewBlockById(int16(val), 0)
+}
+
 
 func (b *Block) IsDirectional() bool {
 	return directionalBlocks[int16(b.TypeId)]

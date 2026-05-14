@@ -31,7 +31,7 @@ func main() {
 
 	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
 
-	world := level.NewWorld()
+	world := level.NewWorld(level.Stones)
 	if err := world.LoadChanges(worldSavePath); err != nil {
 		log.Println("Failed to load world save:", err)
 	}
@@ -72,8 +72,6 @@ func handleKeepAlive(connection net.Conn, stop chan struct{}) {
 	}()
 }
 
-
-
 func handleConnection(connection net.Conn, world *level.World) {
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
@@ -102,7 +100,6 @@ func handleConnection(connection net.Conn, world *level.World) {
 
 const worldSavePath = "saves/world.dat"
 const containerSavePath = "saves/containers.dat"
-
 
 func gameLoop(world *level.World) {
 	go func() {

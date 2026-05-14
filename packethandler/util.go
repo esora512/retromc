@@ -123,7 +123,7 @@ func sendChunks(connection net.Conn, world *level.World) {
 	}
 }
 
-func GenerateWorld0(world *level.World) {
+func GenerateSquareWorld(world *level.World) {
 	for cx := int32(-1); cx <= 0; cx++ {
 		for cz := int32(-1); cz <= 0; cz++ {
 			world.GetOrCreateChunk(cx, cz)
@@ -145,15 +145,16 @@ func SendLoadedChunks(conn net.Conn, world *level.World) {
 	}
 }
 
-func sendSpawnPosition(connection net.Conn) {
-	spawnPositionPacket := packets.SpawnPositionOutPacket{
-		X: 0,
-		Y: 64,
-		Z: 0,
-	}
-	outData := spawnPositionPacket.Serialize()
-	connection.Write(outData)
-}
+// TODO: Crashes the client for some reason
+// func SendSpawnPosition(connection net.Conn) {
+// 	spawnPositionPacket := packets.SpawnPositionOutPacket{
+// 		X: 0,
+// 		Y: 64,
+// 		Z: 0,
+// 	}
+// 	outData := spawnPositionPacket.Serialize()
+// 	connection.Write(outData)
+// }
 
 func sendInventory(connection net.Conn, pl *player.Player) {
 	loaded, err := player.LoadInventory(pl.Username, &pl.Inventory)

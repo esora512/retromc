@@ -123,7 +123,7 @@ func (c *Chunk) GetBlock(lx, ly, lz int) Block {
 	return Block{TypeId: c.Data[i], Metadata: metadata}
 }
 
-func NewChunk() Chunk {
+func NewChunk(worldType WorldType) Chunk {
 	chunk := Chunk{
 		X:     0,
 		Y:     0,
@@ -132,6 +132,71 @@ func NewChunk() Chunk {
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
 	}
-	chunk.GenerateTemplate()
+	switch worldType {
+	case SkyGrid:
+		chunk.GenerateSkyGridTemplate()
+	default:
+		chunk.GenerateTemplate()
+	}
 	return chunk
+}
+
+func mod(a, b int) int {
+	r := a % b
+	if r < 0 {
+		r += b
+	}
+	return r
+}
+
+func (c *Chunk) GenerateSkyGridTemplate() {
+	cx, cz := 0, 0
+    blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+    nibbleCount := blocksAmount / 2
+
+    blockTypes := make([]byte, blocksAmount)
+    blockMetadata := make([]byte, nibbleCount)
+    blockLight := make([]byte, nibbleCount)
+    blockSkyLight := make([]byte, nibbleCount)
+
+    for i := 0; i < blocksAmount; i++ {
+        y := i % CHUNK_SIZE_Y
+        z := (i / CHUNK_SIZE_Y) % CHUNK_SIZE_Z
+        x := i / (CHUNK_SIZE_Y * CHUNK_SIZE_Z)
+
+        // World coordinates of this block
+        worldX := int(cx)*CHUNK_SIZE_X + x
+        worldZ := int(cz)*CHUNK_SIZE_Z + z
+
+        // Place a block where world X and Z are multiples of 2,
+        // and Y is a multiple of 4 — giving a 3-block vertical gap.
+        // The world-space check ensures x=0,z=0 always has a block.
+		isSkyGridBlock := (mod(worldX, 3) == 0) && (mod(worldZ, 3) == 0) && (y%4 == 0)
+        //isSkyGridBlock := (worldX%2 == 0) && (worldZ%2 == 0) && (y%4 == 0)
+
+        var block Block
+        if isSkyGridBlock {
+            block = NewRandomBlock()
+        } else {
+            block = NewAirBlock()
+        }
+        block.SkyLight = 0x0f
+
+        blockTypes[i] = block.TypeId
+
+        ni := i / 2
+        if i%2 == 0 {
+            blockMetadata[ni] = block.Metadata & 0x0f
+            blockLight[ni] = block.Light & 0x0f
+            blockSkyLight[ni] = block.SkyLight & 0x0f
+        } else {
+            blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
+            blockLight[ni] |= (block.Light & 0x0f) << 4
+            blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
+        }
+    }
+    c.Data = blockTypes
+    c.Data = append(c.Data, blockMetadata...)
+    c.Data = append(c.Data, blockLight...)
+    c.Data = append(c.Data, blockSkyLight...)
 }

@@ -41,8 +41,8 @@ func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
 	pl.Username = p.Username
 	sendLoginResponse(connection, pl)
-	
-	GenerateWorld0(world)
+
+	GenerateSquareWorld(world)
 	SendLoadedChunks(connection, world)
 
 	//sendChunks(connection, world)

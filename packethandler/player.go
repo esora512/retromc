@@ -2,6 +2,7 @@ package packethandler
 
 import (
 	"net"
+
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
