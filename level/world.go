@@ -100,6 +100,12 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 			lx := WorldToLocalCoord(k.X)
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
+			if b.IsWater() {
+				w.WaterSources[k] = b.Metadata
+			}
+			if b.IsLava() {
+				w.LavaSources[k] = b.Metadata
+			}
 		}
 	}
 
