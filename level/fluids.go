@@ -2,6 +2,45 @@ package level
 
 type SetBlock func(world *World, x, y, z int32, block *Block)
 
+func InfiniteWaterSource(world *World, cfg FluidConfig, setBlock SetBlock) {
+	for key, height := range cfg.Flowing {
+		if height < cfg.MaxSpreadHeight {
+			continue
+		}
+
+		x, y, z := key.X, key.Y, key.Z
+		sourceCount := 0
+
+		for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			nx, nz := x+n.dx, z+n.dz
+			nKey := BlockKey{X: nx, Y: y, Z: nz}
+			if _, isSource := cfg.Sources[nKey]; isSource {
+				sourceCount++
+			}
+		}
+
+		if sourceCount >= 2 {
+			b := NewStillWaterBlock(0)
+			setBlock(world, x, int32(y), z, &b)
+			for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+				nx, nz := x+n.dx, z+n.dz
+				nKey := BlockKey{X: nx, Y: y, Z: nz}
+				if _, isSource := cfg.Sources[nKey]; isSource {
+					sb := NewStillWaterBlock(0)
+					setBlock(world, nx, int32(y), z, &sb)
+				}
+			}
+		}
+	}
+}
+
+func RefreshSourceBlocks(world *World, cfg FluidConfig, setBlock SetBlock) {
+	for key := range cfg.Sources {
+		b := NewStillWaterBlock(0)
+		setBlock(world, key.X, int32(key.Y), key.Z, &b)
+	}
+}
+
 func CheckLavaHarden(world *World, setBlock SetBlock) {
 	neighbors := []struct{ dx, dy, dz int32 }{
 		{0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}, {0, 1, 0},
@@ -24,7 +63,6 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 		}
 		if height <= 4 {
 			cobble := NewCobblestoneBlock()
-			delete(world.FlowingLava, key)
 			setBlock(world, x, y, z, &cobble)
 		}
 	}
@@ -42,10 +80,8 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 		}
 		obsidian := NewObsidianBlock()
 		setBlock(world, x, y, z, &obsidian)
-		delete(world.LavaSources, key)
 	}
 }
-
 
 type FluidConfig struct {
 	IsFluid         func(b Block) bool
@@ -84,10 +120,7 @@ func NewLavaConfig(world *World) FluidConfig {
 func setFlowingFluid(world *World, x, y, z int32, liquidHeight byte, cfg FluidConfig, setBlock SetBlock) {
 	block := cfg.NewBlock(liquidHeight)
 	setBlock(world, x, y, z, &block)
-	key := BlockKey{X: x, Y: byte(y), Z: z}
-	cfg.Flowing[key] = liquidHeight
 }
-
 
 func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 	visited := make(map[BlockKey]bool)
@@ -132,7 +165,6 @@ func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 		if !visited[key] {
 			air := NewAirBlock()
 			setBlock(world, key.X, int32(key.Y), key.Z, &air)
-			delete(cfg.Flowing, key)
 		}
 	}
 }
@@ -143,7 +175,6 @@ func abs(x int32) int32 {
 	}
 	return x
 }
-
 
 func findHoleNearSource(world *World, sourceKey BlockKey, cfg FluidConfig) (BlockKey, bool) {
 	const maxDist = 4
@@ -161,7 +192,7 @@ func findHoleNearSource(world *World, sourceKey BlockKey, cfg FluidConfig) (Bloc
 		b := world.GetBlock(cur.X, cur.Y-1, cur.Z)
 		// a hole must be either air or flowing water
 		// latter allows us to keep the same state even if the hole is filled with flowing water
-		if cur.Y > 0 && (b.IsAir() || b.IsFLowing()) {
+		if cur.Y > 0 && (b.IsAir() || b.IsFlowing()) {
 			return cur, true
 		}
 
@@ -184,7 +215,6 @@ func findHoleNearSource(world *World, sourceKey BlockKey, cfg FluidConfig) (Bloc
 	return BlockKey{}, false
 }
 
-
 func FluidSpreading(world *World, cfg FluidConfig, setBlock SetBlock) {
 	type fluidEntry struct {
 		key    BlockKey
@@ -194,6 +224,9 @@ func FluidSpreading(world *World, cfg FluidConfig, setBlock SetBlock) {
 	for key, h := range cfg.Sources {
 		allFluids = append(allFluids, fluidEntry{key, h})
 	}
+    for key, h := range cfg.Flowing {
+        allFluids = append(allFluids, fluidEntry{key, h})
+    }
 
 	for _, entry := range allFluids {
 		x, y, z := entry.key.X, entry.key.Y, entry.key.Z

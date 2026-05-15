@@ -109,11 +109,17 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 			lx := WorldToLocalCoord(k.X)
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
-			if b.IsWater() {
+			if b.IsStillWater() {
 				w.WaterSources[k] = b.Metadata
-			}
-			if b.IsLava() {
+			} 
+			if b.IsStillLava() {
 				w.LavaSources[k] = b.Metadata
+			}
+			if b.IsFlowingWater() {
+				w.FlowingWater[k] = b.Metadata
+			}
+			if b.IsFlowingLava() {
+				w.FlowingLava[k] = b.Metadata
 			}
 		}
 	}
@@ -134,12 +140,25 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 
 	// in-memory persistence
 	w.mu.Lock()
-	w.changes[BlockKey{worldX, worldY, worldZ}] = block
-	if block.IsWater() {
-		w.WaterSources[BlockKey{worldX, worldY, worldZ}] = block.Metadata
-	}
-	if block.IsLava() {
-		w.LavaSources[BlockKey{worldX, worldY, worldZ}] = block.Metadata
+	key := BlockKey{worldX, worldY, worldZ}
+	w.changes[key] = block
+	if block.IsStillWater() {
+		w.WaterSources[key] = block.Metadata
+		delete(w.FlowingWater, key)
+	} else if block.IsFlowingWater() {
+		w.FlowingWater[key] = block.Metadata
+		delete(w.WaterSources, key)
+	} else if block.IsStillLava() {
+		w.LavaSources[key] = block.Metadata
+		delete(w.FlowingLava, key)
+	} else if block.IsFlowingLava() {
+		w.FlowingLava[key] = block.Metadata
+		delete(w.LavaSources, key)
+	} else {
+		delete(w.WaterSources, key)
+		delete(w.FlowingWater, key)
+		delete(w.LavaSources, key)
+		delete(w.FlowingLava, key)
 	}
 	w.mu.Unlock()
 }

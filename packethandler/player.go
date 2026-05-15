@@ -547,11 +547,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 }
 
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
-	key := level.BlockKey{X: x, Y: byte(y), Z: z}
-	delete(world.WaterSources, key)
-	delete(world.LavaSources, key)
-	delete(world.FlowingWater, level.BlockKey{X: x, Y: byte(y), Z: z})
-	delete(world.FlowingLava, level.BlockKey{X: x, Y: byte(y), Z: z})
 	world.SetBlock(x, byte(y), z, *block)
 	blockChange := packets.BlockChangeOutPacket{
 		X:         x,

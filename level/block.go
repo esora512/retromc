@@ -1,8 +1,9 @@
 package level
 
 import (
-	"github.com/leNicDev/retromc/constants"
 	"math/rand"
+
+	"github.com/leNicDev/retromc/constants"
 )
 
 type Block struct {
@@ -51,19 +52,35 @@ func (b *Block) IsRail() bool {
 	return b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
 
-func (b*Block) IsLiquid() bool {
+func (b *Block) IsLiquid() bool {
 	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value) || b.TypeId == byte(constants.LavaStill.Value)
 }
 
-func (b*Block) IsFLowing() bool {
+func (b *Block) IsFlowing() bool {
 	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.LavaFlowing.Value)
 }
 
-func (b*Block) IsWater() bool {
+func (b *Block) IsFlowingWater() bool {
+	return b.TypeId == byte(constants.WaterFlowing.Value)
+}
+
+func (b *Block) IsFlowingLava() bool {
+	return b.TypeId == byte(constants.LavaFlowing.Value)
+}
+
+func (b* Block) IsStillLava() bool {
+	return b.TypeId == byte(constants.LavaStill.Value)
+}
+
+func (b *Block) IsStillWater() bool {
+	return b.TypeId == byte(constants.WaterStill.Value)
+}
+
+func (b *Block) IsWater() bool {
 	return b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.WaterFlowing.Value)
 }
 
-func (b*Block) IsLava() bool {
+func (b *Block) IsLava() bool {
 	return b.TypeId == byte(constants.LavaStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value)
 }
 
@@ -132,7 +149,6 @@ func NewRandomBlock() Block {
 	}
 	return NewBlockById(int16(val), 0)
 }
-
 
 func (b *Block) IsDirectional() bool {
 	return directionalBlocks[int16(b.TypeId)]

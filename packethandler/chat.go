@@ -90,6 +90,9 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				for key := range world.WaterSources {
 					log.Printf("Water source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
 				}
+				for key := range world.FlowingWater {
+					log.Printf("Flowing water at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
+				}
 			default:
 				log.Printf("Unknown debug command: %s", command)
 			}
