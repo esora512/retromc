@@ -3,11 +3,7 @@ package level
 type SetBlock func(world *World, x, y, z int32, block *Block)
 
 func InfiniteWaterSource(world *World, cfg FluidConfig, setBlock SetBlock) {
-	for key, height := range cfg.Flowing {
-		if height < cfg.MaxSpreadHeight {
-			continue
-		}
-
+	for key := range cfg.Flowing {
 		x, y, z := key.X, key.Y, key.Z
 		sourceCount := 0
 
@@ -22,14 +18,6 @@ func InfiniteWaterSource(world *World, cfg FluidConfig, setBlock SetBlock) {
 		if sourceCount >= 2 {
 			b := NewStillWaterBlock(0)
 			setBlock(world, x, int32(y), z, &b)
-			for _, n := range []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
-				nx, nz := x+n.dx, z+n.dz
-				nKey := BlockKey{X: nx, Y: y, Z: nz}
-				if _, isSource := cfg.Sources[nKey]; isSource {
-					sb := NewStillWaterBlock(0)
-					setBlock(world, nx, int32(y), z, &sb)
-				}
-			}
 		}
 	}
 }
@@ -127,7 +115,6 @@ func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 	queue := []BlockKey{}
 
 	for key := range cfg.Sources {
-		// NOTE: without this check, decay breaks
 		if _, isFlowing := cfg.Flowing[key]; !isFlowing {
 			visited[key] = true
 			queue = append(queue, key)
@@ -137,7 +124,6 @@ func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 	spreadNeighbors := []struct{ dx, dy, dz int32 }{
 		{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, -1, 0},
 	}
-	// BFS to find all possible flowing blocks connected to sources
 	for len(queue) > 0 {
 		key := queue[0]
 		queue = queue[1:]
@@ -161,11 +147,15 @@ func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 		}
 	}
 
+	toRemove := []BlockKey{}
 	for key := range cfg.Flowing {
 		if !visited[key] {
-			air := NewAirBlock()
-			setBlock(world, key.X, int32(key.Y), key.Z, &air)
+			toRemove = append(toRemove, key)
 		}
+	}
+	for _, key := range toRemove {
+		air := NewAirBlock()
+		setBlock(world, key.X, int32(key.Y), key.Z, &air)
 	}
 }
 
@@ -220,13 +210,19 @@ func FluidSpreading(world *World, cfg FluidConfig, setBlock SetBlock) {
 		key    BlockKey
 		height byte
 	}
+
+	flowingSnapshot := make(map[BlockKey]byte, len(cfg.Flowing))
+	for k, v := range cfg.Flowing {
+		flowingSnapshot[k] = v
+	}
+
 	var allFluids []fluidEntry
 	for key, h := range cfg.Sources {
 		allFluids = append(allFluids, fluidEntry{key, h})
 	}
-    for key, h := range cfg.Flowing {
-        allFluids = append(allFluids, fluidEntry{key, h})
-    }
+	for key, h := range flowingSnapshot {
+		allFluids = append(allFluids, fluidEntry{key, h})
+	}
 
 	for _, entry := range allFluids {
 		x, y, z := entry.key.X, entry.key.Y, entry.key.Z
@@ -265,11 +261,14 @@ func FluidSpreading(world *World, cfg FluidConfig, setBlock SetBlock) {
 		for _, n := range neighbors {
 			nx, nz := x+n.dx, z+n.dz
 			b := world.GetBlock(nx, y, nz)
-			if !b.IsAir() {
+			if !b.IsAir() && !cfg.IsFluid(b) {
 				continue
 			}
 			nKey := BlockKey{X: nx, Y: y, Z: nz}
-			if existing, exists := cfg.Flowing[nKey]; exists && existing <= nextHeight {
+			if _, isSource := cfg.Sources[nKey]; isSource {
+				continue
+			}
+			if existing, exists := flowingSnapshot[nKey]; exists && existing <= nextHeight {
 				continue
 			}
 			setFlowingFluid(world, nx, int32(y), nz, nextHeight, cfg, setBlock)

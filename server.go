@@ -116,10 +116,10 @@ func gameLoop(world *level.World) {
 				waterCfg := level.NewWaterConfig(world)
 				lavaCfg := level.NewLavaConfig(world)
 				level.FluidDecay(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.InfiniteWaterSource(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.FluidDecay(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.RefreshSourceBlocks(world, waterCfg, packethandler.SetBlockAndNotify)
 				level.FluidSpreading(world, waterCfg, packethandler.SetBlockAndNotify)
+				level.InfiniteWaterSource(world, waterCfg, packethandler.SetBlockAndNotify)
+				level.RefreshSourceBlocks(world, waterCfg, packethandler.SetBlockAndNotify)
+
 				level.FluidDecay(world, lavaCfg, packethandler.SetBlockAndNotify)
 				if world.Tick%60 == 0 {
 					level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
