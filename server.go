@@ -148,7 +148,9 @@ func minecartPhysics(world *level.World) {
 			x, y, z := e.GetPosition()
 			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z})
 		} else if cart, ok := e.(*entities.RideableEntity); ok {
-			carts = append(carts, cart)
+			if cart.ObjectType == 10 {
+				carts = append(carts, cart)
+			}
 		}
 	}
 

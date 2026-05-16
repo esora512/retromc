@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/constants"
@@ -279,7 +280,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
-	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value && heldItem.TypeId != constants.LavaBucket.Value {
+	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Boat.Value && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value && heldItem.TypeId != constants.LavaBucket.Value {
 		// Only place blocks if block is in hotbar slot
 		return
 	}
@@ -507,6 +508,32 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			VelocityZ:     0,
 		}
 		world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 10)
+		world.BroadcastPacket(spawnPacket.Serialize())
+
+		pl.Inventory.RemoveOne(slot)
+		sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+		if pl.Inventory.PeekItem(slot).TypeId == -1 {
+			sendEquipmentChangeForHotbarSlot(world, pl)
+		}
+		return
+	}
+
+	if heldItem.TypeId == constants.Boat.Value {
+		log.Println("Placing boat")
+		//beneath := world.GetBlock(newX, byte(newY-1), newZ)
+		entityId := world.NextEntityId()
+		spawnPacket := packets.SpawnObject{
+			EntityId:      entityId,
+			ObjectType:    1, // 1 for boat
+			X:             int32(newX * 32),
+			Y:             int32(newY * 32),
+			Z:             int32(newZ * 32),
+			OwnerEntityId: int32(pl.EntityId),
+			VelocityX:     0,
+			VelocityY:     0,
+			VelocityZ:     0,
+		}
+		world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 1)
 		world.BroadcastPacket(spawnPacket.Serialize())
 
 		pl.Inventory.RemoveOne(slot)
