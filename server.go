@@ -110,7 +110,7 @@ func gameLoop(world *level.World) {
 			// For fast time, set it to + 20
 			world.Tick = (world.Tick + 1) % 24000
 			world.BroadcastTime()
-			minecartPhysics(world)
+			ridablePhysics(world)
 			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := level.NewWaterConfig(world)
@@ -138,18 +138,18 @@ func gameLoop(world *level.World) {
 	}()
 }
 
-func minecartPhysics(world *level.World) {
+func ridablePhysics(world *level.World) {
 	allEntities := world.SnapshotEntities()
-	var carts []*entities.RideableEntity
+	var ridables []*entities.RideableEntity
 	var players []entities.PlayerPosition
 
 	for _, e := range allEntities {
 		if e.IsPlayer() {
 			x, y, z := e.GetPosition()
-			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z})
-		} else if cart, ok := e.(*entities.RideableEntity); ok {
-			if cart.ObjectType == 10 {
-				carts = append(carts, cart)
+			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
+		} else if ridable, ok := e.(*entities.RideableEntity); ok {
+			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
+				ridables = append(ridables, ridable)
 			}
 		}
 	}
@@ -159,25 +159,30 @@ func minecartPhysics(world *level.World) {
 		return entities.BlockInfo{
 			IsRail:        b.IsRail(),
 			IsPoweredRail: b.IsPoweredRail(),
+			IsSolid:       !b.IsAir() && !b.IsLiquid(),
 			Metadata:      int(b.Metadata),
+			IsWater:       b.IsWater(),
 		}
 	}
 
 	var toRemove []int32
 
-	for _, cart := range carts {
-		cx, cy, cz := cart.GetPosition()
-		nx, ny, nz, yaw, action := cart.TickPhysics(getBlock, players)
+	for _, ridable := range ridables {
+		//boat := ridable
+		// log.Printf("TickBoat: vx=%.6f vz=%.6f passengerVX=%.6f passengerVZ=%.6f",
+		// 	boat.VelocityX, boat.VelocityZ, boat.PassengerVelocityX, boat.PassengerVelocityZ)
+		cx, cy, cz := ridable.GetPosition()
+		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
 		switch action {
-		case entities.CartMoved:
-			packethandler.BroadcastRelativePosition(world, cart, cx, cy, cz, nx, ny, nz, yaw)
-			cart.SetPosition(nx, ny, nz)
-		case entities.CartStopped:
-			packethandler.BroadcastTeleport(world, cart, cx, cy, cz, yaw)
-		case entities.CartDespawned:
-			despawn := packets.EntityDespawnOutPacket{EntityId: cart.EntityId}
+		case entities.Moved:
+			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
+			ridable.SetPosition(nx, ny, nz)
+		case entities.Stopped:
+			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
+		case entities.Despawned:
+			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
 			world.BroadcastPacket(despawn.Serialize())
-			toRemove = append(toRemove, cart.EntityId)
+			toRemove = append(toRemove, ridable.EntityId)
 		}
 	}
 

@@ -20,25 +20,18 @@ var railDirs = [10][2][3]int{
 type BlockInfo struct {
 	IsRail        bool
 	IsPoweredRail bool
+	IsSolid       bool
 	Metadata      int
+	IsWater       bool
 }
 
 type GetBlockFunc func(x int32, y byte, z int32) BlockInfo
 
-type CartAction int
+type PlayerPosition struct{ X, Y, Z float64; EntityId int32 }
 
-const (
-	CartMoved CartAction = iota
-	CartStopped
-	CartDespawned
-)
-
-type PlayerPosition struct{ X, Y, Z float64 }
-
-func (cart *RideableEntity) TickPhysics(
+func (cart *RideableEntity) TickMinecart(
 	getBlock GetBlockFunc,
-	players []PlayerPosition,
-) (newX, newY, newZ float64, yaw byte, action CartAction) {
+) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	const maxSpeed = 0.4
 
 	cx, cy, cz := cart.GetPosition()
@@ -55,7 +48,7 @@ func (cart *RideableEntity) TickPhysics(
 
 	block = getBlock(bx, byte(by), bz)
 	if !block.IsRail {
-		return 0, 0, 0, 0, CartDespawned
+		return 0, 0, 0, 0, Despawned
 	}
 
 	// Notchian off-rail behaviour
@@ -128,25 +121,11 @@ func (cart *RideableEntity) TickPhysics(
 	cz = railStartZ + railDirZ*posAlongRail
 
 	var nextX, nextZ float64
-	// collision / player push
-	const pushRadius, pushForce = 1.25, 0.3
-	for _, pp := range players {
-		dx := cx - pp.X
-		dy := cy - pp.Y
-		dz := cz - pp.Z
-		dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
-		if dist < pushRadius && dist > 0.001 {
-			nx, nz := dx/dist, dz/dist
-			if nx*cart.VelocityX+nz*cart.VelocityZ >= 0 {
-				cart.VelocityX += nx * pushForce
-				cart.VelocityZ += nz * pushForce
-			}
-		}
-	}
 
-	// powered rail: boost or brake
+	// Powered rail boost / braking
 	if block.IsPoweredRail {
 		isActivated := true
+		// TODO: When redstone is implemented, uncomment line below
 		//isActivated := (block.Metadata & 8) != 0
 		if isActivated {
 			if speed > 0.01 {
@@ -189,10 +168,10 @@ func (cart *RideableEntity) TickPhysics(
 		cart.VelocityX = 0
 		cart.VelocityZ = 0
 		cart.VelocityY = 0
-		return cx, cy, cz, 0, CartStopped
+		return cx, cy, cz, 0, Stopped
 	}
 
-	// friction: 0.96 unoccupied (0.997 if rider — add that check if you have passenger support)
+	// friction: 0.96 unoccupied
 	cart.VelocityX *= 0.96
 	cart.VelocityZ *= 0.96
 	cart.VelocityY = 0 // Y motion zeroed while on rail
@@ -210,7 +189,7 @@ func (cart *RideableEntity) TickPhysics(
 		degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
 		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
 	}
-	return nextX, nextY, nextZ, yaw, CartMoved
+	return nextX, nextY, nextZ, yaw, Moved
 }
 
 func clamp(v, min, max float64) float64 {

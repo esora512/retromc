@@ -5,6 +5,11 @@ type Item struct {
 	Meta  byte
 }
 
+const (
+	ObjectBoat     byte = 1
+	ObjectMinecart byte = 10
+)
+
 var (
 	Stick       = Item{Value: 280, Meta: 0}
 	IronShovel  = Item{Value: 256, Meta: 0}

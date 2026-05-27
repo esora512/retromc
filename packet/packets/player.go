@@ -415,3 +415,25 @@ func (p *BlockChangeOutPacket) Serialize() []byte {
 	writer.WriteByte(p.BlockMeta)
 	return writer.Bytes()
 }
+
+type PlayerInputInPacket struct {
+	packet.Packet
+	StrafeDirection  float64
+	ForwardDirection float64
+	Pitch            float64
+	Yaw              float64
+	Jumping          bool
+	Sneaking         bool
+}
+
+func ReadPlayerInputInPacket(reader *packet.PacketReader) PlayerInputInPacket {
+	packet := PlayerInputInPacket{}
+	packet.PacketId = reader.GetPacketId()
+	packet.StrafeDirection = reader.ReadFloat64()
+	packet.ForwardDirection = reader.ReadFloat64()
+	packet.Pitch = reader.ReadFloat64()
+	packet.Yaw = reader.ReadFloat64()
+	packet.Jumping = reader.ReadBool()
+	packet.Sneaking = reader.ReadBool()
+	return packet
+}

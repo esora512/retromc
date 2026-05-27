@@ -95,6 +95,10 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.UpdateSign:
 		p := packets.ReadUpdateSignPacket(packetReader)
 		handleSignUpdateInPacket(p, world, pl)
+	case packet.PlayerInput:
+		log.Println("Received PlayerInput packet")
+		p := packets.ReadPlayerInputInPacket(packetReader)
+		handlePlayerInputInPacket(p, pl, world)
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}

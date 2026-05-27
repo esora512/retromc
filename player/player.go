@@ -96,7 +96,18 @@ type Player struct {
 	IsRiding             int32
 	BelowZeroHeightCount int
 	IsCreative		   bool
+
+	HP int16
 }
+
+func (pl *Player) SetHP(hp int16) {
+	pl.HP = hp
+}
+
+func (pl *Player) GetHP() int16 {
+	return pl.HP
+}
+
 
 const (
 	SpawnX      = 0.0

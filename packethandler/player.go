@@ -2,6 +2,7 @@ package packethandler
 
 import (
 	"log"
+	"math"
 	"net"
 
 	"github.com/leNicDev/retromc/constants"
@@ -80,71 +81,147 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 	connection.Write(p.Serialize())
 }
 
-func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
-	x, y, z := p.X, p.Y, p.Z
-	// If p.Y is set -999 by Client, that means the Server should ignore positions
-	// Happens if the player is entering/leaving minecarts
-	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
-	// TODO: It might be possible to make it work via channels; but again, not sure if it's worth it...
-	if p.Y <= ignoreY && pl.IsRiding != -1 {
-		maybeRidable := world.Entities[pl.IsRiding]
-		ridable, _ := maybeRidable.(*entities.RideableEntity)
-		x, y, z = ridable.X, ridable.Y, ridable.Z
-		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
-			// Only multicast if different from before
-			return
-		}
-	}
-	if outOfBounds(x, z) {
-		rubberBand(connection, pl)
-		return
-	}
-	if y < 0 {
-		pl.BelowZeroHeightCount++
-		if pl.BelowZeroHeightCount > 10 {
-			sendSetHealth(connection, 0)
-			return
-		}
-	}
-	if y >= 0 {
-		pl.BelowZeroHeightCount = 0
+func logMovementDirection(pl *player.Player, newX, newZ float64) {
+	dx := newX - pl.X
+	dz := newZ - pl.Z
+
+	if math.Abs(dx) < 0.01 && math.Abs(dz) < 0.01 {
+		return // no meaningful movement, skip
 	}
 
-	ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
-	world.MulticastPacket(ep, pl)
-	pl.X = x
-	pl.Y = y
-	pl.Z = z
-	pl.Stance = p.Stance
-	pl.Yaw = p.Yaw
-	pl.Pitch = p.Pitch
-	pl.OnGround = p.OnGround
+	var dirX, dirZ string
+	if dx > 0.01 {
+		dirX = "E"
+	} else if dx < -0.01 {
+		dirX = "W"
+	}
+	if dz > 0.01 {
+		dirZ = "S"
+	} else if dz < -0.01 {
+		dirZ = "N"
+	}
+
+	dir := dirX + dirZ
+	if dir == "" {
+		dir = "?"
+	}
+	log.Printf("[move] %s  dx=%.3f dz=%.3f", dir, dx, dz)
+}
+
+func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player, world *level.World) {
+	log.Printf("Received PlayerInput packet: Strafe=%.2f Forward=%.2f Jump=%t Sneaking=%t",
+		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
+}
+
+
+		// if ok && ridable.ObjectType == constants.ObjectBoat {
+		// 	if p.Y <= ignoreY {
+		// 		if (p.X != pl.X || p.Z != pl.Z) && p.X != 0 && p.Z != 0 {
+		// 			log.Printf("SENTINEL XZ CHANGED: p.X=%.6f p.Z=%.6f | pl.X=%.6f pl.Z=%.6f | dx=%.6f dz=%.6f",
+		// 				p.X, p.Z, pl.X, pl.Z, p.X-pl.X, p.Z-pl.Z)
+		// 		}
+		// 	}
+		// }
+
+
+func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
+    if pl.IsRiding != -1 {
+        maybeRidable := world.Entities[pl.IsRiding]
+        ridable, ok := maybeRidable.(*entities.RideableEntity)
+        if ok && ridable.ObjectType == constants.ObjectBoat {
+            if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
+                ridable.PassengerVelocityX = p.X
+                ridable.PassengerVelocityZ = p.Z
+            }
+            // Always snap player to boat and update look
+            //pl.Yaw = p.Yaw
+            //pl.Pitch = p.Pitch
+            //pl.Stance = p.Stance
+            pl.X = ridable.X
+            pl.Y = ridable.Y
+            pl.Z = ridable.Z
+            return
+        }
+    }
+
+    x, y, z := p.X, p.Y, p.Z
+
+    if p.Y <= ignoreY && pl.IsRiding != -1 {
+        maybeRidable := world.Entities[pl.IsRiding]
+        ridable, _ := maybeRidable.(*entities.RideableEntity)
+        x, y, z = ridable.X, ridable.Y, ridable.Z
+        if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
+            return
+        }
+    }
+
+    if outOfBounds(x, z) {
+        rubberBand(connection, pl)
+        return
+    }
+    if y < 0 {
+        pl.BelowZeroHeightCount++
+        if pl.BelowZeroHeightCount > 10 {
+            sendSetHealth(connection, 0)
+            return
+        }
+    }
+    if y >= 0 {
+        pl.BelowZeroHeightCount = 0
+    }
+
+    ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
+    world.MulticastPacket(ep, pl)
+    pl.X = x
+    pl.Y = y
+    pl.Z = z
+    pl.Stance = p.Stance
+    pl.Yaw = p.Yaw
+    pl.Pitch = p.Pitch
+    pl.OnGround = p.OnGround
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
-	x, y, z := p.X, p.Y, p.Z
-	// If p.Y is set -999 by Client, that means the Server should ignore positions
-	// Happens if the player is entering/leaving minecarts
-	// For now there is no elegant way to make this work via flags due to slight delays and position mismatches
-	if p.Y <= ignoreY {
-		return
-	}
-	if outOfBounds(x, z) {
-		rubberBand(connection, pl)
-		return
-	}
-	ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
-	world.MulticastPacket(ep, pl)
+    if pl.IsRiding != -1 {
+        maybeRidable := world.Entities[pl.IsRiding]
+        ridable, ok := maybeRidable.(*entities.RideableEntity)
+        if ok && ridable.ObjectType == constants.ObjectBoat {
+            if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
+                ridable.PassengerVelocityX = p.X
+                ridable.PassengerVelocityZ = p.Z
+            }
+            // Always snap player to boat
+            pl.Stance = p.Stance
+            pl.OnGround = p.OnGround
+            pl.X = ridable.X
+            pl.Y = ridable.Y
+            pl.Z = ridable.Z
+            return
+        }
+    }
 
-	// TODO: Unclear if we need to do this for precision & avoiding drift or overkill
-	// pl.X = float64(int32(math.Floor(x * 32))) / 32.0
-	// pl.Y = float64(int32(math.Floor(y * 32))) / 32.0
-	// pl.Z = float64(int32(math.Floor(z * 32))) / 32.0
-	pl.X = x
-	pl.Y = y
-	pl.Z = z
-	pl.Stance = p.Stance
-	pl.OnGround = p.OnGround
+    x, y, z := p.X, p.Y, p.Z
+
+    if p.Y <= ignoreY && pl.IsRiding != -1 {
+        maybeRidable := world.Entities[pl.IsRiding]
+        ridable, ok := maybeRidable.(*entities.RideableEntity)
+        if ok {
+            x, y, z = ridable.X, ridable.Y, ridable.Z
+        }
+    }
+
+    if outOfBounds(x, z) {
+        rubberBand(connection, pl)
+        return
+    }
+
+    ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
+    world.MulticastPacket(ep, pl)
+    pl.X = x
+    pl.Y = y
+    pl.Z = z
+    pl.Stance = p.Stance
+    pl.OnGround = p.OnGround
 }
 
 func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
@@ -498,7 +575,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		entityId := world.NextEntityId()
 		spawnPacket := packets.SpawnObject{
 			EntityId:      entityId,
-			ObjectType:    10, // 10 for minecart
+			ObjectType:    constants.ObjectMinecart,
 			X:             int32(newX * 32),
 			Y:             int32(newY * 32),
 			Z:             int32(newZ * 32),
@@ -519,21 +596,27 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if heldItem.TypeId == constants.Boat.Value {
-		log.Println("Placing boat")
-		//beneath := world.GetBlock(newX, byte(newY-1), newZ)
+		// beneath := world.GetBlock(newX, byte(newY-1), newZ)
+		// isWater := beneath.IsWater()
+		// if !isWater {
+		// 	return
+		// }
 		entityId := world.NextEntityId()
+		// Lift posY by BoatYOffset so the hitbox bottom sits on the block top
+		// instead of half-burying the model in the block below.
+		spawnY := float64(newY) + entities.BoatYOffset
 		spawnPacket := packets.SpawnObject{
 			EntityId:      entityId,
-			ObjectType:    1, // 1 for boat
+			ObjectType:    constants.ObjectBoat,
 			X:             int32(newX * 32),
-			Y:             int32(newY * 32),
+			Y:             int32(spawnY * 32),
 			Z:             int32(newZ * 32),
 			OwnerEntityId: int32(pl.EntityId),
 			VelocityX:     0,
 			VelocityY:     0,
 			VelocityZ:     0,
 		}
-		world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 1)
+		world.AddRidable(entityId, pl.GetEntityId(), float64(newX), spawnY, float64(newZ), 0, 0, 0, 1)
 		world.BroadcastPacket(spawnPacket.Serialize())
 
 		pl.Inventory.RemoveOne(slot)

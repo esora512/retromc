@@ -10,6 +10,7 @@ import (
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
+	entPack "github.com/leNicDev/retromc/entities"
 )
 
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
@@ -92,6 +93,17 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 				for key := range world.FlowingWater {
 					log.Printf("Flowing water at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
+				}
+			case "entities":
+				entities := world.SnapshotEntities()
+				log.Printf("Entities in world: %d", len(entities))
+				for _, e := range entities {
+					x, y, z := e.GetPosition()
+					log.Printf("Entity %d at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), x, y, z)
+					boat, ok := e.(*entPack.RideableEntity)
+					if ok {
+						log.Printf("Entity %d is a rideable entity with passenger %d", e.GetEntityId(), boat.PassengerEntityId)
+					}
 				}
 			default:
 				log.Printf("Unknown debug command: %s", command)

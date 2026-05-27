@@ -1,6 +1,11 @@
 package entities
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+
+	"github.com/leNicDev/retromc/constants"
+)
 
 type RideableEntity struct {
 	EntityId      int32
@@ -12,10 +17,25 @@ type RideableEntity struct {
 	VelocityZ     float64
 	OwnerEntityId int32
 	ObjectType    byte
+
+	PassengerEntityId  int32
+	PassengerVelocityX float64
+	PassengerVelocityZ float64
+	Yaw                byte
+
+	HP int16
 }
 
 func (r *RideableEntity) SetPosition(x, y, z float64) {
 	r.X, r.Y, r.Z = x, y, z
+}
+
+func (r *RideableEntity) SetHP(hp int16) {
+	r.HP = hp
+}
+
+func (r *RideableEntity) GetHP() int16 {
+	return r.HP
 }
 
 func (r *RideableEntity) IsPlayer() bool {
@@ -36,4 +56,52 @@ func (r *RideableEntity) IsRideable() bool {
 
 func (r *RideableEntity) GetName() string {
 	return fmt.Sprintf("Entity %d", r.EntityId)
+}
+
+type RidableAction int
+
+const (
+	Moved RidableAction = iota
+	Stopped
+	Despawned
+)
+
+func (e *RideableEntity) TickPhysics(
+	getBlock GetBlockFunc,
+	players []PlayerPosition,
+) (newX, newY, newZ float64, yaw byte, action RidableAction) {
+	if e.HP <= 0 {
+		return e.X, e.Y, e.Z, e.Yaw, Despawned
+	}
+
+	e.tickCollision(players)
+
+	switch e.ObjectType {
+	case constants.ObjectBoat:
+		return e.TickBoat(getBlock)
+	case constants.ObjectMinecart:
+		return e.TickMinecart(getBlock)
+	}
+	return 0, 0, 0, 0, Despawned
+}
+
+func (e *RideableEntity) tickCollision(players []PlayerPosition) {
+	e.applyRiderInput()
+	const pushRadius, pushForce = 1.25, 0.3
+	for _, pp := range players {
+		if pp.EntityId == e.PassengerEntityId {
+			continue
+		}
+		dx := e.X - pp.X
+		dy := e.Y - pp.Y
+		dz := e.Z - pp.Z
+		dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
+		if dist < pushRadius && dist > 0.001 {
+			nx, nz := dx/dist, dz/dist
+			if nx*e.VelocityX+nz*e.VelocityZ >= 0 {
+				e.VelocityX += nx * pushForce
+				e.VelocityZ += nz * pushForce
+			}
+		}
+	}
 }

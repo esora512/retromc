@@ -27,6 +27,8 @@ type Entity interface {
 	IsRideable() bool
 	GetEntityId() int32
 	IsPlayer() bool
+	SetHP(hp int16)
+	GetHP() int16
 }
 
 func (w *World) SnapshotEntities() []Entity {
@@ -111,7 +113,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 			c.SetBlock(lx, int(k.Y), lz, b)
 			if b.IsStillWater() {
 				w.WaterSources[k] = b.Metadata
-			} 
+			}
 			if b.IsStillLava() {
 				w.LavaSources[k] = b.Metadata
 			}
@@ -197,6 +199,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		VelocityY:     vy,
 		VelocityZ:     vz,
 		ObjectType:    objectType,
+		HP:            4,
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
