@@ -11,6 +11,14 @@ type Item struct {
 	Metadata byte
 }
 
+func (item *Item) IsHoe() bool {
+	return item.TypeId == constants.WoodenHoe.Value ||
+		item.TypeId == constants.StoneHoe.Value ||
+		item.TypeId == constants.IronHoe.Value ||
+		item.TypeId == constants.DiamondHoe.Value ||
+		item.TypeId == constants.GoldHoe.Value
+}
+
 func (item *Item) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 

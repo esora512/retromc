@@ -113,115 +113,113 @@ func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player,
 		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
 
-
-		// if ok && ridable.ObjectType == constants.ObjectBoat {
-		// 	if p.Y <= ignoreY {
-		// 		if (p.X != pl.X || p.Z != pl.Z) && p.X != 0 && p.Z != 0 {
-		// 			log.Printf("SENTINEL XZ CHANGED: p.X=%.6f p.Z=%.6f | pl.X=%.6f pl.Z=%.6f | dx=%.6f dz=%.6f",
-		// 				p.X, p.Z, pl.X, pl.Z, p.X-pl.X, p.Z-pl.Z)
-		// 		}
-		// 	}
-		// }
-
+// if ok && ridable.ObjectType == constants.ObjectBoat {
+// 	if p.Y <= ignoreY {
+// 		if (p.X != pl.X || p.Z != pl.Z) && p.X != 0 && p.Z != 0 {
+// 			log.Printf("SENTINEL XZ CHANGED: p.X=%.6f p.Z=%.6f | pl.X=%.6f pl.Z=%.6f | dx=%.6f dz=%.6f",
+// 				p.X, p.Z, pl.X, pl.Z, p.X-pl.X, p.Z-pl.Z)
+// 		}
+// 	}
+// }
 
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
-    if pl.IsRiding != -1 {
-        maybeRidable := world.Entities[pl.IsRiding]
-        ridable, ok := maybeRidable.(*entities.RideableEntity)
-        if ok && ridable.ObjectType == constants.ObjectBoat {
-            if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
-                ridable.PassengerVelocityX = p.X
-                ridable.PassengerVelocityZ = p.Z
-            }
-            // Always snap player to boat and update look
-            //pl.Yaw = p.Yaw
-            //pl.Pitch = p.Pitch
-            //pl.Stance = p.Stance
-            pl.X = ridable.X
-            pl.Y = ridable.Y
-            pl.Z = ridable.Z
-            return
-        }
-    }
+	if pl.IsRiding != -1 {
+		maybeRidable := world.Entities[pl.IsRiding]
+		ridable, ok := maybeRidable.(*entities.RideableEntity)
+		if ok && ridable.ObjectType == constants.ObjectBoat {
+			if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
+				ridable.PassengerVelocityX = p.X
+				ridable.PassengerVelocityZ = p.Z
+			}
+			// Always snap player to boat and update look
+			//pl.Yaw = p.Yaw
+			//pl.Pitch = p.Pitch
+			//pl.Stance = p.Stance
+			pl.X = ridable.X
+			pl.Y = ridable.Y
+			pl.Z = ridable.Z
+			return
+		}
+	}
 
-    x, y, z := p.X, p.Y, p.Z
+	x, y, z := p.X, p.Y, p.Z
 
-    if p.Y <= ignoreY && pl.IsRiding != -1 {
-        maybeRidable := world.Entities[pl.IsRiding]
-        ridable, _ := maybeRidable.(*entities.RideableEntity)
-        x, y, z = ridable.X, ridable.Y, ridable.Z
-        if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
-            return
-        }
-    }
+	if p.Y <= ignoreY && pl.IsRiding != -1 {
+		maybeRidable := world.Entities[pl.IsRiding]
+		ridable, _ := maybeRidable.(*entities.RideableEntity)
+		x, y, z = ridable.X, ridable.Y, ridable.Z
+		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
+			return
+		}
+	}
 
-    if outOfBounds(x, z) {
-        rubberBand(connection, pl)
-        return
-    }
-    if y < 0 {
-        pl.BelowZeroHeightCount++
-        if pl.BelowZeroHeightCount > 10 {
-            sendSetHealth(connection, 0)
-            return
-        }
-    }
-    if y >= 0 {
-        pl.BelowZeroHeightCount = 0
-    }
+	if outOfBounds(x, z) {
+		rubberBand(connection, pl)
+		return
+	}
+	if y < 0 {
+		pl.BelowZeroHeightCount++
+		if pl.BelowZeroHeightCount > 10 {
+			sendSetHealth(connection, 0)
+			return
+		}
+	}
+	if y >= 0 {
+		pl.BelowZeroHeightCount = 0
+	}
 
-    ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
-    world.MulticastPacket(ep, pl)
-    pl.X = x
-    pl.Y = y
-    pl.Z = z
-    pl.Stance = p.Stance
-    pl.Yaw = p.Yaw
-    pl.Pitch = p.Pitch
-    pl.OnGround = p.OnGround
+	ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
+	world.MulticastPacket(ep, pl)
+	pl.X = x
+	pl.Y = y
+	pl.Z = z
+	pl.Stance = p.Stance
+	pl.Yaw = p.Yaw
+	pl.Pitch = p.Pitch
+	pl.OnGround = p.OnGround
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
-    if pl.IsRiding != -1 {
-        maybeRidable := world.Entities[pl.IsRiding]
-        ridable, ok := maybeRidable.(*entities.RideableEntity)
-        if ok && ridable.ObjectType == constants.ObjectBoat {
-            if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
-                ridable.PassengerVelocityX = p.X
-                ridable.PassengerVelocityZ = p.Z
-            }
-            // Always snap player to boat
-            pl.Stance = p.Stance
-            pl.OnGround = p.OnGround
-            pl.X = ridable.X
-            pl.Y = ridable.Y
-            pl.Z = ridable.Z
-            return
-        }
-    }
+	if pl.IsRiding != -1 {
+		maybeRidable := world.Entities[pl.IsRiding]
+		ridable, ok := maybeRidable.(*entities.RideableEntity)
+		if ok && ridable.ObjectType == constants.ObjectBoat {
+			if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
+				ridable.PassengerVelocityX = p.X
+				ridable.PassengerVelocityZ = p.Z
+			}
+			// Always snap player to boat
+			pl.Stance = p.Stance
+			pl.OnGround = p.OnGround
+			pl.X = ridable.X
+			pl.Y = ridable.Y
+			pl.Z = ridable.Z
+			return
+		}
+	}
 
-    x, y, z := p.X, p.Y, p.Z
+	x, y, z := p.X, p.Y, p.Z
 
-    if p.Y <= ignoreY && pl.IsRiding != -1 {
-        maybeRidable := world.Entities[pl.IsRiding]
-        ridable, ok := maybeRidable.(*entities.RideableEntity)
-        if ok {
-            x, y, z = ridable.X, ridable.Y, ridable.Z
-        }
-    }
+	if p.Y <= ignoreY && pl.IsRiding != -1 {
+		maybeRidable := world.Entities[pl.IsRiding]
+		ridable, ok := maybeRidable.(*entities.RideableEntity)
+		if ok {
+			x, y, z = ridable.X, ridable.Y, ridable.Z
+		}
+	}
 
-    if outOfBounds(x, z) {
-        rubberBand(connection, pl)
-        return
-    }
+	if outOfBounds(x, z) {
+		rubberBand(connection, pl)
+		return
+	}
 
-    ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
-    world.MulticastPacket(ep, pl)
-    pl.X = x
-    pl.Y = y
-    pl.Z = z
-    pl.Stance = p.Stance
-    pl.OnGround = p.OnGround
+	ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
+	world.MulticastPacket(ep, pl)
+	pl.X = x
+	pl.Y = y
+	pl.Z = z
+	pl.Stance = p.Stance
+	pl.OnGround = p.OnGround
 }
 
 func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
@@ -241,12 +239,12 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 
+	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
 	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
-	if !finishedDigging {
+	if !finishedDigging && oldBlock.TypeId != byte(constants.Wheat.Value) {
 		return
 	}
 
-	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
 	if oldBlock.TypeId == 0x00 {
 		return
 	}
@@ -278,7 +276,6 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	// Add the mined block to the in-memory inventory.
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
-
 	blockItem := int16(oldBlock.TypeId)
 	blockMeta := oldBlock.Metadata
 	if blockItem == constants.Stone.Value {
@@ -291,6 +288,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	if blockItem == constants.Rail.Value || blockItem == constants.PoweredRail.Value || blockItem == constants.DetectorRail.Value {
 		blockMeta = byte(0)
+	}
+
+	if blockItem == constants.Wheat.Value && blockMeta == 0 {
+		blockItem = constants.Seeds.Value
 	}
 
 	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
@@ -357,8 +358,30 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
-	if heldItem.TypeId > 96 && heldItem.TypeId != constants.Boat.Value && heldItem.TypeId != constants.Minecart.Value && heldItem.TypeId != constants.Sign.Value && heldItem.TypeId != constants.WaterBucket.Value && heldItem.TypeId != constants.Bucket.Value && heldItem.TypeId != constants.LavaBucket.Value {
+	if heldItem.TypeId > 96 &&
+		heldItem.TypeId != constants.Boat.Value &&
+		heldItem.TypeId != constants.Minecart.Value &&
+		heldItem.TypeId != constants.Sign.Value &&
+		heldItem.TypeId != constants.WaterBucket.Value &&
+		heldItem.TypeId != constants.Bucket.Value &&
+		heldItem.TypeId != constants.LavaBucket.Value &&
+		!heldItem.IsHoe() &&
+		heldItem.TypeId != constants.Seeds.Value {
 		// Only place blocks if block is in hotbar slot
+		return
+	}
+
+	if oldExisting.TypeId == byte(constants.Dirt.Value) && heldItem.IsHoe() {
+		tilled := level.NewBlockById(constants.Farmland.Value, 0)
+		world.SetBlock(p.X, byte(p.Y), p.Z, tilled)
+		blockChange := packets.BlockChangeOutPacket{
+			X:         p.X,
+			Y:         byte(p.Y),
+			Z:         p.Z,
+			BlockType: tilled.TypeId,
+			BlockMeta: tilled.Metadata,
+		}
+		world.BroadcastPacket(blockChange.Serialize())
 		return
 	}
 
@@ -398,6 +421,22 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
 	if !existing.IsAir() && !existing.IsLiquid() {
+		return
+	}
+
+	if oldExisting.TypeId == byte(constants.Farmland.Value) && heldItem.TypeId == constants.Seeds.Value {
+		crop := level.NewBlockById(constants.Wheat.Value, 0)
+		world.SetBlock(newX, byte(newY), newZ, crop)
+		blockChange := packets.BlockChangeOutPacket{
+			X:         newX,
+			Y:         byte(newY),
+			Z:         newZ,
+			BlockType: crop.TypeId,
+			BlockMeta: crop.Metadata,
+		}
+		world.BroadcastPacket(blockChange.Serialize())
+		pl.Inventory.RemoveOne(pl.HotbarSlot)
+		sendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 		return
 	}
 
