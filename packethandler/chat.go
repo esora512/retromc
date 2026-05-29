@@ -1,22 +1,27 @@
 package packethandler
 
 import (
-	"log"
 	"strings"
 
 	"fmt"
 
+	entPack "github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
-	entPack "github.com/leNicDev/retromc/entities"
 )
+
+func sendDebugMessage(pl *player.Player, lines ...string) {
+	for _, line := range lines {
+		p := packets.ChatMessagePacket{Message: "\u00A7e" + line}
+		pl.Connection.Write(p.Serialize())
+	}
+}
 
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
-		//log.Printf("Command: %s", message)
 		if strings.HasPrefix(message, "/give") {
 			command := strings.TrimPrefix(message, "/give ")
 			before := pl.Inventory.PeekItem(pl.HotbarSlot)
@@ -26,60 +31,101 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendEquipmentChangeForHotbarSlot(world, pl)
 			}
 		}
+
 		if strings.HasPrefix(message, "/save") {
+			var lines []string
 			if err := world.SaveChanges("saves/world.dat"); err != nil {
-				log.Println("Failed to save world:", err)
+				lines = append(lines, fmt.Sprintf("Failed to save world: %v", err))
 			} else {
-				log.Println("World saved successfully.")
+				lines = append(lines, "World saved successfully.")
 			}
 			if err := player.SaveInventory(pl.Username, pl.Inventory); err != nil {
-				log.Println("Failed to save player data:", err)
+				lines = append(lines, fmt.Sprintf("Failed to save player data: %v", err))
 			} else {
-				log.Println("Player data saved successfully.")
+				lines = append(lines, "Player data saved successfully.")
 			}
 			if err := inventory.SaveContainers("saves/containers.dat"); err != nil {
-				log.Println("Failed to save containers:", err)
+				lines = append(lines, fmt.Sprintf("Failed to save containers: %v", err))
 			} else {
-				log.Println("Containers saved successfully.")
+				lines = append(lines, "Containers saved successfully.")
 			}
+			sendDebugMessage(pl, lines...)
 		}
 
 		if strings.HasPrefix(message, "/destroy") {
 			var x, y, z int32
 			_, err := fmt.Sscanf(message, "/destroy %d %d %d", &x, &y, &z)
 			if err != nil {
-				log.Printf("Invalid destroy command format: %s", message)
+				sendDebugMessage(pl, fmt.Sprintf("Invalid destroy command format: %s", message))
 				return false
 			}
-			log.Printf("Destroying block x=%d, y=%d, z=%d", x, y, z)
 			air := level.NewAirBlock()
 			world.SetBlock(x, byte(y), z, air)
 			blockChange := packets.BlockChangeOutPacket{
-				X:        x,
+				X:         x,
 				Y:         byte(y),
 				Z:         z,
 				BlockType: air.TypeId,
 				BlockMeta: air.Metadata,
 			}
 			world.BroadcastPacket(blockChange.Serialize())
+			sendDebugMessage(pl, fmt.Sprintf("Destroyed block at x=%d, y=%d, z=%d", x, y, z))
 		}
 
 		if strings.HasPrefix(message, "/gamemode") {
 			var mode int
 			_, err := fmt.Sscanf(message, "/gamemode %d", &mode)
 			if err != nil {
-				log.Printf("Invalid gamemode command format: %s", message)
+				sendDebugMessage(pl, fmt.Sprintf("Invalid gamemode command format: %s", message))
 				return false
 			}
 			switch mode {
 			case 0:
 				pl.IsCreative = false
-				log.Printf("Player %s switched to Survival mode", pl.Username)
+				p.Message = fmt.Sprintf("%s switched to Survival mode", pl.Username)
+				world.BroadcastPacket(p.Serialize())
 			case 1:
 				pl.IsCreative = true
-				log.Printf("Player %s switched to Creative mode", pl.Username)
+				p.Message = fmt.Sprintf("%s switched to Creative mode", pl.Username)
+				world.BroadcastPacket(p.Serialize())
 			default:
-				log.Printf("Unknown gamemode: %d", mode)
+				p.Message = "\u00A7c" + fmt.Sprintf("Unknown gamemode: %d", mode)
+				pl.Connection.Write(p.Serialize())
+			}
+		}
+
+		if strings.HasPrefix(message, "/kill") {
+			command := strings.TrimPrefix(message, "/kill ")
+			switch command {
+			case "entities":
+				entities := world.SnapshotEntities()
+				for _, e := range entities {
+					if !e.IsPlayer() {
+						e.SetHP(0)
+					}
+				}
+			default:
+				p.Message = "\u00A7c" + fmt.Sprintf("Server killed %s", pl.Username)
+				world.BroadcastPacket(p.Serialize())
+				sendSetHealth(pl.Connection, 0)
+				pl.SetHP(0)
+			}
+		}
+
+		if strings.HasPrefix(message, "/time") {
+			var subcommand string
+			var value int64
+			_, err := fmt.Sscanf(message, "/time %s %d", &subcommand, &value)
+			if err != nil {
+				sendDebugMessage(pl, "Usage: /time set <value>")
+				return false
+			}
+			switch subcommand {
+			case "set":
+				world.Tick = value
+				sendDebugMessage(pl, fmt.Sprintf("Time set to %d", value))
+			default:
+				sendDebugMessage(pl, fmt.Sprintf("Unknown time command: %s", subcommand))
 			}
 		}
 
@@ -87,26 +133,30 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			command := strings.TrimPrefix(message, "/debug ")
 			switch command {
 			case "water":
-				log.Printf("Water sources in world: %d", len(world.WaterSources))
+				lines := []string{fmt.Sprintf("Water sources in world: %d", len(world.WaterSources))}
 				for key := range world.WaterSources {
-					log.Printf("Water source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
+					lines = append(lines, fmt.Sprintf("  source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
 				for key := range world.FlowingWater {
-					log.Printf("Flowing water at x=%d, y=%d, z=%d", key.X, key.Y, key.Z)
+					lines = append(lines, fmt.Sprintf("  flowing at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
+				sendDebugMessage(pl, lines...)
 			case "entities":
 				entities := world.SnapshotEntities()
-				log.Printf("Entities in world: %d", len(entities))
+				lines := []string{fmt.Sprintf("Entities in world: %d", len(entities))}
 				for _, e := range entities {
 					x, y, z := e.GetPosition()
-					log.Printf("Entity %d at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), x, y, z)
-					boat, ok := e.(*entPack.RideableEntity)
-					if ok {
-						log.Printf("Entity %d is a rideable entity with passenger %d", e.GetEntityId(), boat.PassengerEntityId)
+					lines = append(lines, fmt.Sprintf("  [%d] at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), x, y, z))
+					if boat, ok := e.(*entPack.RideableEntity); ok {
+						lines = append(lines, fmt.Sprintf("    rideable, passenger: %d", boat.PassengerEntityId))
 					}
 				}
+				sendDebugMessage(pl, lines...)
+			case "time":
+				lines := []string{fmt.Sprintf("World Tick = %d", world.Tick)}
+				sendDebugMessage(pl, lines...)
 			default:
-				log.Printf("Unknown debug command: %s", command)
+				sendDebugMessage(pl, "Unknown debug target")
 			}
 		}
 
