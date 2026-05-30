@@ -3,6 +3,7 @@ package level
 import (
 	"sync"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
@@ -62,6 +63,9 @@ type World struct {
 	LavaSources  map[BlockKey]byte
 	FlowingLava  map[BlockKey]byte
 	WorldType    WorldType
+
+	Growables map[BlockKey]Growable
+	TickSpeed int64
 }
 
 func NewWorld(worldType WorldType) *World {
@@ -76,6 +80,8 @@ func NewWorld(worldType WorldType) *World {
 		FlowingWater: make(map[BlockKey]byte),
 		LavaSources:  make(map[BlockKey]byte),
 		FlowingLava:  make(map[BlockKey]byte),
+		Growables:    make(map[BlockKey]Growable),
+		TickSpeed: 1,
 	}
 }
 
@@ -111,6 +117,10 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 			lx := WorldToLocalCoord(k.X)
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
+			if b.TypeId == byte(constants.Wheat.Value) {
+				w.Growables[k] = &Crops{StartTick: w.Tick, State: b.Metadata}
+			}
+
 			if b.IsStillWater() {
 				w.WaterSources[k] = b.Metadata
 			}
@@ -143,6 +153,8 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	// in-memory persistence
 	w.mu.Lock()
 	key := BlockKey{worldX, worldY, worldZ}
+	w.SetGrowable(block, key)
+
 	w.changes[key] = block
 	if block.IsStillWater() {
 		w.WaterSources[key] = block.Metadata

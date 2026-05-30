@@ -290,8 +290,14 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		blockMeta = byte(0)
 	}
 
-	if blockItem == constants.Wheat.Value && blockMeta == 0 {
-		blockItem = constants.Seeds.Value
+	if blockItem == constants.Wheat.Value {
+		if blockMeta < 7 {
+			blockItem = constants.Seeds.Value
+		} else {
+			blockItem = constants.WheatItem.Value
+		}
+		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
+		delete(world.Growables, bk)
 	}
 
 	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)

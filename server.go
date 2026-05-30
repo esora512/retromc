@@ -107,10 +107,11 @@ func gameLoop(world *level.World) {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			// For fast time, set it to + 20
-			world.Tick = (world.Tick + 1) % 24000
+			// For fast time, set it to TickSpeed to 20
+			world.Tick = (world.Tick + world.TickSpeed) % 24000
 			world.BroadcastTime()
 			ridablePhysics(world)
+			world.GrowPhysics()
 			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := level.NewWaterConfig(world)

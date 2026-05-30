@@ -124,6 +124,9 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "set":
 				world.Tick = value
 				sendDebugMessage(pl, fmt.Sprintf("Time set to %d", value))
+			case "tickspeed":
+				world.TickSpeed = value
+				sendDebugMessage(pl, fmt.Sprintf("Tickspeed set to %d", value))
 			default:
 				sendDebugMessage(pl, fmt.Sprintf("Unknown time command: %s", subcommand))
 			}
@@ -149,6 +152,14 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					lines = append(lines, fmt.Sprintf("  [%d] at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), x, y, z))
 					if boat, ok := e.(*entPack.RideableEntity); ok {
 						lines = append(lines, fmt.Sprintf("    rideable, passenger: %d", boat.PassengerEntityId))
+					}
+				}
+				sendDebugMessage(pl, lines...)
+			case "growables":
+				lines := []string{fmt.Sprintf("Growables in world: %d", len(world.Growables))}
+				for key, e := range world.Growables {
+					if crops, ok := e.(*level.Crops); ok {
+						lines = append(lines, fmt.Sprintf("  Type=Wheat, State=%d, StartTick=%d at x=%d, y=%d, z=%d", crops.State, crops.StartTick, key.X, key.Y, key.Z))
 					}
 				}
 				sendDebugMessage(pl, lines...)
