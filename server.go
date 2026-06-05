@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"os"
 
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -29,7 +30,7 @@ func main() {
 	// close listener when the application closes
 	defer l.Close()
 
-	log.Println("Server listening on " + CON_HOST + ":" + CON_PORT)
+	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
 
 	world := level.NewWorld(level.Stones)
 	if err := world.LoadChanges(worldSavePath); err != nil {

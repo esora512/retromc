@@ -158,8 +158,20 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "growables":
 				lines := []string{fmt.Sprintf("Growables in world: %d", len(world.Growables))}
 				for key, e := range world.Growables {
-					if crops, ok := e.(*level.Crops); ok {
+					if crops, ok := e.(*level.Wheat); ok {
 						lines = append(lines, fmt.Sprintf("  Type=Wheat, State=%d, StartTick=%d at x=%d, y=%d, z=%d", crops.State, crops.StartTick, key.X, key.Y, key.Z))
+					}
+					if cactus, ok := e.(*level.Cactus); ok {
+						lines = append(lines, fmt.Sprintf("  Type=Cactus, StartTick=%d at x=%d, y=%d, z=%d", cactus.StartTick, key.X, key.Y, key.Z))
+					}
+					if sapling, ok := e.(*level.Sapling); ok {
+						lines = append(lines, fmt.Sprintf("  Type=Sapling, WoodType=%d, StartTick=%d at x=%d, y=%d, z=%d", sapling.WoodType, sapling.StartTick, key.X, key.Y, key.Z))
+					}
+					if sugarcane, ok := e.(*level.Sugarcane); ok {
+						lines = append(lines, fmt.Sprintf("  Type=Sugarcane, StartTick=%d at x=%d, y=%d, z=%d", sugarcane.StartTick, key.X, key.Y, key.Z))
+					}
+					if dirt, ok := e.(*level.GrowableDirt); ok {
+						lines = append(lines, fmt.Sprintf("  Type=GrowableDirt, StartTick=%d at x=%d, y=%d, z=%d", dirt.StartTick, key.X, key.Y, key.Z))
 					}
 				}
 				sendDebugMessage(pl, lines...)

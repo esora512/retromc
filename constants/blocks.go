@@ -13,6 +13,8 @@ var (
 	Cobblestone      = Block{Value: 4, Meta: 0}
 	Planks           = Block{Value: 5, Meta: 0}
 	Sapling          = Block{Value: 6, Meta: 0}
+	SpruceSapling    = Block{Value: 6, Meta: 1}
+	BirchSapling     = Block{Value: 6, Meta: 2} 
 	Bedrock          = Block{Value: 7, Meta: 0}
 	WaterFlowing     = Block{Value: 8, Meta: 0}
 	WaterStill       = Block{Value: 9, Meta: 0}
@@ -157,6 +159,7 @@ var blockCommandMap = map[string]Block{
 	"detector_rail":           DetectorRail,
 	"sticky_piston":           StickyPiston,
 	"web":                     Cobweb,
+	"grass":                   Grass,
 	"tallgrass":               Tallgrass,
 	"deadbush":                Deadbush,
 	"piston":                  Piston,
@@ -211,6 +214,9 @@ var blockCommandMap = map[string]Block{
 	"ice":                     Ice,
 	"snow":                    SnowBlock,
 	"cactus":                  Cactus,
+	"sapling":                 Sapling,
+	"spruce_sapling":          SpruceSapling,
+	"birch_sapling":           BirchSapling,
 	"clay":                    Clay,
 	"reeds":                   Sugarcane,
 	"jukebox":                 Jukebox,

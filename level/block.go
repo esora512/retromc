@@ -559,8 +559,8 @@ func NewSnowBlock() Block {
 }
 
 // ID 81 - Cactus
-func NewCactusBlock() Block {
-	return Block{TypeId: 0x51, Metadata: 0x00, Light: 0x00, SkyLight: 0x00}
+func NewCactusBlock(Meta byte) Block {
+	return Block{TypeId: 0x51, Metadata: Meta, Light: 0x00, SkyLight: 0x00}
 }
 
 // ID 82 - Clay
@@ -569,8 +569,8 @@ func NewClayBlock() Block {
 }
 
 // ID 83 - Sugarcane
-func NewSugarcaneBlock() Block {
-	return Block{TypeId: 0x53, Metadata: 0x00, Light: 0x00, SkyLight: 0x00}
+func NewSugarcaneBlock(Meta byte) Block {
+	return Block{TypeId: 0x53, Metadata: Meta, Light: 0x00, SkyLight: 0x00}
 }
 
 // ID 84 - Jukebox
@@ -801,11 +801,11 @@ func NewBlockById(id int16, Meta byte) Block {
 	case 0x50:
 		return NewSnowBlock()
 	case 0x51:
-		return NewCactusBlock()
+		return NewCactusBlock(Meta)
 	case 0x52:
 		return NewClayBlock()
 	case 0x53:
-		return NewSugarcaneBlock()
+		return NewSugarcaneBlock(Meta)
 	case 0x54:
 		return NewJukeboxBlock()
 	case 0x55:

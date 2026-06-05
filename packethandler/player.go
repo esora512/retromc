@@ -3,6 +3,7 @@ package packethandler
 import (
 	"log"
 	"math"
+	"math/rand"
 	"net"
 
 	"github.com/leNicDev/retromc/constants"
@@ -234,6 +235,7 @@ func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, w
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
+	var count byte = 1
 	if pl.IsRiding != -1 {
 		return
 	}
@@ -241,7 +243,11 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
 	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
-	if !finishedDigging && oldBlock.TypeId != byte(constants.Wheat.Value) {
+	if !finishedDigging &&
+		oldBlock.TypeId != byte(constants.Wheat.Value) &&
+		oldBlock.TypeId != byte(constants.Sugarcane.Value) &&
+		oldBlock.TypeId != byte(constants.Cactus.Value) &&
+		oldBlock.TypeId != byte(constants.Sapling.Value) {
 		return
 	}
 
@@ -300,7 +306,63 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		delete(world.Growables, bk)
 	}
 
-	slot := pl.Inventory.AddItem(blockItem, blockMeta, 1)
+	if blockItem == constants.Leaves.Value {
+		roll := rand.Intn(100)
+		switch {
+		case roll < 5: // 5% chance
+			blockItem = constants.Apple.Value
+		case roll < 15: // 10% chance (5–14)
+			blockItem = constants.Sapling.Value
+		default: // 85% chance — nothing drops
+			blockItem = 0
+		}
+	}
+
+	if blockItem == constants.Sugarcane.Value || blockItem == constants.Cactus.Value {
+		if blockItem == constants.Sugarcane.Value {
+			blockItem = constants.SugarcaneItem.Value
+		}
+		blockMeta = 0
+
+		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
+		delete(world.Growables, bk)
+
+		for i := 1; i <= 3; i++ {
+			aboveY := p.Y + byte(i)
+			above := world.GetBlock(p.X, aboveY, p.Z)
+			if above.TypeId != oldBlock.TypeId {
+				break
+			}
+			air := level.NewAirBlock()
+			world.SetBlock(p.X, aboveY, p.Z, air)
+			blockChange := packets.BlockChangeOutPacket{
+				X:         p.X,
+				Y:         aboveY,
+				Z:         p.Z,
+				BlockType: air.TypeId,
+				BlockMeta: air.Metadata,
+			}
+			world.BroadcastPacket(blockChange.Serialize())
+			count++
+		}
+	}
+
+	if blockItem == constants.Sapling.Value {
+		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
+		delete(world.Growables, bk)
+	}
+
+	if blockItem == constants.Grass.Value {
+		blockItem = constants.Dirt.Value
+		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
+		delete(world.Growables, bk)
+	}
+
+	if blockItem == 0 {
+		return
+	}
+
+	slot := pl.Inventory.AddItem(blockItem, blockMeta, count)
 	if slot < 0 {
 		return
 	}
@@ -372,12 +434,16 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		heldItem.TypeId != constants.Bucket.Value &&
 		heldItem.TypeId != constants.LavaBucket.Value &&
 		!heldItem.IsHoe() &&
-		heldItem.TypeId != constants.Seeds.Value {
+		heldItem.TypeId != constants.Seeds.Value &&
+		heldItem.TypeId != constants.SugarcaneItem.Value &&
+		heldItem.TypeId != constants.Sapling.Value {
+
 		// Only place blocks if block is in hotbar slot
+		log.Println("Early return....")
 		return
 	}
 
-	if oldExisting.TypeId == byte(constants.Dirt.Value) && heldItem.IsHoe() {
+	if (oldExisting.TypeId == byte(constants.Dirt.Value) || oldExisting.TypeId == byte(constants.Grass.Value)) && heldItem.IsHoe() {
 		tilled := level.NewBlockById(constants.Farmland.Value, 0)
 		world.SetBlock(p.X, byte(p.Y), p.Z, tilled)
 		blockChange := packets.BlockChangeOutPacket{
@@ -430,9 +496,15 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if oldExisting.TypeId == byte(constants.Farmland.Value) && heldItem.TypeId == constants.Seeds.Value {
-		crop := level.NewBlockById(constants.Wheat.Value, 0)
-		world.SetBlock(newX, byte(newY), newZ, crop)
+	if rule, ok := level.PlantRules[heldItem.TypeId]; ok {
+		if oldExisting.TypeId != rule.RequiredGround {
+			return
+		}
+		meta := byte(0)
+		if rule.UseMeta {
+			meta = heldItem.Metadata
+		}
+		crop := level.PlantGrowable(world, rule.PlantedBlock, newX, byte(newY), newZ, meta)
 		blockChange := packets.BlockChangeOutPacket{
 			X:         newX,
 			Y:         byte(newY),

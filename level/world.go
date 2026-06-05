@@ -2,7 +2,6 @@ package level
 
 import (
 	"sync"
-
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/packet"
@@ -81,7 +80,7 @@ func NewWorld(worldType WorldType) *World {
 		LavaSources:  make(map[BlockKey]byte),
 		FlowingLava:  make(map[BlockKey]byte),
 		Growables:    make(map[BlockKey]Growable),
-		TickSpeed: 1,
+		TickSpeed:    1,
 	}
 }
 
@@ -118,7 +117,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
 			if b.TypeId == byte(constants.Wheat.Value) {
-				w.Growables[k] = &Crops{StartTick: w.Tick, State: b.Metadata}
+				w.Growables[k] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 			}
 
 			if b.IsStillWater() {
