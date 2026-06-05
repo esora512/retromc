@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"log"
 	"net"
-	"time"
 	"os"
+	"time"
 
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -32,7 +32,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
 
-	world := level.NewWorld(level.Stones)
+	world := level.NewWorld(level.Template)
 	if err := world.LoadChanges(worldSavePath); err != nil {
 		log.Println("Failed to load world save:", err)
 	}

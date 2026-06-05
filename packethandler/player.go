@@ -497,7 +497,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if rule, ok := level.PlantRules[heldItem.TypeId]; ok {
-		if oldExisting.TypeId != rule.RequiredGround {
+		if !rule.ValidGround(oldExisting.TypeId) {
 			return
 		}
 		meta := byte(0)

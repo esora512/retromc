@@ -38,16 +38,16 @@ type GrowableDirt struct {
 }
 
 type PlantRule struct {
-	RequiredGround byte
-	PlantedBlock   int16
-	UseMeta        bool
+    ValidGround  func(groundType byte) bool
+    PlantedBlock int16
+    UseMeta      bool
 }
 
 var PlantRules = map[int16]PlantRule{
-	constants.Seeds.Value:         {byte(constants.Farmland.Value), constants.Wheat.Value, false},
-	constants.Sapling.Value:       {byte(constants.Dirt.Value), constants.Sapling.Value, true},
-	constants.SugarcaneItem.Value: {byte(constants.Dirt.Value), constants.Sugarcane.Value, false},
-	constants.Cactus.Value:        {byte(constants.Sand.Value), constants.Cactus.Value, false},
+    constants.Seeds.Value:         {func(g byte) bool { return g == byte(constants.Farmland.Value) }, constants.Wheat.Value, false},
+    constants.Sapling.Value:       {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sapling.Value, true},
+    constants.SugarcaneItem.Value: {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sugarcane.Value, false},
+    constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
 }
 
 // TODO: Remove duplicate somehow later -_-

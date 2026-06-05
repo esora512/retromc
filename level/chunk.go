@@ -46,19 +46,26 @@ func (c *Chunk) GenerateTemplate() {
 
 	for i := 0; i < blocksAmount; i++ {
 		y := i % CHUNK_SIZE_Y
+		z := (i / CHUNK_SIZE_Y) % CHUNK_SIZE_Z
+		x := i / (CHUNK_SIZE_Y * CHUNK_SIZE_Z)
+
+		isBorder := x == 0 || x == CHUNK_SIZE_X-1 || z == 0 || z == CHUNK_SIZE_Z-1
+		//isCenter := x == 7 && z == 7
 
 		var block Block
 		if y < GROUND_LEVEL {
 			block = NewStoneBlock()
-			// The top stone layer is exposed to sky, so it must receive full skylight.
-			// Without this, the surface renders pitch black (skylight=0, blocklight=0).
 			if y == GROUND_LEVEL-1 {
+				if isBorder {
+					block = NewStoneBlock()
+				} else {
+					block = NewGrassBlock()
+				}
 				block.SkyLight = 0x0f
 			}
 		} else {
 			block = NewAirBlock()
 		}
-
 		blockTypes[i] = block.TypeId
 
 		ni := i / 2
@@ -151,52 +158,52 @@ func mod(a, b int) int {
 
 func (c *Chunk) GenerateSkyGridTemplate() {
 	cx, cz := 0, 0
-    blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
-    nibbleCount := blocksAmount / 2
+	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	nibbleCount := blocksAmount / 2
 
-    blockTypes := make([]byte, blocksAmount)
-    blockMetadata := make([]byte, nibbleCount)
-    blockLight := make([]byte, nibbleCount)
-    blockSkyLight := make([]byte, nibbleCount)
+	blockTypes := make([]byte, blocksAmount)
+	blockMetadata := make([]byte, nibbleCount)
+	blockLight := make([]byte, nibbleCount)
+	blockSkyLight := make([]byte, nibbleCount)
 
-    for i := 0; i < blocksAmount; i++ {
-        y := i % CHUNK_SIZE_Y
-        z := (i / CHUNK_SIZE_Y) % CHUNK_SIZE_Z
-        x := i / (CHUNK_SIZE_Y * CHUNK_SIZE_Z)
+	for i := 0; i < blocksAmount; i++ {
+		y := i % CHUNK_SIZE_Y
+		z := (i / CHUNK_SIZE_Y) % CHUNK_SIZE_Z
+		x := i / (CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
-        // World coordinates of this block
-        worldX := int(cx)*CHUNK_SIZE_X + x
-        worldZ := int(cz)*CHUNK_SIZE_Z + z
+		// World coordinates of this block
+		worldX := int(cx)*CHUNK_SIZE_X + x
+		worldZ := int(cz)*CHUNK_SIZE_Z + z
 
-        // Place a block where world X and Z are multiples of 2,
-        // and Y is a multiple of 4 — giving a 3-block vertical gap.
-        // The world-space check ensures x=0,z=0 always has a block.
+		// Place a block where world X and Z are multiples of 2,
+		// and Y is a multiple of 4 — giving a 3-block vertical gap.
+		// The world-space check ensures x=0,z=0 always has a block.
 		isSkyGridBlock := (mod(worldX, 3) == 0) && (mod(worldZ, 3) == 0) && (y%4 == 0)
-        //isSkyGridBlock := (worldX%2 == 0) && (worldZ%2 == 0) && (y%4 == 0)
+		//isSkyGridBlock := (worldX%2 == 0) && (worldZ%2 == 0) && (y%4 == 0)
 
-        var block Block
-        if isSkyGridBlock {
-            block = NewRandomBlock()
-        } else {
-            block = NewAirBlock()
-        }
-        block.SkyLight = 0x0f
+		var block Block
+		if isSkyGridBlock {
+			block = NewRandomBlock()
+		} else {
+			block = NewAirBlock()
+		}
+		block.SkyLight = 0x0f
 
-        blockTypes[i] = block.TypeId
+		blockTypes[i] = block.TypeId
 
-        ni := i / 2
-        if i%2 == 0 {
-            blockMetadata[ni] = block.Metadata & 0x0f
-            blockLight[ni] = block.Light & 0x0f
-            blockSkyLight[ni] = block.SkyLight & 0x0f
-        } else {
-            blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
-            blockLight[ni] |= (block.Light & 0x0f) << 4
-            blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
-        }
-    }
-    c.Data = blockTypes
-    c.Data = append(c.Data, blockMetadata...)
-    c.Data = append(c.Data, blockLight...)
-    c.Data = append(c.Data, blockSkyLight...)
+		ni := i / 2
+		if i%2 == 0 {
+			blockMetadata[ni] = block.Metadata & 0x0f
+			blockLight[ni] = block.Light & 0x0f
+			blockSkyLight[ni] = block.SkyLight & 0x0f
+		} else {
+			blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
+			blockLight[ni] |= (block.Light & 0x0f) << 4
+			blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
+		}
+	}
+	c.Data = blockTypes
+	c.Data = append(c.Data, blockMetadata...)
+	c.Data = append(c.Data, blockLight...)
+	c.Data = append(c.Data, blockSkyLight...)
 }

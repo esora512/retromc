@@ -2,6 +2,7 @@ package level
 
 import (
 	"sync"
+
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/packet"
@@ -44,7 +45,7 @@ func (w *World) SnapshotEntities() []Entity {
 type WorldType int
 
 const (
-	Stones WorldType = iota
+	Template WorldType = iota
 	SkyGrid
 )
 
