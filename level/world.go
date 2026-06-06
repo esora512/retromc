@@ -2,6 +2,7 @@ package level
 
 import (
 	"sync"
+	"fmt"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -12,6 +13,10 @@ import (
 // ChunkCoord is the map key for a chunk's position in the world.
 type ChunkCoord struct {
 	X, Z int32
+}
+
+func (c*ChunkCoord) String() string {
+	return fmt.Sprintf("%d-%d", c.X, c.Z)
 }
 
 // BlockKey is the map key for a single block's world position.
@@ -46,6 +51,7 @@ type WorldType int
 
 const (
 	Template WorldType = iota
+	Empty
 	SkyGrid
 )
 
@@ -98,7 +104,7 @@ func (w *World) ChunkExists(cx, cz int32) bool {
 }
 
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
-func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
+func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -107,7 +113,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 		return c
 	}
 
-	c := NewChunk(w.WorldType)
+	c := NewChunk(worldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 
@@ -144,7 +150,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32) *Chunk {
 func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz)
+	chunk := w.GetOrCreateChunk(cx, cz, Empty)
 
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
@@ -180,7 +186,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz)
+	chunk := w.GetOrCreateChunk(cx, cz, Empty)
 
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)

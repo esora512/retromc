@@ -86,6 +86,30 @@ func (c *Chunk) GenerateTemplate() {
 	c.Data = append(c.Data, blockSkyLight...)
 }
 
+func (c *Chunk) GenerateEmpty() {
+	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	nibbleCount := blocksAmount / 2
+
+	blockTypes := make([]byte, blocksAmount)
+	blockMetadata := make([]byte, nibbleCount)
+	blockLight := make([]byte, nibbleCount)
+	blockSkyLight := make([]byte, nibbleCount)
+
+	for i := 0; i < blocksAmount; i++ {
+		ni := i / 2
+		if i%2 == 0 {
+			blockSkyLight[ni] = 0x0f
+		} else {
+			blockSkyLight[ni] |= 0x0f << 4
+		}
+	}
+
+	c.Data = blockTypes
+	c.Data = append(c.Data, blockMetadata...)
+	c.Data = append(c.Data, blockLight...)
+	c.Data = append(c.Data, blockSkyLight...)
+}
+
 // SetBlock mutates a single block inside an already-generated chunk.
 // lx, ly, lz are local (0-based) coordinates within the chunk.
 // The Data layout mirrors generate(): blockTypes | blockMetadata | blockLight | blockSkyLight,
@@ -142,6 +166,8 @@ func NewChunk(worldType WorldType) Chunk {
 	switch worldType {
 	case SkyGrid:
 		chunk.GenerateSkyGridTemplate()
+	case Empty:
+		chunk.GenerateEmpty()
 	default:
 		chunk.GenerateTemplate()
 	}

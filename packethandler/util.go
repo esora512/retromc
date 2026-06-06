@@ -102,31 +102,31 @@ func presetInventory(inv *inventory.Inventory) {
 // sendChunks sends a 2x2 grid of chunks around the spawn point.
 // Each chunk needs a PreChunk (init) followed by its MapChunk (data).
 // Chunks are fetched from the world so any already-mutated state is preserved.
-func sendChunks(connection net.Conn, world *level.World) {
-	for cx := int32(-1); cx <= 0; cx++ {
-		for cz := int32(-1); cz <= 0; cz++ {
-			// pre-chunk: uses chunk coordinates
-			preChunkPacket := packets.PreChunkOutPacket{
-				X:    cx,
-				Z:    cz,
-				Mode: true,
-			}
-			connection.Write(preChunkPacket.Serialize())
+// func sendChunks(connection net.Conn, world *level.World) {
+// 	for cx := int32(-1); cx <= 0; cx++ {
+// 		for cz := int32(-1); cz <= 0; cz++ {
+// 			// pre-chunk: uses chunk coordinates
+// 			preChunkPacket := packets.PreChunkOutPacket{
+// 				X:    cx,
+// 				Z:    cz,
+// 				Mode: true,
+// 			}
+// 			connection.Write(preChunkPacket.Serialize())
 
-			// map-chunk: X/Z are block coordinates of the chunk's origin
-			chunk := world.GetOrCreateChunk(cx, cz)
+// 			// map-chunk: X/Z are block coordinates of the chunk's origin
+// 			chunk := world.GetOrCreateChunk(cx, cz, level.Template)
 
-			mapChunkPacket := packets.MapChunkOutPacket{}
-			mapChunkPacket.Apply(*chunk)
-			connection.Write(mapChunkPacket.Serialize())
-		}
-	}
-}
+// 			mapChunkPacket := packets.MapChunkOutPacket{}
+// 			mapChunkPacket.Apply(*chunk)
+// 			connection.Write(mapChunkPacket.Serialize())
+// 		}
+// 	}
+// }
 
 func GenerateSquareWorld(world *level.World) {
 	for cx := int32(-1); cx <= 0; cx++ {
 		for cz := int32(-1); cz <= 0; cz++ {
-			world.GetOrCreateChunk(cx, cz)
+			world.GetOrCreateChunk(cx, cz, level.Template)
 		}
 	}
 }

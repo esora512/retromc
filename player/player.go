@@ -97,6 +97,8 @@ type Player struct {
 	BelowZeroHeightCount int
 	IsCreative		   bool
 
+	SentChunks map[string]bool
+
 	HP int16
 }
 
@@ -144,6 +146,7 @@ func NewPlayer(conn net.Conn) *Player {
 		LYaw: 0,
 		LPitch: 0,
 		IsCreative: false,
+		SentChunks: make(map[string]bool),
 	}
 }
 

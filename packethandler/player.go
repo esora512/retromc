@@ -2,7 +2,6 @@ package packethandler
 
 import (
 	"log"
-	"math"
 	"math/rand"
 	"net"
 
@@ -82,32 +81,32 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 	connection.Write(p.Serialize())
 }
 
-func logMovementDirection(pl *player.Player, newX, newZ float64) {
-	dx := newX - pl.X
-	dz := newZ - pl.Z
+// func logMovementDirection(pl *player.Player, newX, newZ float64) {
+// 	dx := newX - pl.X
+// 	dz := newZ - pl.Z
 
-	if math.Abs(dx) < 0.01 && math.Abs(dz) < 0.01 {
-		return // no meaningful movement, skip
-	}
+// 	if math.Abs(dx) < 0.01 && math.Abs(dz) < 0.01 {
+// 		return // no meaningful movement, skip
+// 	}
 
-	var dirX, dirZ string
-	if dx > 0.01 {
-		dirX = "E"
-	} else if dx < -0.01 {
-		dirX = "W"
-	}
-	if dz > 0.01 {
-		dirZ = "S"
-	} else if dz < -0.01 {
-		dirZ = "N"
-	}
+// 	var dirX, dirZ string
+// 	if dx > 0.01 {
+// 		dirX = "E"
+// 	} else if dx < -0.01 {
+// 		dirX = "W"
+// 	}
+// 	if dz > 0.01 {
+// 		dirZ = "S"
+// 	} else if dz < -0.01 {
+// 		dirZ = "N"
+// 	}
 
-	dir := dirX + dirZ
-	if dir == "" {
-		dir = "?"
-	}
-	log.Printf("[move] %s  dx=%.3f dz=%.3f", dir, dx, dz)
-}
+// 	dir := dirX + dirZ
+// 	if dir == "" {
+// 		dir = "?"
+// 	}
+// 	log.Printf("[move] %s  dx=%.3f dz=%.3f", dir, dx, dz)
+// }
 
 func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player, world *level.World) {
 	log.Printf("Received PlayerInput packet: Strafe=%.2f Forward=%.2f Jump=%t Sneaking=%t",
@@ -154,10 +153,10 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 		}
 	}
 
-	if outOfBounds(x, z) {
-		rubberBand(connection, pl)
-		return
-	}
+	// if outOfBounds(x, z) {
+	// 	rubberBand(connection, pl)
+	// 	return
+	// }
 	if y < 0 {
 		pl.BelowZeroHeightCount++
 		if pl.BelowZeroHeightCount > 10 {
@@ -209,10 +208,10 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 		}
 	}
 
-	if outOfBounds(x, z) {
-		rubberBand(connection, pl)
-		return
-	}
+	// if outOfBounds(x, z) {
+	// 	rubberBand(connection, pl)
+	// 	return
+	// }
 
 	ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
 	world.MulticastPacket(ep, pl)
@@ -484,17 +483,18 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	// Reject placement into a chunk that was never sent to the client.
-	cx := level.WorldToChunkCoord(newX)
-	cz := level.WorldToChunkCoord(newZ)
-	if !world.ChunkExists(cx, cz) {
-		return
-	}
+	// cx := level.WorldToChunkCoord(newX)
+	// cz := level.WorldToChunkCoord(newZ)
+	// if !world.ChunkExists(cx, cz) {
+	// 	return
+	// }
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	if !existing.IsAir() && !existing.IsLiquid() {
-		return
-	}
+	// if !existing.IsAir() && !existing.IsLiquid() {
+	// 	log.Println("Early return...")
+	// 	return
+	// }
 
 	if rule, ok := level.PlantRules[heldItem.TypeId]; ok {
 		if !rule.ValidGround(oldExisting.TypeId) {
@@ -713,11 +713,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if heldItem.TypeId == constants.Boat.Value {
-		// beneath := world.GetBlock(newX, byte(newY-1), newZ)
-		// isWater := beneath.IsWater()
-		// if !isWater {
-		// 	return
-		// }
 		entityId := world.NextEntityId()
 		// Lift posY by BoatYOffset so the hitbox bottom sits on the block top
 		// instead of half-burying the model in the block below.
@@ -770,6 +765,19 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
+	}
+
+	cx := level.WorldToChunkCoord(int32(newX))
+	cz := level.WorldToChunkCoord(int32(newZ))
+	coord := level.ChunkCoord{X: cx, Z: cz}
+	if !pl.SentChunks[coord.String()] {
+		chunk := world.GetOrCreateChunk(cx, cz, level.Empty)
+		pre := packets.PreChunkOutPacket{X: cx, Z: cz, Mode: true}
+		connection.Write(pre.Serialize())
+		mapChunk := packets.MapChunkOutPacket{}
+		mapChunk.Apply(*chunk)
+		connection.Write(mapChunk.Serialize())
+		pl.SentChunks[coord.String()] = true
 	}
 }
 
