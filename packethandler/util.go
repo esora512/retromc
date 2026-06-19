@@ -6,7 +6,6 @@ import (
 
 	"math"
 
-	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -200,9 +199,9 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 
 // Use teleport packet to obtain absolute control over minecart
 // Too bad at math to get it to work with relative positions and mimicking client-side calculations...
-func BroadcastTeleport(w *level.World, c *entities.RideableEntity, cx, cy, cz float64, yaw byte) {
+func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
 	tpkt := packets.TeleportEntity{
-		EntityId: c.EntityId,
+		EntityId: c.GetEntityId(),
 		X:        int32(math.Floor(cx * 32)),
 		Y:        int32(math.Floor(cy * 32)),
 		Z:        int32(math.Floor(cz * 32)),
@@ -212,7 +211,7 @@ func BroadcastTeleport(w *level.World, c *entities.RideableEntity, cx, cy, cz fl
 	w.BroadcastPacket(tpkt.Serialize())
 }
 
-func BroadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
+func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
 	encPrevZ := int32(math.Floor(prevZ * 32))
@@ -231,7 +230,7 @@ func BroadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY,
 	}
 
 	p := packets.EntityPositionOutPacket{
-		EntityId: c.EntityId,
+		EntityId: c.GetEntityId(),
 		X:        byte(dX),
 		Y:        byte(dY),
 		Z:        byte(dZ),
@@ -239,7 +238,7 @@ func BroadcastPosition(w *level.World, c *entities.RideableEntity, prevX, prevY,
 	w.BroadcastPacket(p.Serialize())
 }
 
-func BroadcastRelativePosition(w *level.World, c *entities.RideableEntity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
 	encPrevZ := int32(math.Floor(prevZ * 32))
@@ -258,7 +257,7 @@ func BroadcastRelativePosition(w *level.World, c *entities.RideableEntity, prevX
 	}
 
 	p := packets.EntityPositionAndLookOutPacket{
-		EntityId: c.EntityId,
+		EntityId: c.GetEntityId(),
 		X:        byte(dX),
 		Y:        byte(dY),
 		Z:        byte(dZ),

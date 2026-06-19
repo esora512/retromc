@@ -144,6 +144,12 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					lines = append(lines, fmt.Sprintf("  flowing at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
 				sendDebugMessage(pl, lines...)
+			case "fallables":
+				lines := []string{fmt.Sprintf("Falling blocks in world: %d", len(world.Fallables))}
+				for key := range world.Fallables {
+					lines = append(lines, fmt.Sprintf("  at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
+				}
+				sendDebugMessage(pl, lines...)
 			case "entities":
 				entities := world.SnapshotEntities()
 				lines := []string{fmt.Sprintf("Entities in world: %d", len(entities))}
@@ -152,6 +158,9 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					lines = append(lines, fmt.Sprintf("  [%d] at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), x, y, z))
 					if boat, ok := e.(*entPack.RideableEntity); ok {
 						lines = append(lines, fmt.Sprintf("    rideable, passenger: %d", boat.PassengerEntityId))
+					}
+					if falling, ok := e.(*entPack.BlockEntity); ok {
+						lines = append(lines, fmt.Sprintf("    falling block, type=%d, meta=%d, landed=%t", falling.TypeId, falling.Metadata, falling.Landed))
 					}
 				}
 				sendDebugMessage(pl, lines...)

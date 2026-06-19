@@ -63,6 +63,7 @@ type World struct {
 	Tick         int64
 	Players      map[int32]*player.Player
 	Entities     map[int32]Entity
+	Fallables    map[BlockKey]struct{} // Set of sand and gravel blocks that need to be checked for falling each tick.
 	EntityCount  int32
 	WaterSources map[BlockKey]byte
 	FlowingWater map[BlockKey]byte
@@ -82,12 +83,34 @@ func NewWorld(worldType WorldType) *World {
 		EntityCount:  0,
 		Players:      make(map[int32]*player.Player),
 		Entities:     make(map[int32]Entity),
+		Fallables:    make(map[BlockKey]struct{}),
 		WaterSources: make(map[BlockKey]byte),
 		FlowingWater: make(map[BlockKey]byte),
 		LavaSources:  make(map[BlockKey]byte),
 		FlowingLava:  make(map[BlockKey]byte),
 		Growables:    make(map[BlockKey]Growable),
 		TickSpeed:    1,
+	}
+}
+
+func (w *World) AddFallable(x int32, y byte, z int32) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.Fallables[BlockKey{x, y, z}] = struct{}{}
+}
+
+func (w *World) RemoveFallable(x int32, y byte, z int32) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.Fallables, BlockKey{x, y, z})
+}
+
+func (w *World) CleanUpFallable() {
+	for key := range w.Fallables {
+		block := w.GetBlock(key.X, key.Y, key.Z)
+		if block.TypeId != byte(constants.Sand.Value) && block.TypeId != byte(constants.Gravel.Value) {
+			w.RemoveFallable(key.X, key.Y, key.Z)
+		}
 	}
 }
 
@@ -123,6 +146,10 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 			lx := WorldToLocalCoord(k.X)
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
+			if b.TypeId == byte(constants.Sand.Value) || b.TypeId == byte(constants.Gravel.Value) {
+				w.Fallables[k] = struct{}{}
+			}
+
 			if b.TypeId == byte(constants.Wheat.Value) {
 				w.Growables[k] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 			}
@@ -222,6 +249,12 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.Entities[int32(entityId)] = &r
+}
+
+func (w *World) AddEntity(e Entity) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.Entities[e.GetEntityId()] = e
 }
 
 func (w *World) RemovePlayer(p *player.Player) {

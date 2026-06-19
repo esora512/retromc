@@ -111,7 +111,9 @@ func gameLoop(world *level.World) {
 			// For fast time, set it to TickSpeed to 20
 			world.Tick = (world.Tick + world.TickSpeed) % 24000
 			world.BroadcastTime()
+			fallingBlocksPhysics(world)
 			ridablePhysics(world)
+			world.CleanUpFallable()
 			world.GrowPhysics()
 			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
@@ -121,7 +123,6 @@ func gameLoop(world *level.World) {
 				level.FluidSpreading(world, waterCfg, packethandler.SetBlockAndNotify)
 				level.InfiniteWaterSource(world, waterCfg, packethandler.SetBlockAndNotify)
 				level.RefreshSourceBlocks(world, waterCfg, packethandler.SetBlockAndNotify)
-
 				level.FluidDecay(world, lavaCfg, packethandler.SetBlockAndNotify)
 				if world.Tick%60 == 0 {
 					level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
@@ -138,6 +139,43 @@ func gameLoop(world *level.World) {
 			}
 		}
 	}()
+}
+
+func fallingBlocksPhysics(world *level.World) {
+	toRemove := []int32{}
+	allEntities := world.SnapshotEntities()
+	for _, e := range allEntities {
+		if falling, ok := e.(*entities.BlockEntity); ok {
+			prevX := float64(falling.X)
+			prevY := falling.Y
+			prevZ := float64(falling.Z)
+
+			falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
+				b := world.GetBlock(x, y, z)
+				return entities.BlockInfo{
+					IsSolid:  !b.IsAir() && !b.IsLiquid(),
+					Metadata: int(b.Metadata),
+				}
+			})
+
+			if falling.Landed {
+				if falling.Y >= 0 {
+					toRemove = append(toRemove, falling.EntityId)
+					block := level.NewBlockById(falling.TypeId, falling.Metadata)
+					packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
+				}
+				continue
+			}
+			if !falling.Landed {
+				packethandler.BroadcastRelativePosition(world, falling, prevX, prevY, prevZ, float64(falling.X), falling.Y, float64(falling.Z), 0)
+			}
+		}
+	}
+	for _, id := range toRemove {
+		world.RemoveEntity(id)
+		despawn := packets.EntityDespawnOutPacket{EntityId: id}
+		world.BroadcastPacket(despawn.Serialize())
+	}
 }
 
 func ridablePhysics(world *level.World) {
@@ -170,14 +208,13 @@ func ridablePhysics(world *level.World) {
 	var toRemove []int32
 
 	for _, ridable := range ridables {
-		//boat := ridable
-		// log.Printf("TickBoat: vx=%.6f vz=%.6f passengerVX=%.6f passengerVZ=%.6f",
-		// 	boat.VelocityX, boat.VelocityZ, boat.PassengerVelocityX, boat.PassengerVelocityZ)
 		cx, cy, cz := ridable.GetPosition()
 		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
 		switch action {
 		case entities.Moved:
 			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
+			log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
+				nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
 			ridable.SetPosition(nx, ny, nz)
 		case entities.Stopped:
 			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)

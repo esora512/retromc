@@ -2,8 +2,10 @@ package packethandler
 
 import (
 	"log"
+	"math"
 	"math/rand"
 	"net"
+	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -268,6 +270,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
+	if oldBlock.TypeId == byte(constants.Sand.Value) || oldBlock.TypeId == byte(constants.Gravel.Value) {
+		world.RemoveFallable(p.X, p.Y, p.Z)
+	}
+	fallingBlockCheck(world)
 
 	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -720,9 +726,9 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		spawnPacket := packets.SpawnObject{
 			EntityId:      entityId,
 			ObjectType:    constants.ObjectBoat,
-			X:             int32(newX * 32),
+			X:             int32(math.Floor(float64(newX) * 32)),
 			Y:             int32(spawnY * 32),
-			Z:             int32(newZ * 32),
+			Z:             int32(math.Floor(float64(newZ) * 32)),
 			OwnerEntityId: int32(pl.EntityId),
 			VelocityX:     0,
 			VelocityY:     0,
@@ -759,6 +765,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
+	fallingBlockCheck(world)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
@@ -781,8 +788,16 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 }
 
+func fallingBlockCheck(world *level.World) {
+	for key := range world.Fallables {
+		log.Printf("FallingBlockCheck: checking block at X=%d Y=%d Z=%d", key.X, key.Y, key.Z)
+		CheckFallingBlock(world, key.X, key.Y, key.Z)
+	}
+}
+
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 	world.SetBlock(x, byte(y), z, *block)
+	//log.Printf("SetBlockAndNotify: X=%d Y=%d Z=%d Type=%d Meta=%d", x, y, z, block.TypeId, block.Metadata)
 	blockChange := packets.BlockChangeOutPacket{
 		X:         x,
 		Y:         byte(y),
@@ -791,6 +806,9 @@ func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 		BlockMeta: block.Metadata,
 	}
 	world.BroadcastPacket(blockChange.Serialize())
+	if block.TypeId == byte(constants.Sand.Value) || block.TypeId == byte(constants.Gravel.Value) {
+		world.AddFallable(x, byte(y), z)
+	}
 }
 
 func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
@@ -801,4 +819,36 @@ func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Pla
 	}
 	pl.HotbarSlot = p.Slot + 36
 	sendEquipmentChangeForHotbarSlot(world, pl)
+}
+
+func CheckFallingBlock(world *level.World, x int32, y byte, z int32) {
+	block := world.GetBlock(x, y, z)
+	beneath := world.GetBlock(x, y-1, z)
+	if !beneath.IsAir() && !beneath.IsLiquid() {
+		return
+	}
+
+	air := level.NewAirBlock()
+	time.Sleep(0 * time.Millisecond)
+	SetBlockAndNotify(world, x, int32(y), z, &air)
+
+	ObjectType := byte(0)
+	if block.TypeId == byte(constants.Sand.Value) {
+		ObjectType = 70
+	} else if block.TypeId == byte(constants.Gravel.Value) {
+		ObjectType = 71
+	}
+
+	entityId := world.NextEntityId()
+	spawnPacket := packets.SpawnObject{
+		EntityId:   entityId,
+		ObjectType: ObjectType,
+		X:          int32(math.Floor((float64(x) + 0.5) * 32)),
+		Y:          int32(math.Floor(float64(y) * 32)),
+		Z:          int32(math.Floor((float64(z) + 0.5) * 32)),
+	}
+
+	falling := entities.NewBlockEntity(entityId, int16(block.TypeId), byte(block.Metadata), float64(x), float64(y), float64(z))
+	world.BroadcastPacket(spawnPacket.Serialize())
+	world.AddEntity(falling)
 }

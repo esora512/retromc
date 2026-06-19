@@ -12,6 +12,8 @@ type BlockRecord struct {
 	Z    int32
 	Type byte
 	Meta byte
+	Light byte
+	SkyLight byte
 }
 
 func (w *World) SaveChanges(path string) error {
@@ -24,6 +26,8 @@ func (w *World) SaveChanges(path string) error {
 			Z:    k.Z,
 			Type: b.TypeId,
 			Meta: b.Metadata,
+			Light: b.Light,
+			SkyLight: b.SkyLight,
 		})
 	}
 	w.mu.RUnlock()
@@ -58,7 +62,8 @@ func (w *World) LoadChanges(path string) error {
 		w.changes[BlockKey{r.X, r.Y, r.Z}] = Block{
 			TypeId:   r.Type,
 			Metadata: r.Meta,
-			SkyLight: 0x0f,
+			Light:    r.Light,
+			SkyLight: r.SkyLight,
 		}
 	}
 	w.mu.Unlock()
