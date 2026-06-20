@@ -45,8 +45,6 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	GenerateSquareWorld(world)
 	SendLoadedChunks(connection, world)
 
-	//sendChunks(connection, world)
-
 	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)
 	spawnPacket := packets.SpawnPlayerEntityPacket(pl)

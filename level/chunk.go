@@ -84,6 +84,7 @@ func (c *Chunk) GenerateTemplate() {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
+	c.relightAll()
 }
 
 func (c *Chunk) GenerateEmpty() {
@@ -108,6 +109,51 @@ func (c *Chunk) GenerateEmpty() {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
+	c.relightAll()
+}
+
+// relightColumn recalculates skylight for a single (lx, lz) column using a
+// simple top-down scan: skylight is 15 until the first non-transparent
+// block is hit (going top to bottom), then 0 for everything below.
+// No flood-fill / cave handling — assumes no overhangs reachable from
+// underground gaps, which holds for this world generation.
+func (c *Chunk) relightColumn(lx, lz int) {
+	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	nibbleCount := blocksAmount / 2
+	skyOffset := blocksAmount + 2*nibbleCount
+
+	lit := true
+	for ly := CHUNK_SIZE_Y - 1; ly >= 0; ly-- {
+		i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
+		block := c.GetBlock(lx, ly, lz)
+
+		if lit && !block.IsTransparent() {
+			lit = false
+		}
+
+		var sky byte
+		if lit {
+			sky = 0x0f
+		} else {
+			sky = 0x00
+		}
+
+		ni := i / 2
+		if i%2 == 0 {
+			c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0xf0) | sky
+		} else {
+			c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0x0f) | (sky << 4)
+		}
+	}
+}
+
+// relightAll relights every column in the chunk.
+func (c *Chunk) relightAll() {
+	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
+		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
+			c.relightColumn(lx, lz)
+		}
+	}
 }
 
 // SetBlock mutates a single block inside an already-generated chunk.
@@ -136,6 +182,7 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
 		c.Data[lightOffset+ni] = (c.Data[lightOffset+ni] & 0x0f) | ((block.Light & 0x0f) << 4)
 		c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0x0f) | ((block.SkyLight & 0x0f) << 4)
 	}
+	c.relightColumn(lx, lz)
 }
 
 func (c *Chunk) GetBlock(lx, ly, lz int) Block {

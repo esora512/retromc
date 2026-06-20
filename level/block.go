@@ -48,6 +48,10 @@ type BlockDirections struct {
 	West  byte
 }
 
+func (b *Block) IsTransparent() bool {
+	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value) 
+}
+
 func (b *Block) IsRail() bool {
 	return b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
@@ -68,7 +72,7 @@ func (b *Block) IsFlowingLava() bool {
 	return b.TypeId == byte(constants.LavaFlowing.Value)
 }
 
-func (b* Block) IsStillLava() bool {
+func (b *Block) IsStillLava() bool {
 	return b.TypeId == byte(constants.LavaStill.Value)
 }
 
