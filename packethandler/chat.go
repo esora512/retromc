@@ -187,6 +187,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "time":
 				lines := []string{fmt.Sprintf("World Tick = %d", world.Tick)}
 				sendDebugMessage(pl, lines...)
+			case "block":
+				pl.DebugBlock = !pl.DebugBlock
+				lines := []string{fmt.Sprintf("Debug block mode: %t", pl.DebugBlock)}
+				sendDebugMessage(pl, lines...)
 			default:
 				sendDebugMessage(pl, "Unknown debug target")
 			}

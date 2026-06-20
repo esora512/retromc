@@ -146,6 +146,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 			lx := WorldToLocalCoord(k.X)
 			lz := WorldToLocalCoord(k.Z)
 			c.SetBlock(lx, int(k.Y), lz, b)
+			w.SetGrowable(b, k)
 			if b.TypeId == byte(constants.Sand.Value) || b.TypeId == byte(constants.Gravel.Value) {
 				w.Fallables[k] = struct{}{}
 			}

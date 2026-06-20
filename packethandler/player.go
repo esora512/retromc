@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net"
 	"time"
+	"fmt"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -381,6 +382,9 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 // arriving concurrently cannot overwrite it mid-placement.
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
+	if pl.DebugBlock {
+		sendDebugMessage(pl, fmt.Sprintf("Block type=%d meta=%d, light=%d, skylight=%d", oldExisting.TypeId, oldExisting.Metadata, oldExisting.Light, oldExisting.SkyLight))
+	}
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		p := packets.NewCraftingTable()
 		connection.Write(p.Serialize())

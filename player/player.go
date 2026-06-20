@@ -95,7 +95,8 @@ type Player struct {
 	LoggedIn             bool
 	IsRiding             int32
 	BelowZeroHeightCount int
-	IsCreative		   bool
+	IsCreative           bool
+	DebugBlock           bool
 
 	SentChunks map[string]bool
 
@@ -109,7 +110,6 @@ func (pl *Player) SetHP(hp int16) {
 func (pl *Player) GetHP() int16 {
 	return pl.HP
 }
-
 
 const (
 	SpawnX      = 0.0
@@ -143,10 +143,11 @@ func NewPlayer(conn net.Conn) *Player {
 		HotbarSlot:           36,
 		IsRiding:             -1,
 		BelowZeroHeightCount: 0,
-		LYaw: 0,
-		LPitch: 0,
-		IsCreative: false,
-		SentChunks: make(map[string]bool),
+		LYaw:                 0,
+		LPitch:               0,
+		IsCreative:           false,
+		SentChunks:           make(map[string]bool),
+		DebugBlock:           false,
 	}
 }
 
