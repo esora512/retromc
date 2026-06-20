@@ -30,6 +30,7 @@ func (c *Chunk) CompressData() []byte {
 }
 
 const GROUND_LEVEL = 64
+const GROUND_DEPTH = 16
 
 // GenerateTemplate fills the chunk: stone below GROUND_LEVEL, air above.
 // Blocks are stored in XZY order so y = blockIndex % CHUNK_SIZE_Y.
@@ -48,12 +49,11 @@ func (c *Chunk) GenerateTemplate() {
 		y := i % CHUNK_SIZE_Y
 		z := (i / CHUNK_SIZE_Y) % CHUNK_SIZE_Z
 		x := i / (CHUNK_SIZE_Y * CHUNK_SIZE_Z)
-
 		isBorder := x == 0 || x == CHUNK_SIZE_X-1 || z == 0 || z == CHUNK_SIZE_Z-1
 		//isCenter := x == 7 && z == 7
 
 		var block Block
-		if y < GROUND_LEVEL {
+		if y >= GROUND_LEVEL-GROUND_DEPTH && y < GROUND_LEVEL {
 			block = NewStoneBlock()
 			if y == GROUND_LEVEL-1 {
 				if isBorder {
