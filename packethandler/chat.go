@@ -12,6 +12,23 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+// commandHelp maps each command name to a short description and usage string.
+// Used by both /help (overview) and /help <command> (detail), and commands
+// fall back to their usage entry here when called with bad/missing args.
+var commandHelp = []struct {
+	Name        string
+	Usage       string
+}{
+	{"/give", "/give <item>",},
+	{"/save", "/save",},
+	{"/destroy", "/destroy <x> <y> <z>"},
+	{"/gamemode", "/gamemode <0|1>"},
+	{"/kill", "/kill [entities]"},
+	{"/time", "/time <set | tickspeed> <value>"},
+	{"/debug", "/debug <water | fallables| entities| growables| time | block>"},
+	{"/help", "/help [command]"},
+}
+
 func sendDebugMessage(pl *player.Player, lines ...string) {
 	for _, line := range lines {
 		p := packets.ChatMessagePacket{Message: "\u00A7e" + line}
@@ -19,11 +36,50 @@ func sendDebugMessage(pl *player.Player, lines ...string) {
 	}
 }
 
+// sendUsage looks up a command by name and prints its usage line.
+// If the command isn't found (shouldn't normally happen), it's a no-op.
+func sendUsage(pl *player.Player, name string) {
+	for _, c := range commandHelp {
+		if c.Name == name {
+			sendDebugMessage(pl, fmt.Sprintf("Usage: %s", c.Usage))
+			return
+		}
+	}
+}
+
+func handleHelpCommand(pl *player.Player, message string) {
+	arg := strings.TrimSpace(strings.TrimPrefix(message, "/help"))
+	if arg == "" {
+		lines := []string{"Available commands:"}
+		for _, c := range commandHelp {
+			lines = append(lines, c.Name)
+		}
+		sendDebugMessage(pl, lines...)
+		return
+	}
+
+	// Allow looking up with or without the leading slash, e.g. "/help give" or "/help /give"
+	if !strings.HasPrefix(arg, "/") {
+		arg = "/" + arg
+	}
+	for _, c := range commandHelp {
+		if c.Name == arg {
+			sendDebugMessage(pl, c.Name, fmt.Sprintf("Usage: %s", c.Usage))
+			return
+		}
+	}
+	sendDebugMessage(pl, fmt.Sprintf("Unknown command: %s", arg))
+}
+
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
 		if strings.HasPrefix(message, "/give") {
 			command := strings.TrimPrefix(message, "/give ")
+			if command == "" || command == "/give" {
+				sendUsage(pl, "/give")
+				return false
+			}
 			before := pl.Inventory.PeekItem(pl.HotbarSlot)
 			pl.GivePlayer(command)
 			after := pl.Inventory.PeekItem(pl.HotbarSlot)
@@ -56,7 +112,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			var x, y, z int32
 			_, err := fmt.Sscanf(message, "/destroy %d %d %d", &x, &y, &z)
 			if err != nil {
-				sendDebugMessage(pl, fmt.Sprintf("Invalid destroy command format: %s", message))
+				sendUsage(pl, "/destroy")
 				return false
 			}
 			air := level.NewAirBlock()
@@ -76,7 +132,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			var mode int
 			_, err := fmt.Sscanf(message, "/gamemode %d", &mode)
 			if err != nil {
-				sendDebugMessage(pl, fmt.Sprintf("Invalid gamemode command format: %s", message))
+				sendUsage(pl, "/gamemode")
 				return false
 			}
 			switch mode {
@@ -104,11 +160,14 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 						e.SetHP(0)
 					}
 				}
-			default:
+			case "/kill", "":
 				p.Message = "\u00A7c" + fmt.Sprintf("Server killed %s", pl.Username)
 				world.BroadcastPacket(p.Serialize())
 				sendSetHealth(pl.Connection, 0)
 				pl.SetHP(0)
+			default:
+				sendUsage(pl, "/kill")
+				return false
 			}
 		}
 
@@ -117,7 +176,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			var value int64
 			_, err := fmt.Sscanf(message, "/time %s %d", &subcommand, &value)
 			if err != nil {
-				sendDebugMessage(pl, "Usage: /time set <value>")
+				sendUsage(pl, "/time")
 				return false
 			}
 			switch subcommand {
@@ -128,7 +187,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				world.TickSpeed = value
 				sendDebugMessage(pl, fmt.Sprintf("Tickspeed set to %d", value))
 			default:
-				sendDebugMessage(pl, fmt.Sprintf("Unknown time command: %s", subcommand))
+				sendUsage(pl, "/time")
 			}
 		}
 
@@ -192,8 +251,12 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				lines := []string{fmt.Sprintf("Debug block mode: %t", pl.DebugBlock)}
 				sendDebugMessage(pl, lines...)
 			default:
-				sendDebugMessage(pl, "Unknown debug target")
+				sendUsage(pl, "/debug")
 			}
+		}
+
+		if strings.HasPrefix(message, "/help") {
+			handleHelpCommand(pl, message)
 		}
 
 		return true
