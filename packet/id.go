@@ -43,4 +43,5 @@ const (
 	UpdateSign                byte = 0x82
 	EntityVelocity            byte = 0x1c
 	PlayerInput				 byte = 0x1B
+	ContainerData				 byte = 0x69
 )

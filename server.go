@@ -128,6 +128,9 @@ func gameLoop(world *level.World) {
 					level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
 				}
 			}
+
+			furnaceLogic(world)
+
 			// Save world every 1200 ticks = every 60s
 			if world.Tick%1200 == 0 {
 				if err := world.SaveChanges(worldSavePath); err != nil {
@@ -228,4 +231,43 @@ func ridablePhysics(world *level.World) {
 	for _, id := range toRemove {
 		world.RemoveEntity(id)
 	}
+}
+
+func makeSendFurnaceProgress(world *level.World) func(progress, fuelDuration, fuelRemain int) {
+	return func(progress, fuelDuration, fuelRemain int) {
+		p1 := packets.ContainerDataOutPacket{
+			WindowID: 1,
+			Type:     0,
+			Value:    int16(progress),
+		}
+		p2 := packets.ContainerDataOutPacket{
+			WindowID: 1,
+			Type:     1,
+			Value:    int16(fuelRemain),
+		}
+		// p3 := packets.ContainerDataOutPacket{
+		// 	WindowID: 1,
+		// 	Type:     2,
+		// 	Value:    int16(fuelDuration),
+		// }
+		log.Println("Sending progress", progress)
+		world.BroadcastPacket(p1.Serialize())
+		world.BroadcastPacket(p2.Serialize())
+		//world.BroadcastPacket(p3.Serialize())
+	}
+}
+
+func makeSendFurnaceSlot(world *level.World) func(item inventory.Item) {
+	return func(item inventory.Item) {
+		p := packets.SetSlotOutPacket{
+			WindowId: 1,
+			Slot:     2,
+			Item:     item,
+		}
+		world.BroadcastPacket(p.Serialize())
+	}
+}
+
+func furnaceLogic(world *level.World) {
+	inventory.TickFurnaces(makeSendFurnaceProgress(world), makeSendFurnaceSlot(world))
 }

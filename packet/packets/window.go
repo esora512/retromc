@@ -152,3 +152,18 @@ func (p *OpenInventoryOutPacket) Serialize() []byte {
 	w.WriteByte(p.Size)
 	return w.Bytes()
 }
+
+type ContainerDataOutPacket struct {
+	WindowID byte
+	Type     int16
+	Value    int16
+}
+
+func (p *ContainerDataOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.ContainerData)
+	w.WriteByte(p.WindowID)
+	w.WriteShort(uint16(p.Type))
+	w.WriteShort(uint16(p.Value))
+	return w.Bytes()
+}

@@ -1,11 +1,24 @@
 package inventory
 
 import (
-	"log"
 	"fmt"
+	"log"
+
+	"github.com/leNicDev/retromc/constants"
 )
 
 const FURNACE_SIZE = 3
+
+func IsSmeltable(typeId int16) bool {
+	if typeId == constants.IronOre.Value || typeId == constants.GoldOre.Value || typeId == constants.Sand.Value || typeId == constants.Cobblestone.Value {
+		return true
+	}
+	return false
+}
+
+func IsFuel(typeId int16) bool {
+	return typeId == constants.Planks.Value
+}
 
 type FurnacePosition struct {
 	X int32
@@ -17,6 +30,47 @@ type Furnace struct {
 	Size     uint16
 	Items    []Item
 	Position FurnacePosition
+
+	Progress     int
+	FuelRemain   int
+	FuelDuration int
+	IsSmelting   bool
+}
+
+func (f *Furnace) Smelt() (int, int, int) {
+	if IsSmeltable(f.Items[0].TypeId) && IsFuel(f.Items[1].TypeId) {
+		if f.IsSmelting {
+			f.Progress += 1
+			f.FuelRemain -= 1
+			f.FuelDuration += 1
+			return f.Progress, f.FuelDuration, f.FuelRemain
+		} else {
+			f.IsSmelting = true
+			return 0, 0, 0
+		}
+	}
+	f.IsSmelting = false
+	return 0, 0, 0
+}
+
+func (f *Furnace) Output() (bool, Item) {
+	if f.Progress >= 200 {
+		f.Progress = 0
+		return true, Item{TypeId: constants.Diamond.Value, Count: 1, Metadata: 0}
+	}
+	return false, Item{}
+}
+
+func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), setSlot func(item Item)) {
+	for _, furnace := range furnaceRegistry {
+		prog, dur, remain := furnace.Smelt()
+		sendProgress(prog, dur, remain)
+
+		exists, outItem := furnace.Output()
+		if exists {
+			setSlot(outItem)
+		}
+	}
 }
 
 func (f *Furnace) ShiftSlot(slot int16) int16 {
@@ -77,7 +131,6 @@ func (f *Furnace) Print() {
 	log.Println("=================")
 }
 
-
 var furnaceRegistry map[string]*Furnace
 
 func initFurnaceRegistry() {
@@ -125,4 +178,3 @@ func RemoveFurnace(x, y, z int32) {
 	key := furnaceKey(x, y, z)
 	delete(furnaceRegistry, key)
 }
-
