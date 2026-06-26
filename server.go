@@ -267,6 +267,30 @@ func makeSendFurnaceSlot(world *level.World) func(item inventory.Item, slot int1
 	}
 }
 
+func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
+	return func(x, y, z int16, lit bool) {
+		oldBlock := world.GetBlock(int32(x), byte(y), int32(z))
+
+		var newBlock level.Block
+		if lit {
+			newBlock = level.NewLitFurnaceBlock(oldBlock.Metadata)
+		} else {
+			newBlock = level.NewFurnaceBlock(oldBlock.Metadata)
+		}
+
+		world.SetBlock(int32(x), byte(y), int32(z), newBlock)
+
+		blockChange := packets.BlockChangeOutPacket{
+			X:         int32(x),
+			Y:         byte(y),
+			Z:         int32(z),
+			BlockType: newBlock.TypeId,
+			BlockMeta: newBlock.Metadata,
+		} 
+		world.BroadcastPacket(blockChange.Serialize())
+	}
+}
+
 func furnaceLogic(world *level.World) {
-	inventory.TickFurnaces(makeSendFurnaceProgress(world), makeSendFurnaceSlot(world))
+	inventory.TickFurnaces(makeSendFurnaceProgress(world), makeSendFurnaceSlot(world), makeSetFurnaceBlock(world))
 }

@@ -128,10 +128,15 @@ func (f *Furnace) Output() (bool, Item) {
 	return false, Item{}
 }
 
-func TickFurnaces(sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16)) {
+func TickFurnaces(sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16), setBlock func(x, y, z int16, lit bool)) {
 	for _, furnace := range FurnaceRegistry {
 		prog, fMax, remain := furnace.Smelt(setSlot)
 		sendProgress(prog, fMax, remain)
+		if furnace.IsBurning {
+			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), true)
+		} else {
+			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), false)
+		}
 		exists, outItem := furnace.Output()
 		if exists {
 			if furnace.Items[0].Count <= 1 {

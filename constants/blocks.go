@@ -14,7 +14,7 @@ var (
 	Planks           = Block{Value: 5, Meta: 0}
 	Sapling          = Block{Value: 6, Meta: 0}
 	SpruceSapling    = Block{Value: 6, Meta: 1}
-	BirchSapling     = Block{Value: 6, Meta: 2} 
+	BirchSapling     = Block{Value: 6, Meta: 2}
 	Bedrock          = Block{Value: 7, Meta: 0}
 	WaterFlowing     = Block{Value: 8, Meta: 0}
 	WaterStill       = Block{Value: 9, Meta: 0}
@@ -133,6 +133,7 @@ var (
 var blockCommandMap = map[string]Block{
 	"stone":                   Stone,
 	"dirt":                    Dirt,
+	"furnace":                 Furnace,
 	"planks":                  Planks,
 	"cobblestone":             Cobblestone,
 	"oak_sapling":             Sapling,

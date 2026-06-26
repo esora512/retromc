@@ -1,12 +1,12 @@
 package packethandler
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"net"
 	"time"
-	"fmt"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -265,7 +265,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		inventory.RemoveDispenser(p.X, int32(p.Y), p.Z)
 	}
 
-	if oldBlock.TypeId == byte(constants.Furnace.Value) {
+	if oldBlock.TypeId == byte(constants.Furnace.Value) || oldBlock.TypeId == byte(constants.FurnaceLit.Value) {
 		inventory.RemoveFurnace(p.X, int32(p.Y), p.Z)
 	}
 
@@ -292,6 +292,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	blockMeta := oldBlock.Metadata
 	if blockItem == constants.Stone.Value {
 		blockItem = constants.Cobblestone.Value
+	}
+
+	if blockItem == int16(constants.FurnaceLit.Value) {
+		blockItem = int16(constants.Furnace.Value)
 	}
 
 	if blockItem == constants.SignGround.Value {
@@ -419,7 +423,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if oldExisting.TypeId == byte(constants.Furnace.Value) {
+	if oldExisting.TypeId == byte(constants.Furnace.Value) || oldExisting.TypeId == byte(constants.FurnaceLit.Value) {
 		furnace := inventory.GetFurnace(p.X, int32(p.Y), p.Z)
 		if furnace == nil {
 			return
