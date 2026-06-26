@@ -250,18 +250,18 @@ func makeSendFurnaceProgress(world *level.World) func(progress, fuelDuration, fu
 		// 	Type:     2,
 		// 	Value:    int16(fuelDuration),
 		// }
-		log.Println("Sending progress", progress)
+		//log.Println("Sending progress", progress)
 		world.BroadcastPacket(p1.Serialize())
 		world.BroadcastPacket(p2.Serialize())
 		//world.BroadcastPacket(p3.Serialize())
 	}
 }
 
-func makeSendFurnaceSlot(world *level.World) func(item inventory.Item) {
-	return func(item inventory.Item) {
+func makeSendFurnaceSlot(world *level.World) func(item inventory.Item, slot int16) {
+	return func(item inventory.Item, slot int16) {
 		p := packets.SetSlotOutPacket{
 			WindowId: 1,
-			Slot:     2,
+			Slot:     slot,
 			Item:     item,
 		}
 		world.BroadcastPacket(p.Serialize())

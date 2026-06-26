@@ -9,15 +9,61 @@ import (
 
 const FURNACE_SIZE = 3
 
-func IsSmeltable(typeId int16) bool {
-	if typeId == constants.IronOre.Value || typeId == constants.GoldOre.Value || typeId == constants.Sand.Value || typeId == constants.Cobblestone.Value {
-		return true
+func FuelBurnTime(fuel int16) int {
+	if fuel == constants.Planks.Value || fuel == constants.Log.Value || fuel == constants.CraftingTable.Value || fuel == constants.WoodenDoor.Value || fuel == constants.WoodenStairs.Value {
+		return 300
 	}
-	return false
+
+	if fuel == constants.Stick.Value {
+		return 100
+	}
+
+	if fuel == constants.Coal.Value {
+		return 1600
+	}
+
+	if fuel == constants.LavaBucket.Value {
+		return 20000
+	}
+
+	if fuel == constants.Sapling.Value {
+		return 100
+	}
+	return 0
+}
+
+func SmeltsTo(smeltable int16) int16 {
+	if smeltable == constants.IronOre.Value {
+		return constants.Iron.Value
+	}
+	if smeltable == constants.GoldOre.Value {
+		return constants.Gold.Value
+	}
+
+	if smeltable == constants.Sand.Value {
+		return constants.Glass.Value
+	}
+
+	if smeltable == constants.Cobblestone.Value {
+		return constants.Stone.Value
+	}
+
+	if smeltable == constants.Clay.Value {
+		return constants.Brick.Value
+	}
+
+	if smeltable == constants.Log.Value {
+		return constants.Coal.Value
+	}
+	return 0
+}
+
+func IsSmeltable(typeId int16) bool {
+	return SmeltsTo(typeId) != 0
 }
 
 func IsFuel(typeId int16) bool {
-	return typeId == constants.Planks.Value
+	return FuelBurnTime(typeId) != 0
 }
 
 type FurnacePosition struct {
@@ -46,6 +92,9 @@ func (f *Furnace) Smelt() (int, int, int) {
 			return f.Progress, f.FuelDuration, f.FuelRemain
 		} else {
 			f.IsSmelting = true
+			f.Progress = 0
+			f.FuelRemain = FuelBurnTime(f.Items[1].TypeId)
+			f.FuelDuration = 0
 			return 0, 0, 0
 		}
 	}
@@ -55,20 +104,42 @@ func (f *Furnace) Smelt() (int, int, int) {
 
 func (f *Furnace) Output() (bool, Item) {
 	if f.Progress >= 200 {
-		f.Progress = 0
-		return true, Item{TypeId: constants.Diamond.Value, Count: 1, Metadata: 0}
+		outItem := SmeltsTo(f.Items[0].TypeId)
+		f.IsSmelting = false
+		return true, Item{TypeId: outItem, Count: 1, Metadata: 0}
 	}
 	return false, Item{}
 }
 
-func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), setSlot func(item Item)) {
+func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), setSlot func(item Item, slot int16)) {
 	for _, furnace := range furnaceRegistry {
 		prog, dur, remain := furnace.Smelt()
 		sendProgress(prog, dur, remain)
 
 		exists, outItem := furnace.Output()
 		if exists {
-			setSlot(outItem)
+			furnace.Items[0].Count -= 1
+			if furnace.Items[0].Count <= 0 {
+				furnace.Items[0] = EmptyItem()
+			}
+			setSlot(furnace.Items[0], 0)
+
+			if furnace.Items[2].TypeId == outItem.TypeId {
+				furnace.Items[2].Count += 1
+				outItem = furnace.Items[2]
+			}
+			furnace.Items[2] = outItem
+			setSlot(outItem, 2)
+			var newFuel Item
+			fuel := furnace.Items[1]
+			fuel.Count -= 1
+			if fuel.Count <= 0 {
+				newFuel = EmptyItem()
+			} else {
+				newFuel = fuel
+			}
+			furnace.Items[1] = newFuel
+			setSlot(newFuel, 1)
 		}
 	}
 }
@@ -79,8 +150,11 @@ func (f *Furnace) ShiftSlot(slot int16) int16 {
 
 func NewFurnace() *Furnace {
 	inv := Furnace{
-		Size:  FURNACE_SIZE,
-		Items: make([]Item, FURNACE_SIZE),
+		Size:         FURNACE_SIZE,
+		FuelRemain:   200,
+		Progress:     0,
+		FuelDuration: 0,
+		Items:        make([]Item, FURNACE_SIZE),
 	}
 	for i := range inv.Items {
 		inv.Items[i] = NewItem(-1, 0, 0)
