@@ -233,7 +233,7 @@ func ridablePhysics(world *level.World) {
 	}
 }
 
-func makeSendFurnaceProgress(world *level.World) func(progress, fuelDuration, fuelRemain int) {
+func makeSendFurnaceProgress(world *level.World) func(progress, fuelMax, fuelRemain int) {
 	return func(progress, fuelDuration, fuelRemain int) {
 		p1 := packets.ContainerDataOutPacket{
 			WindowID: 1,
@@ -248,7 +248,7 @@ func makeSendFurnaceProgress(world *level.World) func(progress, fuelDuration, fu
 		p3 := packets.ContainerDataOutPacket{
 			WindowID: 1,
 			Type:     2,
-			Value:    int16(200),
+			Value:    int16(fuelDuration),
 		}
 		world.BroadcastPacket(p1.Serialize())
 		world.BroadcastPacket(p2.Serialize())

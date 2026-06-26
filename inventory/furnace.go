@@ -77,45 +77,61 @@ type Furnace struct {
 	Items    []Item
 	Position FurnacePosition
 
-	Progress     int
-	FuelRemain   int
-	FuelDuration int
-	IsSmelting   bool
+	Progress   int
+	FuelRemain int
+	MaxFuel    int
+	IsSmelting bool
+	IsBurning  bool
 }
 
-func (f *Furnace) Smelt() (int, int, int) {
-	if IsSmeltable(f.Items[0].TypeId) && IsFuel(f.Items[1].TypeId) {
-		if f.IsSmelting {
-			f.Progress += 1
-			f.FuelRemain -= 1
-			f.FuelDuration += 1
-			return f.Progress, f.FuelDuration, f.FuelRemain
+func (f *Furnace) Smelt(setSlot func(item Item, slot int16)) (int, int, int) {
+	if !f.IsBurning {
+		if IsSmeltable(f.Items[0].TypeId) && IsFuel(f.Items[1].TypeId) {
+			f.MaxFuel = FuelBurnTime(f.Items[1].TypeId)
+			f.FuelRemain = f.MaxFuel
+
+			if f.Items[1].Count <= 1 {
+				f.Items[1] = NewItem(-1, 0, 0)
+			} else {
+				f.Items[1].Count--
+			}
+			setSlot(f.Items[1], 1)
+			f.IsBurning = true
 		} else {
-			f.IsSmelting = true
 			f.Progress = 0
-			f.FuelRemain = FuelBurnTime(f.Items[1].TypeId)
-			f.FuelDuration = 0
 			return 0, 0, 0
 		}
 	}
-	f.IsSmelting = false
-	return 0, 0, 0
+
+	f.FuelRemain--
+	if f.FuelRemain <= 0 {
+		f.IsBurning = false
+		f.FuelRemain = 0
+		f.MaxFuel = 0
+	}
+
+	if IsSmeltable(f.Items[0].TypeId) {
+		f.Progress++
+	} else {
+		f.Progress = 0
+	}
+
+	return f.Progress, f.MaxFuel, f.FuelRemain
 }
 
 func (f *Furnace) Output() (bool, Item) {
 	if f.Progress >= 200 {
 		outItem := SmeltsTo(f.Items[0].TypeId)
-		f.IsSmelting = false
-		f.Progress = 0 
+		f.Progress = 0
 		return true, Item{TypeId: outItem, Count: 1, Metadata: 0}
 	}
 	return false, Item{}
 }
 
-func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), setSlot func(item Item, slot int16)) {
+func TickFurnaces(sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16)) {
 	for _, furnace := range FurnaceRegistry {
-		prog, dur, remain := furnace.Smelt()
-		sendProgress(prog, dur, remain)
+		prog, fMax, remain := furnace.Smelt(setSlot)
+		sendProgress(prog, fMax, remain)
 		exists, outItem := furnace.Output()
 		if exists {
 			if furnace.Items[0].Count <= 1 {
@@ -132,13 +148,6 @@ func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), set
 			}
 			furnace.Items[2] = outItem
 			setSlot(furnace.Items[2], 2)
-
-			if furnace.Items[1].Count <= 1 {
-				furnace.Items[1] = NewItem(-1, 0, 0)
-			} else {
-				furnace.Items[1].Count -= 1
-			}
-			setSlot(furnace.Items[1], 1)
 		}
 	}
 }
@@ -149,11 +158,11 @@ func (f *Furnace) ShiftSlot(slot int16) int16 {
 
 func NewFurnace() *Furnace {
 	inv := Furnace{
-		Size:         FURNACE_SIZE,
-		FuelRemain:   200,
-		Progress:     0,
-		FuelDuration: 0,
-		Items:        make([]Item, FURNACE_SIZE),
+		Size:       FURNACE_SIZE,
+		FuelRemain: 0,
+		Progress:   0,
+		MaxFuel:    0,
+		Items:      make([]Item, FURNACE_SIZE),
 	}
 	for i := range inv.Items {
 		inv.Items[i] = NewItem(-1, 0, 0)
