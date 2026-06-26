@@ -132,14 +132,14 @@ func gameLoop(world *level.World) {
 			furnaceLogic(world)
 
 			// Save world every 1200 ticks = every 60s
-			if world.Tick%1200 == 0 {
-				if err := world.SaveChanges(worldSavePath); err != nil {
-					log.Println("Failed to save world:", err)
-				}
-				if err := inventory.SaveContainers(containerSavePath); err != nil {
-					log.Println("Failed to save containers:", err)
-				}
-			}
+			// if world.Tick%1200 == 0 {
+			// 	if err := world.SaveChanges(worldSavePath); err != nil {
+			// 		log.Println("Failed to save world:", err)
+			// 	}
+			// 	if err := inventory.SaveContainers(containerSavePath); err != nil {
+			// 		log.Println("Failed to save containers:", err)
+			// 	}
+			// }
 		}
 	}()
 }
@@ -245,15 +245,14 @@ func makeSendFurnaceProgress(world *level.World) func(progress, fuelDuration, fu
 			Type:     1,
 			Value:    int16(fuelRemain),
 		}
-		// p3 := packets.ContainerDataOutPacket{
-		// 	WindowID: 1,
-		// 	Type:     2,
-		// 	Value:    int16(fuelDuration),
-		// }
-		//log.Println("Sending progress", progress)
+		p3 := packets.ContainerDataOutPacket{
+			WindowID: 1,
+			Type:     2,
+			Value:    int16(200),
+		}
 		world.BroadcastPacket(p1.Serialize())
 		world.BroadcastPacket(p2.Serialize())
-		//world.BroadcastPacket(p3.Serialize())
+		world.BroadcastPacket(p3.Serialize())
 	}
 }
 

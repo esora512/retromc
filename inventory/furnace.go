@@ -106,40 +106,39 @@ func (f *Furnace) Output() (bool, Item) {
 	if f.Progress >= 200 {
 		outItem := SmeltsTo(f.Items[0].TypeId)
 		f.IsSmelting = false
+		f.Progress = 0 
 		return true, Item{TypeId: outItem, Count: 1, Metadata: 0}
 	}
 	return false, Item{}
 }
 
 func TickFurnaces(sendProgress func(progress, fuelDuration, fuelRemain int), setSlot func(item Item, slot int16)) {
-	for _, furnace := range furnaceRegistry {
+	for _, furnace := range FurnaceRegistry {
 		prog, dur, remain := furnace.Smelt()
 		sendProgress(prog, dur, remain)
-
 		exists, outItem := furnace.Output()
 		if exists {
-			furnace.Items[0].Count -= 1
-			if furnace.Items[0].Count <= 0 {
-				furnace.Items[0] = EmptyItem()
+			if furnace.Items[0].Count <= 1 {
+				furnace.Items[0] = NewItem(-1, 0, 0)
+				furnace.IsSmelting = false
+			} else {
+				furnace.Items[0].Count -= 1
 			}
 			setSlot(furnace.Items[0], 0)
 
-			if furnace.Items[2].TypeId == outItem.TypeId {
+			if furnace.Items[2].TypeId == outItem.TypeId && furnace.Items[2].TypeId != -1 {
 				furnace.Items[2].Count += 1
 				outItem = furnace.Items[2]
 			}
 			furnace.Items[2] = outItem
-			setSlot(outItem, 2)
-			var newFuel Item
-			fuel := furnace.Items[1]
-			fuel.Count -= 1
-			if fuel.Count <= 0 {
-				newFuel = EmptyItem()
+			setSlot(furnace.Items[2], 2)
+
+			if furnace.Items[1].Count <= 1 {
+				furnace.Items[1] = NewItem(-1, 0, 0)
 			} else {
-				newFuel = fuel
+				furnace.Items[1].Count -= 1
 			}
-			furnace.Items[1] = newFuel
-			setSlot(newFuel, 1)
+			setSlot(furnace.Items[1], 1)
 		}
 	}
 }
@@ -205,22 +204,22 @@ func (f *Furnace) Print() {
 	log.Println("=================")
 }
 
-var furnaceRegistry map[string]*Furnace
+var FurnaceRegistry map[string]*Furnace
 
 func initFurnaceRegistry() {
-	if furnaceRegistry == nil {
-		furnaceRegistry = make(map[string]*Furnace)
+	if FurnaceRegistry == nil {
+		FurnaceRegistry = make(map[string]*Furnace)
 	}
 }
 
 func GetFurnace(x, y, z int32) *Furnace {
-	if furnaceRegistry == nil {
-		furnaceRegistry = make(map[string]*Furnace)
+	if FurnaceRegistry == nil {
+		FurnaceRegistry = make(map[string]*Furnace)
 	}
 
 	key := furnaceKey(x, y, z)
 
-	if furnace, ok := furnaceRegistry[key]; ok {
+	if furnace, ok := FurnaceRegistry[key]; ok {
 		return furnace
 	}
 	return nil
@@ -235,20 +234,20 @@ func PlaceFurnace(x, y, z int32) bool {
 
 	key := furnaceKey(x, y, z)
 
-	if _, ok := furnaceRegistry[key]; ok {
+	if _, ok := FurnaceRegistry[key]; ok {
 		return false
 	}
 
 	furnace := NewFurnace()
 	furnace.SetPosition(x, y, z)
-	furnaceRegistry[key] = furnace
+	FurnaceRegistry[key] = furnace
 	return true
 }
 
 func RemoveFurnace(x, y, z int32) {
-	if furnaceRegistry == nil {
+	if FurnaceRegistry == nil {
 		return
 	}
 	key := furnaceKey(x, y, z)
-	delete(furnaceRegistry, key)
+	delete(FurnaceRegistry, key)
 }

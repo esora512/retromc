@@ -53,7 +53,7 @@ func SaveContainers(path string) error {
 		records = append(records, rec)
 	}
 
-	for _, f := range furnaceRegistry {
+	for _, f := range FurnaceRegistry {
 		records = append(records, containerRecord{
 			Kind:  kindFurnace,
 			X:     f.Position.X,

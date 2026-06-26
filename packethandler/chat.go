@@ -16,16 +16,16 @@ import (
 // Used by both /help (overview) and /help <command> (detail), and commands
 // fall back to their usage entry here when called with bad/missing args.
 var commandHelp = []struct {
-	Name        string
-	Usage       string
+	Name  string
+	Usage string
 }{
-	{"/give", "/give <item>",},
-	{"/save", "/save",},
+	{"/give", "/give <item>"},
+	{"/save", "/save"},
 	{"/destroy", "/destroy <x> <y> <z>"},
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
 	{"/time", "/time <set | tickspeed> <value>"},
-	{"/debug", "/debug <water | fallables| entities| growables| time | block>"},
+	{"/debug", "/debug <water | fallables | entities | growables | time | block | furnaces>"},
 	{"/help", "/help [command]"},
 }
 
@@ -194,6 +194,13 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		if strings.HasPrefix(message, "/debug") {
 			command := strings.TrimPrefix(message, "/debug ")
 			switch command {
+			case "furnaces":
+				for key, f := range inventory.FurnaceRegistry {
+					sendDebugMessage(pl, fmt.Sprintf("Furnace %s:", key))
+					for i, item := range f.Items {
+						sendDebugMessage(pl, fmt.Sprintf("  slot %d: id=%d count=%d meta=%d", i, item.TypeId, item.Count, item.Metadata))
+					}
+				}
 			case "water":
 				lines := []string{fmt.Sprintf("Water sources in world: %d", len(world.WaterSources))}
 				for key := range world.WaterSources {
