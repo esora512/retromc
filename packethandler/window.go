@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/crafting"
@@ -90,12 +91,16 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 				hasHeld := pl.SelectedItem.Selected
 				slotEmpty := slotItem.TypeId == -1
 				if slot == 2 {
+					log.Println("Slot 2 click furnace")
+					log.Printf("Has Held %t, SlotEmpty %t", hasHeld, slotEmpty)
 					if hasHeld || slotEmpty {
 						// noop if item in hand
 						return
 					}
+					furnaceOutputClick(pl, slot, rightClick)
 				} else {
 					// only bottom and top slot are clickable
+					log.Println("Regular furnace click")
 					furnaceClick(pl, slot, rightClick)
 				}
 			}
@@ -312,6 +317,36 @@ func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceConta
 	// is also triggered if previous move didn't do anything, so nother item of the same existed
 	inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, sourceSlot, regionStart, regionEnd)
 	// if inventory full of stacks of same item type, let's not do anything.
+}
+
+func furnaceOutputClick(pl *player.Player, slot int16, rightClick bool) {
+	furnace := inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	if furnace == nil {
+		return
+	}
+	slotItem := furnace.PeekItem(slot)
+	if slotItem.TypeId == -1 {
+		return // nothing to pick up
+	}
+	if pl.SelectedItem.Selected {
+		return // something held — can't place into output slot
+	}
+
+	if rightClick {
+		pickCount := (slotItem.Count + 1) / 2
+		remainCount := slotItem.Count - pickCount
+		picked := inventory.NewItem(slotItem.TypeId, pickCount, slotItem.Metadata)
+		if remainCount <= 0 {
+			furnace.SetEmpty(slot)
+		} else {
+			furnace.SetItem(slot, slotItem.TypeId, remainCount, slotItem.Metadata)
+		}
+		pl.SelectedItem.SetItem(picked, slot, 0, true)
+	} else {
+		picked := inventory.NewItem(slotItem.TypeId, slotItem.Count, slotItem.Metadata)
+		furnace.SetEmpty(slot)
+		pl.SelectedItem.SetItem(picked, slot, 0, false)
+	}
 }
 
 // Covers all non-shift left- and right-clicks
