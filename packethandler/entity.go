@@ -5,12 +5,13 @@ import (
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
 
-func damageHandler(typeId int16) int16 {
+func dmgGiven(typeId int16) int16 {
 	if typeId == constants.WoodenAxe.Value || typeId == constants.GoldAxe.Value {
 		return 3
 	}
@@ -75,31 +76,49 @@ func damageHandler(typeId int16) int16 {
 	return 1
 }
 
+func dmgReduced(items []inventory.Item, dmg int16) int16 {
+	newDmg := dmg
+	if items[5].TypeId != -1 {
+		newDmg -= 3
+	}
+	if items[6].TypeId != -1 {
+		newDmg -= 8
+	}
+	if items[7].TypeId != -1 {
+		newDmg -= 6
+	}
+	if items[8].TypeId != -1 {
+		newDmg -= 3
+	}
+	return newDmg
+}
+
 func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World) {
 	player := world.Players[p.PlayerId]
 	other := world.Entities[p.EntityId]
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
 
 	if p.Attack {
+		oldHP := other.GetHP()
 		item := pl.Inventory.Items[pl.HotbarSlot]
 		log.Printf("%s has %d in hand", pl.Username, item.TypeId)
 		dmg := int16(1)
 		if item.TypeId != -1 {
-			dmg = damageHandler(item.TypeId)
+			dmg = dmgGiven(item.TypeId)
 		}
-		oldHP := other.GetHP()
-		newHP := oldHP - dmg
-		other.SetHP(newHP)
-		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
 		if other.IsPlayer() {
 			otherPlayer := world.Players[other.GetEntityId()]
-			sendSetHealth(otherPlayer.Connection, uint16(newHP))
+			dmg = dmgReduced(otherPlayer.Inventory.Items, dmg)
+			sendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
 			p := packets.EntityEventOutPacket{
 				EntityId: other.GetEntityId(),
 				Action:   2,
 			}
 			world.BroadcastPacket(p.Serialize())
 		}
+		newHP := oldHP - dmg
+		other.SetHP(newHP)
+		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
 		if newHP <= 0 {
 			log.Printf("%s killed %s", player.Username, other.GetName())
 			if other.IsRideable() {
