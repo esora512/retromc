@@ -119,8 +119,27 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
+
+		if other.IsRideable() {
+			p := packets.EntityEventOutPacket{
+				EntityId: other.GetEntityId(),
+				Action:   2,
+			}
+			world.BroadcastPacket(p.Serialize())
+		}
+
 		if newHP <= 0 {
 			log.Printf("%s killed %s", player.Username, other.GetName())
+			p := packets.EntityEventOutPacket{
+				EntityId: other.GetEntityId(),
+				Action:   3,
+			}
+			world.BroadcastPacket(p.Serialize())
+			if other.IsPlayer() {
+				otherPlayer := world.Players[other.GetEntityId()]
+				world.BroadcastPacket(packets.PlayerEntityDespawnPacket(otherPlayer))
+			}
+
 			if other.IsRideable() {
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
