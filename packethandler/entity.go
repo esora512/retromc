@@ -10,14 +10,85 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+func damageHandler(typeId int16) int16 {
+	if typeId == constants.WoodenAxe.Value || typeId == constants.GoldAxe.Value {
+		return 3
+	}
+	if typeId == constants.WoodenShovel.Value || typeId == constants.GoldShovel.Value {
+		return 1
+	}
+	if typeId == constants.WoodenSword.Value || typeId == constants.GoldSword.Value {
+		return 4
+	}
+	if typeId == constants.WoodenPickaxe.Value || typeId == constants.GoldPickaxe.Value {
+		return 2
+	}
+
+	if typeId == constants.StoneSword.Value {
+		return 6
+	}
+
+	if typeId == constants.IronSword.Value {
+		return 8
+	}
+
+	if typeId == constants.DiamondSword.Value {
+		return 10
+	}
+
+	if typeId == constants.StoneAxe.Value {
+		return 5
+	}
+
+	if typeId == constants.IronAxe.Value {
+		return 8
+	}
+
+	if typeId == constants.DiamondAxe.Value {
+		return 9
+	}
+
+	if typeId == constants.StonePickaxe.Value {
+		return 4
+	}
+
+	if typeId == constants.IronPickaxe.Value {
+		return 6
+	}
+
+	if typeId == constants.DiamondPickaxe.Value {
+		return 8
+	}
+
+	if typeId == constants.StoneShovel.Value {
+		return 3
+	}
+
+	if typeId == constants.IronShovel.Value {
+		return 5
+	}
+
+	if typeId == constants.DiamondShovel.Value {
+		return 7
+	}
+
+	return 1
+}
+
 func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World) {
 	player := world.Players[p.PlayerId]
 	other := world.Entities[p.EntityId]
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
 
 	if p.Attack {
+		item := pl.Inventory.Items[pl.HotbarSlot]
+		log.Printf("%s has %d in hand", pl.Username, item.TypeId)
+		dmg := int16(1)
+		if item.TypeId != -1 {
+			dmg = damageHandler(item.TypeId)
+		}
 		oldHP := other.GetHP()
-		newHP := oldHP - 1
+		newHP := oldHP - dmg
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
 		if other.IsPlayer() {
