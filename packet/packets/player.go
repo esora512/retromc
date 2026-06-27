@@ -163,10 +163,10 @@ func SetEquipment(pl *player.Player, send func([]byte)) {
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	data := map[int16]int16{
 		0: heldItem.TypeId,
-		1: -1,
-		2: -1,
-		3: -1,
-		4: -1,
+		1: pl.Inventory.Items[8].TypeId,
+		2: pl.Inventory.Items[7].TypeId,
+		3: pl.Inventory.Items[6].TypeId,
+		4: pl.Inventory.Items[5].TypeId,
 	}
 	for slot, itemId := range data {
 		p := &SetEquipmentOutPacket{

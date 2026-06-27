@@ -149,7 +149,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 				}
 			}
 		} else {
-			normalClick(pl, slot, rightClick)
+			normalClick(pl, slot, rightClick, world)
 		}
 
 		acceptTransaction(connection, p)
@@ -349,6 +349,22 @@ func furnaceOutputClick(pl *player.Player, slot int16, rightClick bool) {
 	}
 }
 
+func sendSetEquipment(world *level.World, slot, itemId int16, playerId int32) {
+	armorSlotMap := map[int16]int16{
+		5: 4,
+		6: 3,
+		7: 2,
+		8: 1,
+	}
+	p := packets.SetEquipmentOutPacket{
+		EntityId:      playerId,
+		InventorySlot: armorSlotMap[slot],
+		ItemId:        itemId,
+		ItemMetadata:  0,
+	}
+	world.BroadcastPacket(p.Serialize())
+}
+
 // Covers all non-shift left- and right-clicks
 func guiClick(pl *player.Player, container inventory.ItemContainer, slot int16, rightClick bool) {
 	slotItem := container.PeekItem(slot)
@@ -432,8 +448,13 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
 	}
 }
 
-func normalClick(pl *player.Player, slot int16, rightClick bool) {
+func normalClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
 	guiClick(pl, &pl.Inventory, slot, rightClick)
+	log.Printf("Slot %d", slot)
+	if slot >= 5 && slot <= 8 {
+		item := pl.Inventory.PeekItem(slot)
+		sendSetEquipment(world, slot, item.TypeId, pl.GetEntityId())
+	}
 	result := crafting.Craft2x2(pl.Inventory.GetCrafting2x2())
 	if result.TypeId != -1 {
 		sendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
