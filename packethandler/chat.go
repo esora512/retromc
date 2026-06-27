@@ -194,6 +194,17 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		if strings.HasPrefix(message, "/debug") {
 			command := strings.TrimPrefix(message, "/debug ")
 			switch command {
+			case "players":
+				entities := world.SnapshotEntities()
+				lines := []string{fmt.Sprintf("Players:")}
+				for _, e := range entities {
+					if e.IsPlayer() {
+						x, y, z := e.GetPosition()
+						lines = append(lines, fmt.Sprintf("  [%d] HP=%d at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), e.GetHP(), x, y, z))
+					}
+				}
+				sendDebugMessage(pl, lines...)
+
 			case "furnaces":
 				for key, f := range inventory.FurnaceRegistry {
 					sendDebugMessage(pl, fmt.Sprintf("Furnace %s:", key))

@@ -197,13 +197,13 @@ func (p *RespawnPacket) Serialize() []byte {
 }
 
 type SetHealthOutPacket struct {
-	Health float32
+	Health uint16
 }
 
 func (p *SetHealthOutPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.SetHealth)
-	w.WriteFloat32(p.Health)
+	w.WriteShort(p.Health)
 	return w.Bytes()
 }
 

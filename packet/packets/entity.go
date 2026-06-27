@@ -67,6 +67,10 @@ type EntityDespawnOutPacket struct {
 	EntityId int32
 }
 
+type EntityEventOutPacket struct {
+	EntityId int32
+	Action   byte
+}
 
 func clamp(v, min, max float64) float64 {
 	if v < min {
@@ -337,4 +341,12 @@ func PlayerEntityMetadataPacketRiding(pl *player.Player, riding bool) []byte {
 		Metadata: ridingMetadata(riding),
 	}
 	return p.Serialize()
+}
+
+func (p *EntityEventOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.EntityEvent)
+	w.WriteInt32(p.EntityId)
+	w.WriteByte(p.Action)
+	return w.Bytes()
 }

@@ -148,6 +148,7 @@ func NewPlayer(conn net.Conn) *Player {
 		IsCreative:           false,
 		SentChunks:           make(map[string]bool),
 		DebugBlock:           false,
+		HP:                   20,
 	}
 }
 

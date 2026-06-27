@@ -42,6 +42,7 @@ const (
 	TeleportEntity            byte = 0x22
 	UpdateSign                byte = 0x82
 	EntityVelocity            byte = 0x1c
-	PlayerInput				 byte = 0x1B
-	ContainerData				 byte = 0x69
+	PlayerInput               byte = 0x1B
+	ContainerData             byte = 0x69
+	EntityEvent               byte = 0x26
 )

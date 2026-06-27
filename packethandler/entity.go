@@ -20,6 +20,15 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		newHP := oldHP - 1
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
+		if other.IsPlayer() {
+			otherPlayer := world.Players[other.GetEntityId()]
+			sendSetHealth(otherPlayer.Connection, uint16(newHP))
+			p := packets.EntityEventOutPacket{
+				EntityId: other.GetEntityId(),
+				Action:   2,
+			}
+			world.BroadcastPacket(p.Serialize())
+		}
 		if newHP <= 0 {
 			log.Printf("%s killed %s", player.Username, other.GetName())
 			if other.IsRideable() {
@@ -30,7 +39,7 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 						return
 					}
 					sendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
-					
+
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					slot := pl.Inventory.AddItem(constants.Minecart.Value, 0, 1)

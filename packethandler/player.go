@@ -45,6 +45,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.OnGround = true
 
 	sendRespawn(connection, p.World)
+	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection)
 
@@ -59,7 +60,7 @@ func sendRespawn(connection net.Conn, world byte) {
 	connection.Write(respawnPacket.Serialize())
 }
 
-func sendSetHealth(connection net.Conn, health float32) {
+func sendSetHealth(connection net.Conn, health uint16) {
 	setHealthPacket := packets.SetHealthOutPacket{
 		Health: health,
 	}
