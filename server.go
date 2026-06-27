@@ -216,8 +216,8 @@ func ridablePhysics(world *level.World) {
 		switch action {
 		case entities.Moved:
 			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
-			log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
-				nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
+			// log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
+			// 	nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
 			ridable.SetPosition(nx, ny, nz)
 		case entities.Stopped:
 			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
