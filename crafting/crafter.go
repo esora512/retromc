@@ -71,6 +71,8 @@ func Durability(typeId int16) uint16 {
         return 360
     case constants.DiamondBoots.Value:
         return 312
+	case constants.FlintAndSteel.Value:
+		return 64
     }
     return 0
 }

@@ -237,7 +237,7 @@ func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, w
 }
 
 func High8Bits(n uint16) byte {
-    return byte(n >> 8)
+	return byte(n >> 8)
 }
 
 // handlePlayerDiggingInPacket handles block-break events.
@@ -469,10 +469,36 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		!heldItem.IsHoe() &&
 		heldItem.TypeId != constants.Seeds.Value &&
 		heldItem.TypeId != constants.SugarcaneItem.Value &&
-		heldItem.TypeId != constants.Sapling.Value {
+		heldItem.TypeId != constants.Sapling.Value &&
+		heldItem.TypeId != constants.FlintAndSteel.Value {
 
 		// Only place blocks if block is in hotbar slot
 		log.Println("Early return....")
+		return
+	}
+
+	if heldItem.TypeId == constants.FlintAndSteel.Value {
+		fire := level.NewFireBlock()
+		world.SetBlock(p.X, byte(p.Y-1), p.Z, fire)
+		blockChange := packets.BlockChangeOutPacket{
+			X:         p.X,
+			Y:         byte(p.Y - 1),
+			Z:         p.Z,
+			BlockType: fire.TypeId,
+			BlockMeta: fire.Metadata,
+		}
+		world.BroadcastPacket(blockChange.Serialize())
+		if crafting.HasDurability(heldItem.TypeId) {
+			heldItem.Metadata += 1
+			if heldItem.Metadata == crafting.Durability(heldItem.TypeId) {
+				pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
+				sendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+
+			} else {
+				pl.Inventory.Items[pl.HotbarSlot].Metadata += 1
+				sendSetSlot(pl.Connection, 0, pl.HotbarSlot, heldItem)
+			}
+		}
 		return
 	}
 
