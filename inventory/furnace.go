@@ -183,7 +183,7 @@ func (f *Furnace) PeekItem(slot int16) Item {
 	return f.Items[slot]
 }
 
-func (f *Furnace) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+func (f *Furnace) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	f.Items[slot] = NewItem(typeId, count, metadata)
 }
 

@@ -45,7 +45,7 @@ func EmptyItem() Item {
 	return Item{-1, 0, 0}
 }
 
-func (w *Workbench) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+func (w *Workbench) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	if slot < 1 || int(slot) > len(w.Grid) {
 		log.Printf("SetItem: slot %d out of range", slot)
 		return

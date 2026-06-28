@@ -8,7 +8,7 @@ import (
 type Item struct {
 	TypeId   int16
 	Count    byte
-	Metadata byte
+	Metadata uint16
 }
 
 func (item *Item) IsHoe() bool {
@@ -26,13 +26,13 @@ func (item *Item) Serialize() []byte {
 	// Per protocol: count and damage/metadata are only present when the item is not empty (-1)
 	if item.TypeId != -1 {
 		writer.WriteByte(item.Count)
-		writer.WriteShort(uint16(item.Metadata))
+		writer.WriteShort(item.Metadata)
 	}
 
 	return writer.Bytes()
 }
 
-func NewItem(typeId int16, count byte, metadata byte) Item {
+func NewItem(typeId int16, count byte, metadata uint16) Item {
 	return Item{
 		TypeId:   typeId,
 		Count:    count,

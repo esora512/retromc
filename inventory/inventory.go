@@ -23,7 +23,7 @@ const (
 
 type ItemContainer interface {
 	PeekItem(slot int16) Item
-	SetItem(slot int16, typeId int16, count byte, metadata byte)
+	SetItem(slot int16, typeId int16, count byte, metadata uint16)
 	RemoveOne(slot int16) int16
 	AddCount(slot int16, amount byte)
 	SetEmpty(slot int16)
@@ -93,7 +93,7 @@ func (inv *Inventory) Serialize() []byte {
 }
 
 // SetItem places an item directly into a slot, ignoring stack limits.
-func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
 		log.Printf("SetItem: slot %d out of range", slot)
 		return
@@ -101,7 +101,7 @@ func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata byt
 	inv.Items[slot] = NewItem(typeId, count, metadata)
 }
 
-func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata byte, count byte) bool {
+func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata uint16, count byte) bool {
 	for i := HotbarEnd; i >= HotbarStart; i-- {
 		item := &inv.Items[i]
 		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
@@ -122,7 +122,7 @@ func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata byte, 
 // It first tries to stack onto an existing partial stack of the same type and metadata,
 // then falls back to the first empty slot.
 // Returns the slot index that was updated, or -1 if the inventory is full.
-func (inv *Inventory) AddItem(typeId int16, metadata byte, count byte) int16 {
+func (inv *Inventory) AddItem(typeId int16, metadata uint16, count byte) int16 {
 	// Non-stackable items go straight to the first empty slot.
 	if IsStackable(typeId) {
 		// Try to increment an existing partial stack.
@@ -248,7 +248,7 @@ func (inv *Inventory) Print() {
 		if item.TypeId == -1 {
 			continue
 		}
-		log.Printf("  slot %2d | id %-5d | count %d", i, item.TypeId, item.Count)
+		log.Printf("  slot %2d | id %-5d | count %d | meta %d", i, item.TypeId, item.Count, item.Metadata)
 	}
 	log.Println("=================")
 }

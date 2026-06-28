@@ -2,7 +2,7 @@ package constants
 
 type Item struct {
 	Value int16
-	Meta  byte
+	Meta  uint16
 }
 
 const (

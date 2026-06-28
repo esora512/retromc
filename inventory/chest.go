@@ -62,7 +62,7 @@ func (c *Chest) PeekItem(slot int16) Item {
 	return c.Items[slot]
 }
 
-func (c *Chest) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+func (c *Chest) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	c.Items[slot] = NewItem(typeId, count, metadata)
 }
 

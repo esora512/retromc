@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/crafting"
 	"github.com/leNicDev/retromc/inventory"
 )
 
@@ -202,6 +203,9 @@ func (pl *Player) GivePlayer(input string) {
 	}
 	item := constants.GetItemByName(name)
 	if item.Value != -1 {
+		if crafting.HasDurability(item.Value) {
+			item.Meta = crafting.Durability(item.Value)
+		}
 		pl.Inventory.AddItem(item.Value, item.Meta, byte(amountInt))
 		return
 	}

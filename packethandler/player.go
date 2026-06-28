@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/crafting"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
@@ -235,6 +236,10 @@ func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, w
 	pl.OnGround = p.OnGround
 }
 
+func High8Bits(n uint16) byte {
+    return byte(n >> 8)
+}
+
 // handlePlayerDiggingInPacket handles block-break events.
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
@@ -253,6 +258,19 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		oldBlock.TypeId != byte(constants.Cactus.Value) &&
 		oldBlock.TypeId != byte(constants.Sapling.Value) {
 		return
+	}
+
+	hotBarItem := pl.Inventory.Items[pl.HotbarSlot]
+	if crafting.HasDurability(hotBarItem.TypeId) {
+		hotBarItem.Metadata += 1
+		if hotBarItem.Metadata == crafting.Durability(hotBarItem.TypeId) {
+			pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
+			sendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+
+		} else {
+			pl.Inventory.Items[pl.HotbarSlot].Metadata += 1
+			sendSetSlot(pl.Connection, 0, pl.HotbarSlot, hotBarItem)
+		}
 	}
 
 	if oldBlock.TypeId == 0x00 {
@@ -374,7 +392,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		return
 	}
 
-	slot := pl.Inventory.AddItem(blockItem, blockMeta, count)
+	slot := pl.Inventory.AddItem(blockItem, uint16(blockMeta), count)
 	if slot < 0 {
 		return
 	}
@@ -518,7 +536,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		}
 		meta := byte(0)
 		if rule.UseMeta {
-			meta = heldItem.Metadata
+			meta = byte(heldItem.Metadata)
 		}
 		crop := level.PlantGrowable(world, rule.PlantedBlock, newX, byte(newY), newZ, meta)
 		blockChange := packets.BlockChangeOutPacket{
@@ -557,7 +575,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
-	block := level.NewBlockById(p.ItemId, item.Metadata)
+	block := level.NewBlockById(p.ItemId, High8Bits(item.Metadata))
 	if heldItem.TypeId == -1 {
 		return
 	}

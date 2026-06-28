@@ -38,7 +38,7 @@ func (d *Dispenser) PeekItem(slot int16) Item {
 	return d.Items[slot]
 }
 
-func (d *Dispenser) SetItem(slot int16, typeId int16, count byte, metadata byte) {
+func (d *Dispenser) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	d.Items[slot] = NewItem(typeId, count, metadata)
 }
 

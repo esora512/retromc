@@ -91,8 +91,8 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 				hasHeld := pl.SelectedItem.Selected
 				slotEmpty := slotItem.TypeId == -1
 				if slot == 2 {
-					log.Println("Slot 2 click furnace")
-					log.Printf("Has Held %t, SlotEmpty %t", hasHeld, slotEmpty)
+					// log.Println("Slot 2 click furnace")
+					// log.Printf("Has Held %t, SlotEmpty %t", hasHeld, slotEmpty)
 					if hasHeld || slotEmpty {
 						// noop if item in hand
 						return
@@ -100,7 +100,7 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 					furnaceOutputClick(pl, slot, rightClick)
 				} else {
 					// only bottom and top slot are clickable
-					log.Println("Regular furnace click")
+					//log.Println("Regular furnace click")
 					furnaceClick(pl, slot, rightClick)
 				}
 			}

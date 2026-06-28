@@ -46,7 +46,7 @@ type WindowClickInPacket struct {
 	Shift        bool
 	ItemID       int16
 	ItemCount    byte
-	ItemUses     int16
+	ItemUses     uint16
 }
 
 func (p *WindowClickInPacket) Print() {
@@ -60,7 +60,7 @@ func (p *WindowClickInPacket) GetItem() inventory.Item {
 	return inventory.Item{
 		TypeId:   p.ItemID,
 		Count:    p.ItemCount,
-		Metadata: byte(p.ItemUses),
+		Metadata: p.ItemUses,
 	}
 }
 
@@ -76,7 +76,7 @@ func ReadWindowClickInPacket(reader *packet.PacketReader) WindowClickInPacket {
 	// count and uses are only present when the player is holding an item
 	if p.ItemID != -1 {
 		p.ItemCount = reader.ReadByte()
-		p.ItemUses = int16(reader.ReadShort())
+		p.ItemUses = uint16(reader.ReadShort())
 	}
 	return p
 }

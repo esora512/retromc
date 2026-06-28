@@ -2,7 +2,7 @@ package constants
 
 type Block struct {
 	Value int16
-	Meta  byte
+	Meta  uint16
 }
 
 var (

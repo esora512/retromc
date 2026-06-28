@@ -6,8 +6,45 @@ import (
 
 type Result struct {
 	TypeId   int16
-	Metadata byte
+	Metadata uint16
 	Count    byte
+}
+
+// Returns Max Durability of Items that have durability
+// For such items, Metadata is incremented. If Metadata == Durability, we can tell the server to destory the item
+func Durability(typeId int16) uint16 {
+	switch typeId {
+	// Wooden tools
+	case constants.WoodenAxe.Value, constants.WoodenPickaxe.Value, constants.WoodenShovel.Value,
+		constants.WoodenSword.Value, constants.WoodenHoe.Value:
+		return 59
+
+	// Stone tools
+	case constants.StoneAxe.Value, constants.StonePickaxe.Value, constants.StoneShovel.Value,
+		constants.StoneSword.Value, constants.StoneHoe.Value:
+		return 131
+
+	// Iron tools
+	case constants.IronAxe.Value, constants.IronPickaxe.Value, constants.IronShovel.Value,
+		constants.IronSword.Value, constants.IronHoe.Value:
+		return 250
+
+	// Diamond tools
+	case constants.DiamondAxe.Value, constants.DiamondPickaxe.Value, constants.DiamondShovel.Value,
+		constants.DiamondSword.Value, constants.DiamondHoe.Value:
+		return 1561
+
+	// Gold tools
+	case constants.GoldAxe.Value, constants.GoldPickaxe.Value, constants.GoldShovel.Value,
+		constants.GoldSword.Value, constants.GoldHoe.Value:
+		return 32
+	}
+
+	return 0
+}
+
+func HasDurability(typeId int16) bool {
+	return Durability(typeId) != 0
 }
 
 func Craft2x2(grid [4]int16) Result {
@@ -206,7 +243,7 @@ func getToolForType(itemId int16, toolName string) int16 {
 	return -1
 }
 
-func getSlab(itemId int16) (int16, byte) {
+func getSlab(itemId int16) (int16, uint16) {
 	switch itemId {
 	case constants.Planks.Value:
 		return constants.WoodenSlab.Value, constants.WoodenSlab.Meta
@@ -217,9 +254,9 @@ func getSlab(itemId int16) (int16, byte) {
 	case constants.Sandstone.Value:
 		return constants.SandstoneSlab.Value, constants.SandstoneSlab.Meta
 	case constants.Wheat.Value:
-		return constants.Bread.Value, byte(0)
+		return constants.Bread.Value, (0)
 	default:
-		return -1, byte(0)
+		return -1, (0)
 	}
 }
 
