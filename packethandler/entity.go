@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/crafting"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
@@ -76,20 +77,30 @@ func dmgGiven(typeId int16) int16 {
 	return 1
 }
 
-func dmgReduced(items []inventory.Item, dmg int16) int16 {
-	newDmg := dmg
-	if items[5].TypeId != -1 {
-		newDmg -= 3
+func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, dmg int16) int16 {
+	checkArmor := func(slot int, dmg, reduction int16) int16 {
+		if items[slot].TypeId != -1 {
+			newDmg := dmg
+			items[slot].Metadata++
+			sendSetSlot(pl.Connection, 0, int16(slot), items[slot])
+			if crafting.Durability(items[slot].TypeId) <= items[slot].Metadata {
+				items[slot] = inventory.EmptyItem()
+				sendSetSlot(pl.Connection, 0, int16(slot), inventory.EmptyItem())
+				sendSetEquipment(world, int16(slot), -1, pl.GetEntityId())
+			}
+			if reduction > newDmg {
+				return 0
+			}
+			newDmg -= reduction
+			return newDmg
+		}
+		return dmg
 	}
-	if items[6].TypeId != -1 {
-		newDmg -= 8
-	}
-	if items[7].TypeId != -1 {
-		newDmg -= 6
-	}
-	if items[8].TypeId != -1 {
-		newDmg -= 3
-	}
+
+	newDmg := checkArmor(5, dmg, 3)   // Helmet
+	newDmg = checkArmor(6, newDmg, 8) // Chestplate
+	newDmg = checkArmor(7, newDmg, 6) // Leggings
+	newDmg = checkArmor(8, newDmg, 3) // Boots
 	return newDmg
 }
 
@@ -108,7 +119,7 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		}
 		if other.IsPlayer() {
 			otherPlayer := world.Players[other.GetEntityId()]
-			dmg = dmgReduced(otherPlayer.Inventory.Items, dmg)
+			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			sendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
 			p := packets.EntityEventOutPacket{
 				EntityId: other.GetEntityId(),

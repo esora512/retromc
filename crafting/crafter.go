@@ -13,34 +13,66 @@ type Result struct {
 // Returns Max Durability of Items that have durability
 // For such items, Metadata is incremented. If Metadata == Durability, we can tell the server to destory the item
 func Durability(typeId int16) uint16 {
-	switch typeId {
-	// Wooden tools
-	case constants.WoodenAxe.Value, constants.WoodenPickaxe.Value, constants.WoodenShovel.Value,
-		constants.WoodenSword.Value, constants.WoodenHoe.Value:
-		return 59
+    switch typeId {
+    // Wooden tools
+    case constants.WoodenAxe.Value, constants.WoodenPickaxe.Value, constants.WoodenShovel.Value,
+        constants.WoodenSword.Value, constants.WoodenHoe.Value:
+        return 59
+    // Stone tools
+    case constants.StoneAxe.Value, constants.StonePickaxe.Value, constants.StoneShovel.Value,
+        constants.StoneSword.Value, constants.StoneHoe.Value:
+        return 131
+    // Iron tools
+    case constants.IronAxe.Value, constants.IronPickaxe.Value, constants.IronShovel.Value,
+        constants.IronSword.Value, constants.IronHoe.Value:
+        return 250
+    // Diamond tools
+    case constants.DiamondAxe.Value, constants.DiamondPickaxe.Value, constants.DiamondShovel.Value,
+        constants.DiamondSword.Value, constants.DiamondHoe.Value:
+        return 1561
+    // Gold tools
+    case constants.GoldAxe.Value, constants.GoldPickaxe.Value, constants.GoldShovel.Value,
+        constants.GoldSword.Value, constants.GoldHoe.Value:
+        return 32
 
-	// Stone tools
-	case constants.StoneAxe.Value, constants.StonePickaxe.Value, constants.StoneShovel.Value,
-		constants.StoneSword.Value, constants.StoneHoe.Value:
-		return 131
-
-	// Iron tools
-	case constants.IronAxe.Value, constants.IronPickaxe.Value, constants.IronShovel.Value,
-		constants.IronSword.Value, constants.IronHoe.Value:
-		return 250
-
-	// Diamond tools
-	case constants.DiamondAxe.Value, constants.DiamondPickaxe.Value, constants.DiamondShovel.Value,
-		constants.DiamondSword.Value, constants.DiamondHoe.Value:
-		return 1561
-
-	// Gold tools
-	case constants.GoldAxe.Value, constants.GoldPickaxe.Value, constants.GoldShovel.Value,
-		constants.GoldSword.Value, constants.GoldHoe.Value:
-		return 32
-	}
-
-	return 0
+    // Leather armor
+    case constants.LeatherCap.Value:
+        return 33
+	case constants.LeatherTunic.Value:
+        return 48
+    case constants.LeatherPants.Value:
+        return 45
+    case constants.LeatherBoots.Value:
+        return 39
+    // Chain/Gold armor
+    case constants.ChainmailHelmet.Value, constants.GoldHelmet.Value:
+        return 66
+    case constants.ChainmailChestplate.Value, constants.GoldChestplate.Value:
+        return 96
+    case constants.ChainmailLeggings.Value, constants.GoldLeggings.Value:
+        return 90
+    case constants.ChainmailBoots.Value, constants.GoldBoots.Value:
+        return 78
+    // Iron armor
+    case constants.IronHelmet.Value:
+        return 132
+    case constants.IronChestplate.Value:
+        return 192
+    case constants.IronLeggings.Value:
+        return 180
+    case constants.IronBoots.Value:
+        return 156
+    // Diamond armor
+    case constants.DiamondHelmet.Value:
+        return 264
+    case constants.DiamondChestplate.Value:
+        return 384
+    case constants.DiamondLeggings.Value:
+        return 360
+    case constants.DiamondBoots.Value:
+        return 312
+    }
+    return 0
 }
 
 func HasDurability(typeId int16) bool {

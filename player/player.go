@@ -204,7 +204,7 @@ func (pl *Player) GivePlayer(input string) {
 	item := constants.GetItemByName(name)
 	if item.Value != -1 {
 		if crafting.HasDurability(item.Value) {
-			item.Meta = crafting.Durability(item.Value)
+			item.Meta = 0
 		}
 		pl.Inventory.AddItem(item.Value, item.Meta, byte(amountInt))
 		return
