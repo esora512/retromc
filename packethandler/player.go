@@ -717,7 +717,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			}
 		}
 
-		if block.TypeId == byte(constants.Sign.Value) {
+		if heldItem.TypeId == constants.Sign.Value {
 			block.TypeId = byte(constants.SignGround.Value)
 		}
 
