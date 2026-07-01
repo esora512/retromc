@@ -45,4 +45,6 @@ const (
 	PlayerInput               byte = 0x1B
 	ContainerData             byte = 0x69
 	EntityEvent               byte = 0x26
+	SpawnItem                 byte = 0x15
+	CollectItem               byte = 0x16
 )

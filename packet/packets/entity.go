@@ -41,6 +41,19 @@ type SpawnObject struct {
 	VelocityZ     int16
 }
 
+type SpawnItem struct {
+	EntityId int32
+	ItemId   int16
+	Amount   byte
+	Metadata byte
+	X        int32
+	Y        int32
+	Z        int32
+	Yaw      byte
+	Pitch    byte
+	Roll     byte
+}
+
 type EntityPositionAndLookOutPacket struct {
 	EntityId int32
 	X        byte
@@ -72,6 +85,11 @@ type EntityEventOutPacket struct {
 	Action   byte
 }
 
+type CollectItemOutPacket struct {
+	ItemId      int32
+	CollectorId int32
+}
+
 func clamp(v, min, max float64) float64 {
 	if v < min {
 		return min
@@ -80,6 +98,30 @@ func clamp(v, min, max float64) float64 {
 		return max
 	}
 	return v
+}
+
+func (p *CollectItemOutPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.CollectItem)
+	w.WriteInt32(p.ItemId)
+	w.WriteInt32(p.CollectorId)
+	return w.Bytes()
+}
+
+func (p *SpawnItem) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.SpawnItem)
+	w.WriteInt32(p.EntityId)
+	w.WriteShort(uint16(p.ItemId))
+	w.WriteByte(p.Amount)
+	w.WriteShort(uint16(p.Metadata))
+	w.WriteInt32(p.X)
+	w.WriteInt32(p.Y)
+	w.WriteInt32(p.Z)
+	w.WriteByte(p.Yaw)
+	w.WriteByte(p.Pitch)
+	w.WriteByte(p.Roll)
+	return w.Bytes()
 }
 
 func (p *EntityVelocity) Serialize() []byte {
@@ -349,4 +391,9 @@ func (p *EntityEventOutPacket) Serialize() []byte {
 	w.WriteInt32(p.EntityId)
 	w.WriteByte(p.Action)
 	return w.Bytes()
+}
+
+func CollectItem(itemId, collectorId int32) []byte {
+	p := CollectItemOutPacket{ItemId: itemId, CollectorId: collectorId}
+	return p.Serialize()
 }
