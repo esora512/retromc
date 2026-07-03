@@ -392,12 +392,18 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		return
 	}
 
-	slot := pl.Inventory.AddItem(blockItem, uint16(blockMeta), count)
-	if slot < 0 {
-		return
-	}
-	// Tell the client about the updated slot.
-	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+	// slot := pl.Inventory.AddItem(blockItem, uint16(blockMeta), count)
+	// if slot < 0 {
+	// 	return
+	// }
+	// // Tell the client about the updated slot.
+	// sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+
+	dropX := int32(p.X)*32 + 16
+	dropY := int32(p.Y)*32 + 16
+	dropZ := int32(p.Z)*32 + 16
+	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0)
+	world.BroadcastPacket(spawnPacket)
 }
 
 // handlePlayerBlockPlacementInPacket handles block-place events.
@@ -905,4 +911,35 @@ func CheckFallingBlock(world *level.World, x int32, y byte, z int32) {
 	falling := entities.NewBlockEntity(entityId, int16(block.TypeId), byte(block.Metadata), float64(x), float64(y), float64(z))
 	world.BroadcastPacket(spawnPacket.Serialize())
 	world.AddEntity(falling)
+}
+
+const pickupRangeSq = 1.5 * 1.5
+
+func CollectNearbyItems(world *level.World) {
+	for entityId, dropped := range world.DroppedItems {
+		itemX := float64(dropped.X) / 32.0
+		itemY := float64(dropped.Y) / 32.0
+		itemZ := float64(dropped.Z) / 32.0
+
+		for _, pl := range world.Players {
+			dx := pl.X - itemX
+			dy := pl.Y - itemY
+			dz := pl.Z - itemZ
+			if dx*dx+dy*dy+dz*dz > pickupRangeSq {
+				continue
+			}
+
+			slot := pl.Inventory.AddItem(int16(dropped.ItemId), uint16(dropped.Metadata), dropped.Amount)
+			if slot < 0 {
+				continue
+			}
+			sendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
+
+			collect := packets.CollectItem(entityId, int32(pl.GetEntityId()))
+			world.BroadcastPacket(collect)
+
+			world.RemoveDroppedItem(entityId)
+			break
+		}
+	}
 }

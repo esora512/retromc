@@ -397,3 +397,20 @@ func CollectItem(itemId, collectorId int32) []byte {
 	p := CollectItemOutPacket{ItemId: itemId, CollectorId: collectorId}
 	return p.Serialize()
 }
+
+func SpawnDroppedItem(w *level.World, itemId int16, amount, meta byte, x, y, z int32, yaw, pitch, roll byte) []byte {
+	entityId := w.AddDroppedItem(x, y, z, int32(itemId), amount, meta)
+	p := SpawnItem{
+		EntityId: entityId,
+		ItemId:   itemId,
+		Amount:   amount,
+		Metadata: meta,
+		X:        x,
+		Y:        y,
+		Z:        z,
+		Yaw:      yaw,
+		Pitch:    pitch,
+		Roll:     roll,
+	}
+	return p.Serialize()
+}

@@ -115,6 +115,7 @@ func gameLoop(world *level.World) {
 			ridablePhysics(world)
 			world.CleanUpFallable()
 			world.GrowPhysics()
+			packethandler.CollectNearbyItems(world)
 			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := level.NewWaterConfig(world)
@@ -286,7 +287,7 @@ func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
 			Z:         int32(z),
 			BlockType: newBlock.TypeId,
 			BlockMeta: newBlock.Metadata,
-		} 
+		}
 		world.BroadcastPacket(blockChange.Serialize())
 	}
 }

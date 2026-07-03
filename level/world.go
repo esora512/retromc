@@ -1,8 +1,8 @@
 package level
 
 import (
-	"sync"
 	"fmt"
+	"sync"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -15,7 +15,7 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
-func (c*ChunkCoord) String() string {
+func (c *ChunkCoord) String() string {
 	return fmt.Sprintf("%d-%d", c.X, c.Z)
 }
 
@@ -55,6 +55,14 @@ const (
 	SkyGrid
 )
 
+type DroppedItem struct {
+	EntityId int32
+	ItemId   int32
+	Amount   byte
+	Metadata byte
+	X, Y, Z  int32
+}
+
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	mu           sync.RWMutex
@@ -69,6 +77,7 @@ type World struct {
 	FlowingWater map[BlockKey]byte
 	LavaSources  map[BlockKey]byte
 	FlowingLava  map[BlockKey]byte
+	DroppedItems map[int32]*DroppedItem
 	WorldType    WorldType
 
 	Growables map[BlockKey]Growable
@@ -90,7 +99,22 @@ func NewWorld(worldType WorldType) *World {
 		FlowingLava:  make(map[BlockKey]byte),
 		Growables:    make(map[BlockKey]Growable),
 		TickSpeed:    1,
+		DroppedItems: make(map[int32]*DroppedItem),
 	}
+}
+
+func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte) int32 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	entityId := w.NextEntityId()
+	w.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z}
+	return entityId
+}
+
+func (w *World) RemoveDroppedItem(entityId int32) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.DroppedItems, entityId)
 }
 
 func (w *World) AddFallable(x int32, y byte, z int32) {
