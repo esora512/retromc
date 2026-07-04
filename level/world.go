@@ -61,6 +61,7 @@ type DroppedItem struct {
 	Amount   byte
 	Metadata byte
 	X, Y, Z  int32
+	PickupDelay int32
 }
 
 // World holds all loaded chunks and is the single source of truth for block state.
@@ -103,11 +104,11 @@ func NewWorld(worldType WorldType) *World {
 	}
 }
 
-func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte) int32 {
+func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	entityId := w.NextEntityId()
-	w.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z}
+	w.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
 }
 

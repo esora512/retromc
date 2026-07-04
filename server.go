@@ -104,7 +104,6 @@ const containerSavePath = "saves/containers.dat"
 
 func gameLoop(world *level.World) {
 	go func() {
-		//packethandler.SetBlockAndNotify
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
@@ -116,6 +115,7 @@ func gameLoop(world *level.World) {
 			world.CleanUpFallable()
 			world.GrowPhysics()
 			packethandler.CollectNearbyItems(world)
+			packethandler.ApplyGravityOnDroppedItems(world)
 			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
 			if world.Tick%20 == 0 || world.Tick%60 == 0 {
 				waterCfg := level.NewWaterConfig(world)

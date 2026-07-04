@@ -20,21 +20,28 @@ func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacke
 	windowId := p.WindowId
 
 	if slot == -999 {
-		// Outside-inventory click: drop held stack / single item.
-		// TODO: Implement proper dropping in world
-		if pl.SelectedItem.Selected {
-			if rightClick {
-				// Drop one item from the held stack.
-				pl.SelectedItem.Item.Count--
-				if pl.SelectedItem.Item.Count == 0 {
-					pl.SelectedItem.Selected = false
-				}
-			} else {
-				// Drop entire held stack.
+		if !pl.SelectedItem.Selected {
+			acceptTransaction(connection, p)
+			return
+		}
+
+		typeId := pl.SelectedItem.Item.TypeId
+		metadata := pl.SelectedItem.Item.Metadata
+		var dropCount byte
+
+		if rightClick {
+			dropCount = 1
+			pl.SelectedItem.Item.Count--
+			if pl.SelectedItem.Item.Count == 0 {
 				pl.SelectedItem.Selected = false
 			}
+		} else {
+			dropCount = pl.SelectedItem.Item.Count
+			pl.SelectedItem.Selected = false
 		}
+
 		acceptTransaction(connection, p)
+		dropItemFromPlayer(world, pl, typeId, metadata, dropCount)
 		return
 	}
 

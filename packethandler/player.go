@@ -240,10 +240,47 @@ func High8Bits(n uint16) byte {
 	return byte(n >> 8)
 }
 
+func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {
+	if count == 0 {
+		return
+	}
+
+	const dropDistance = 2.0
+	yawRad := float64(pl.Yaw) * (math.Pi / 180)
+	dirX := -math.Sin(yawRad)
+	dirZ := math.Cos(yawRad)
+	dropX := pl.X + dirX*dropDistance
+	dropZ := pl.Z + dirZ*dropDistance
+
+	spawnDroppedItemPacket := packets.SpawnDroppedItem(
+		world,
+		typeId,
+		count,
+		High8Bits(metadata),
+		int32(dropX),
+		int32(pl.Y),
+		int32(dropZ),
+		0, 0, 0, 40,
+	)
+	world.BroadcastPacket(spawnDroppedItemPacket)
+}
+
 // handlePlayerDiggingInPacket handles block-break events.
 // Status 2 means the client finished digging — that's when we remove the block and
 // credit the item to the player's in-memory inventory.
 func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
+	if p.Status == 4 {
+		item := pl.Inventory.PeekItem(pl.HotbarSlot)
+		if item.TypeId == -1 {
+			return
+		}
+		typeId := item.TypeId
+		metadata := item.Metadata
+		pl.Inventory.RemoveOne(pl.HotbarSlot)
+		sendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+		dropItemFromPlayer(world, pl, typeId, metadata, 1)
+		return
+	}
 	var count byte = 1
 	if pl.IsRiding != -1 {
 		return
@@ -399,10 +436,10 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	// // Tell the client about the updated slot.
 	// sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 
-	dropX := int32(p.X)*32 + 16
-	dropY := int32(p.Y)*32 + 16
-	dropZ := int32(p.Z)*32 + 16
-	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0)
+	dropX := int32(p.X)
+	dropY := int32(p.Y)
+	dropZ := int32(p.Z)
+	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0)
 	world.BroadcastPacket(spawnPacket)
 }
 
@@ -917,9 +954,13 @@ const pickupRangeSq = 1.5 * 1.5
 
 func CollectNearbyItems(world *level.World) {
 	for entityId, dropped := range world.DroppedItems {
-		itemX := float64(dropped.X) / 32.0
-		itemY := float64(dropped.Y) / 32.0
-		itemZ := float64(dropped.Z) / 32.0
+		if dropped.PickupDelay > 0 {
+			dropped.PickupDelay--
+			continue
+		}
+		itemX := float64(dropped.X)
+		itemY := float64(dropped.Y)
+		itemZ := float64(dropped.Z)
 
 		for _, pl := range world.Players {
 			dx := pl.X - itemX
@@ -940,6 +981,16 @@ func CollectNearbyItems(world *level.World) {
 
 			world.RemoveDroppedItem(entityId)
 			break
+		}
+	}
+}
+
+func ApplyGravityOnDroppedItems(world *level.World) {
+	for entityId, dropped := range world.DroppedItems {
+		below := world.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
+		if below.IsAir() || below.IsLiquid() {
+			dropped.Y -= 1
+			world.DroppedItems[entityId] = dropped
 		}
 	}
 }
