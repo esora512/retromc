@@ -256,7 +256,7 @@ func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 		world,
 		typeId,
 		count,
-		High8Bits(metadata),
+		byte(metadata),
 		int32(dropX),
 		int32(pl.Y),
 		int32(dropZ),
