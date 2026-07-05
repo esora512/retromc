@@ -32,7 +32,7 @@ func (c *Chunk) CompressData() []byte {
 const GROUND_LEVEL = 64
 const GROUND_DEPTH = 16
 
-// GenerateTemplate fills the chunk: stone below GROUND_LEVEL, air above.
+// GenerateTemplate fills the chunk: stone below GROUND_LEVEL, air above, dirt on ground layer
 // Blocks are stored in XZY order so y = blockIndex % CHUNK_SIZE_Y.
 // Nibble arrays pack two 4-bit values per byte: even index → lower nibble (bits 0-3),
 // odd index → upper nibble (bits 4-7).
@@ -212,9 +212,7 @@ func NewChunk(worldType WorldType) Chunk {
 	}
 	switch worldType {
 	case SkyGrid:
-		chunk.GenerateSkyGridTemplate()
-	case Empty:
-		chunk.GenerateEmpty()
+		chunk.GenerateSkyGrid()
 	default:
 		chunk.GenerateTemplate()
 	}
@@ -229,7 +227,7 @@ func mod(a, b int) int {
 	return r
 }
 
-func (c *Chunk) GenerateSkyGridTemplate() {
+func (c *Chunk) GenerateSkyGrid() {
 	cx, cz := 0, 0
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2

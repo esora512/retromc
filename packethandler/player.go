@@ -644,7 +644,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
-	block := level.NewBlockById(p.ItemId, High8Bits(item.Metadata))
+	block := level.NewBlockById(p.ItemId, byte(item.Metadata))
+	log.Printf("Placing block: TypeId=%d Meta=%d at (%d, %d, %d)", block.TypeId, block.Metadata, newX, newY, newZ)
 	if heldItem.TypeId == -1 {
 		return
 	}

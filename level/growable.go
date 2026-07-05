@@ -277,7 +277,7 @@ func (c *Cactus) Grow(w *World, bk *BlockKey) {
 
 func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	log := NewBlockById(constants.Log.Value, s.WoodType)
-	trunkHeight := 3
+	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {
 		w.SetBlock(bk.X, bk.Y+byte(i), bk.Z, log)
 		blockChange := BlockChangeOutPacket{
@@ -291,7 +291,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	}
 
 	leaves := NewBlockById(constants.Leaves.Value, s.WoodType)
-	topY := bk.Y + byte(trunkHeight) // one above the last log
+	topY := bk.Y + byte(trunkHeight - 3) // one above the last log
 
 	// layer offsets: [dy] = list of (dx, dz) to place
 	leafLayers := [4][][2]int{
@@ -307,14 +307,14 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 		{
 			{-2, -1}, {-2, 0}, {-2, 1},
 			{-1, -2}, {-1, -1}, {-1, 0}, {-1, 1}, {-1, 2},
-			{0, -2}, {0, -1}, {0, 0}, {0, 1}, {0, 2},
+			{0, -2}, {0, -1}, {0, 1}, {0, 2},
 			{1, -2}, {1, -1}, {1, 0}, {1, 1}, {1, 2},
 			{2, -1}, {2, 0}, {2, 1},
 		},
 		// dy=2: 3x3 full
 		{
 			{-1, -1}, {-1, 0}, {-1, 1},
-			{0, -1}, {0, 0}, {0, 1},
+			{0, -1}, {0, 1},
 			{1, -1}, {1, 0}, {1, 1},
 		},
 		// dy=3: plus/cross cap
@@ -339,7 +339,6 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 			w.BroadcastPacket(blockChange.Serialize())
 		}
 	}
-
 	delete(w.Growables, *bk)
 }
 
