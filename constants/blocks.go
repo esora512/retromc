@@ -130,7 +130,7 @@ var (
 	Trapdoor            = Block{Value: 96, Meta: 0}
 )
 
-var blockCommandMap = map[string]Block{
+var BlockCommandMap = map[string]Block{
 	"stone":                   Stone,
 	"dirt":                    Dirt,
 	"furnace":                 Furnace,
@@ -236,7 +236,7 @@ var blockCommandMap = map[string]Block{
 }
 
 func GetBlockByName(name string) Block {
-	if block, ok := blockCommandMap[name]; ok {
+	if block, ok := BlockCommandMap[name]; ok {
 		return block
 	}
 	return Block{Value: -1, Meta: 0}

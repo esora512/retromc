@@ -38,8 +38,8 @@ type Entity interface {
 }
 
 func (w *World) SnapshotEntities() []Entity {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	snapshot := make([]Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
 		snapshot = append(snapshot, e)
@@ -56,17 +56,17 @@ const (
 )
 
 type DroppedItem struct {
-	EntityId int32
-	ItemId   int32
-	Amount   byte
-	Metadata byte
-	X, Y, Z  int32
+	EntityId    int32
+	ItemId      int32
+	Amount      byte
+	Metadata    byte
+	X, Y, Z     int32
 	PickupDelay int32
 }
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	mu           sync.RWMutex
+	Mu           sync.RWMutex
 	chunks       map[ChunkCoord]*Chunk
 	changes      map[BlockKey]Block
 	Tick         int64
@@ -104,29 +104,38 @@ func NewWorld(worldType WorldType) *World {
 	}
 }
 
+func (w *World) GetFirstPlayerByName(name string) *player.Player {
+	for _, p := range w.Players {
+		if p.Username == name {
+			return p
+		}
+	}
+	return nil
+}
+
 func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	entityId := w.NextEntityId()
 	w.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
 }
 
 func (w *World) RemoveDroppedItem(entityId int32) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	delete(w.DroppedItems, entityId)
 }
 
 func (w *World) AddFallable(x int32, y byte, z int32) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	w.Fallables[BlockKey{x, y, z}] = struct{}{}
 }
 
 func (w *World) RemoveFallable(x int32, y byte, z int32) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	delete(w.Fallables, BlockKey{x, y, z})
 }
 
@@ -145,16 +154,16 @@ func (w *World) LoadChunks() map[ChunkCoord]*Chunk {
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
 func (w *World) ChunkExists(cx, cz int32) bool {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	_, ok := w.chunks[ChunkCoord{cx, cz}]
 	return ok
 }
 
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 
 	key := ChunkCoord{cx, cz}
 	if c, ok := w.chunks[key]; ok {
@@ -210,7 +219,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	chunk.SetBlock(lx, int(worldY), lz, block)
 
 	// in-memory persistence
-	w.mu.Lock()
+	w.Mu.Lock()
 	key := BlockKey{worldX, worldY, worldZ}
 	w.SetGrowable(block, key)
 
@@ -233,7 +242,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 		delete(w.LavaSources, key)
 		delete(w.FlowingLava, key)
 	}
-	w.mu.Unlock()
+	w.Mu.Unlock()
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
@@ -252,8 +261,8 @@ func (w *World) NextEntityId() int32 {
 }
 
 func (w *World) AddPlayer(p *player.Player) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	p.EntityId = int(w.NextEntityId())
 	w.Players[int32(p.EntityId)] = p
 	w.Entities[int32(p.EntityId)] = p
@@ -272,26 +281,26 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		ObjectType:    objectType,
 		HP:            4,
 	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	w.Entities[int32(entityId)] = &r
 }
 
 func (w *World) AddEntity(e Entity) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	w.Entities[e.GetEntityId()] = e
 }
 
 func (w *World) RemovePlayer(p *player.Player) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	delete(w.Players, int32(p.EntityId))
 }
 
 func (w *World) RemoveEntity(entityId int32) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	delete(w.Entities, entityId)
 }
 
@@ -307,8 +316,8 @@ func (p *SetTimePacket) Serialize() []byte {
 }
 
 func (w *World) BroadcastTime() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	packet := SetTimePacket{Time: w.Tick}
 	data := packet.Serialize()
 	for _, pl := range w.Players {
@@ -320,8 +329,8 @@ func (w *World) BroadcastTime() {
 
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
 func (w *World) BroadcastPacket(data []byte) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			pl.Connection.Write(data)
@@ -330,8 +339,8 @@ func (w *World) BroadcastPacket(data []byte) {
 }
 
 func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
@@ -340,8 +349,8 @@ func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
 }
 
 func (w *World) ForEachPlayer(fn func(*player.Player)) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			fn(pl)

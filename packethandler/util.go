@@ -211,6 +211,36 @@ func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw b
 	w.BroadcastPacket(tpkt.Serialize())
 }
 
+func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
+	tpkt := packets.TeleportEntity{
+		EntityId: c.GetEntityId(),
+		X:        int32(math.Floor(cx * 32)),
+		Y:        int32(math.Floor(cy * 32)),
+		Z:        int32(math.Floor(cz * 32)),
+		Yaw:      yaw,
+		Pitch:    0,
+	}
+	data := tpkt.Serialize()
+
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	for _, pl := range w.Players {
+		if !pl.LoggedIn {
+			continue
+		}
+		if pl.GetEntityId() == c.GetEntityId() {
+			selfPkt := packets.PlayerPositionAndLookOutPacket{ 
+				X: cx, Y: cy, Z: cz, Stance: cy + 2, OnGround: true,
+				Yaw:   float32(yaw) * 360.0 / 256.0,
+				Pitch: 0,
+			}
+			pl.Connection.Write(selfPkt.Serialize())
+			continue
+		}
+		pl.Connection.Write(data)
+	}
+}
+
 func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))

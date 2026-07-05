@@ -17,7 +17,7 @@ type BlockRecord struct {
 }
 
 func (w *World) SaveChanges(path string) error {
-	w.mu.RLock()
+	w.Mu.RLock()
 	records := make([]BlockRecord, 0, len(w.changes))
 	for k, b := range w.changes {
 		records = append(records, BlockRecord{
@@ -30,7 +30,7 @@ func (w *World) SaveChanges(path string) error {
 			SkyLight: b.SkyLight,
 		})
 	}
-	w.mu.RUnlock()
+	w.Mu.RUnlock()
 
 	f, err := os.Create(path)
 	if err != nil {
@@ -57,7 +57,7 @@ func (w *World) LoadChanges(path string) error {
 		return err
 	}
 
-	w.mu.Lock()
+	w.Mu.Lock()
 	for _, r := range records {
 		w.changes[BlockKey{r.X, r.Y, r.Z}] = Block{
 			TypeId:   r.Type,
@@ -66,7 +66,7 @@ func (w *World) LoadChanges(path string) error {
 			SkyLight: r.SkyLight,
 		}
 	}
-	w.mu.Unlock()
+	w.Mu.Unlock()
 
 	log.Printf("Loaded %d block changes from %s", len(records), path)
 	chunksToLoad := make(map[ChunkCoord]struct{})

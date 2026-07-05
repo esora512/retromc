@@ -132,7 +132,7 @@ var (
 	RecordCat = Item{Value: 2257, Meta: 0}
 )
 
-var itemMap = map[string]Item{
+var ItemMap = map[string]Item{
 	"stick":                Stick,
 	"iron_shovel":          IronShovel,
 	"iron_pickaxe":         IronPickaxe,
@@ -242,7 +242,7 @@ var itemMap = map[string]Item{
 }
 
 func GetItemByName(name string) Item {
-	if item, ok := itemMap[name]; ok {
+	if item, ok := ItemMap[name]; ok {
 		return item
 	}
 	return Item{Value: -1, Meta: 0}

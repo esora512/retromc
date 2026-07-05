@@ -1,10 +1,13 @@
 package packethandler
 
 import (
+	"regexp"
+	"sort"
 	"strings"
 
 	"fmt"
 
+	"github.com/leNicDev/retromc/constants"
 	entPack "github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
@@ -27,6 +30,7 @@ var commandHelp = []struct {
 	{"/time", "/time <set | tickspeed> <value>"},
 	{"/debug", "/debug <water | fallables | entities | growables | time | block | furnaces>"},
 	{"/help", "/help [command]"},
+	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -74,10 +78,65 @@ func handleHelpCommand(pl *player.Player, message string) {
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
+		if strings.HasPrefix(message, "/tp") {
+			args := strings.Fields(strings.TrimPrefix(message, "/tp"))
+
+			switch len(args) {
+			case 3:
+				var x, y, z float64
+				_, err := fmt.Sscanf(message, "/tp %f %f %f", &x, &y, &z)
+				if err != nil {
+					sendUsage(pl, "/tp")
+					return false
+				}
+				pl.SetPosition(x, y, z)
+				BroadcastTeleportPlayer(world, pl, x, y, z, byte(pl.Yaw))
+				return false
+
+			case 2:
+				player1Name, player2Name := args[0], args[1]
+				pl1 := world.GetFirstPlayerByName(player1Name)
+				pl2 := world.GetFirstPlayerByName(player2Name)
+				if pl1 == nil || pl2 == nil {
+					sendDebugMessage(pl, fmt.Sprintf("One or both players not found: %s, %s", player1Name, player2Name))
+					return false
+				}
+				x, y, z := pl2.GetPosition()
+				pl1.SetPosition(x, y, z)
+				BroadcastTeleportPlayer(world, pl1, x, y, z, byte(pl1.Yaw))
+				return false
+
+			default:
+				sendUsage(pl, "/tp")
+				return false
+			}
+		}
+
+		if strings.HasPrefix(message, "/tp") {
+			var x, y, z float64
+			_, err := fmt.Sscanf(message, "/tp %f %f %f", &x, &y, &z)
+			if err != nil {
+				sendUsage(pl, "/tp")
+				return false
+			}
+			pl.SetPosition(x, y, z)
+			BroadcastTeleport(world, pl, x, y, z, byte(pl.Yaw))
+			return false
+		}
+
 		if strings.HasPrefix(message, "/give") {
 			command := strings.TrimPrefix(message, "/give ")
 			if command == "" || command == "/give" {
 				sendUsage(pl, "/give")
+				return false
+			}
+			if command == "help" || command == "?" {
+				printGiveHelp(pl, "")
+				return false
+			}
+			if strings.HasPrefix(command, "? ") {
+				pattern := strings.TrimPrefix(command, "? ")
+				printGiveHelp(pl, pattern)
 				return false
 			}
 			before := pl.Inventory.PeekItem(pl.HotbarSlot)
@@ -282,4 +341,61 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	p.Message = "<" + pl.Username + "> " + message
 	world.BroadcastPacket(p.Serialize())
 	return false
+}
+
+func printGiveHelp(pl *player.Player, pattern string) {
+	var re *regexp.Regexp
+	if pattern != "" {
+		compiled, err := regexp.Compile(pattern)
+		if err != nil {
+			sendDebugMessage(pl, fmt.Sprintf("Invalid pattern '%s', falling back to substring match: %v", pattern, err))
+		} else {
+			re = compiled
+		}
+	}
+
+	matches := func(key string) bool {
+		if pattern == "" {
+			return true
+		}
+		if re != nil {
+			return re.MatchString(key)
+		}
+		return strings.Contains(key, pattern)
+	}
+
+	blockKeys := make([]string, 0, len(constants.BlockCommandMap))
+	for k := range constants.BlockCommandMap {
+		if matches(k) {
+			blockKeys = append(blockKeys, k)
+		}
+	}
+	sort.Strings(blockKeys)
+
+	itemKeys := make([]string, 0, len(constants.ItemMap))
+	for k := range constants.ItemMap {
+		if matches(k) {
+			itemKeys = append(itemKeys, k)
+		}
+	}
+	sort.Strings(itemKeys)
+
+	var lines []string
+	if pattern != "" {
+		lines = append(lines, fmt.Sprintf("Matches for '%s':", pattern))
+	}
+	lines = append(lines, "Available blocks:")
+	if len(blockKeys) == 0 {
+		lines = append(lines, "  (none)")
+	} else {
+		lines = append(lines, blockKeys...)
+	}
+	lines = append(lines, "Available items:")
+	if len(itemKeys) == 0 {
+		lines = append(lines, "  (none)")
+	} else {
+		lines = append(lines, itemKeys...)
+	}
+
+	sendDebugMessage(pl, lines...)
 }
