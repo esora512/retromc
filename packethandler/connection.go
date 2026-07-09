@@ -43,7 +43,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	sendLoginResponse(connection, pl)
 
 	GenerateSquareWorld(world)
-	SendLoadedChunks(connection, world)
+	SendLoadedChunks(connection, world, pl)
 
 	sendInventory(connection, pl)
 	sendPlayerPositionAndLook(connection)

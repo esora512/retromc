@@ -122,22 +122,31 @@ func presetInventory(inv *inventory.Inventory) {
 // 	}
 // }
 
+var WORLD_RANGE = 8
+
 func GenerateSquareWorld(world *level.World) {
-	for cx := int32(-1); cx <= 0; cx++ {
-		for cz := int32(-1); cz <= 0; cz++ {
-			world.GetOrCreateChunk(cx, cz, level.Template)
+	for cx := -WORLD_RANGE; cx <= WORLD_RANGE; cx++ {
+		for cz := -WORLD_RANGE; cz <= WORLD_RANGE; cz++ {
+			world.GetOrCreateChunk(int32(cx), int32(cz), level.Template)
 		}
 	}
 }
 
-func SendLoadedChunks(conn net.Conn, world *level.World) {
+func SendLoadedChunks(conn net.Conn, world *level.World, pl *player.Player) {
+	playerChunkX := int32(math.Floor(float64(pl.X) / 16))
+	playerChunkZ := int32(math.Floor(float64(pl.Z) / 16))
+	const radius = 2
 	for coord, chunk := range world.LoadChunks() {
 		if chunk == nil {
 			continue
 		}
+		dx := coord.X - playerChunkX
+		dz := coord.Z - playerChunkZ
+		if dx < -radius || dx > radius || dz < -radius || dz > radius {
+			continue
+		}
 		pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
 		conn.Write(pre.Serialize())
-
 		mapChunk := packets.MapChunkOutPacket{}
 		mapChunk.Apply(*chunk)
 		conn.Write(mapChunk.Serialize())
@@ -229,7 +238,7 @@ func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64,
 			continue
 		}
 		if pl.GetEntityId() == c.GetEntityId() {
-			selfPkt := packets.PlayerPositionAndLookOutPacket{ 
+			selfPkt := packets.PlayerPositionAndLookOutPacket{
 				X: cx, Y: cy, Z: cz, Stance: cy + 2, OnGround: true,
 				Yaw:   float32(yaw) * 360.0 / 256.0,
 				Pitch: 0,
