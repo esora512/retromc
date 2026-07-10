@@ -3,6 +3,7 @@ package level
 import (
 	"bytes"
 	"compress/zlib"
+	"math/rand"
 	"unsafe"
 )
 
@@ -221,7 +222,14 @@ func NewChunk(worldType WorldType) Chunk {
 	case SkyGrid:
 		chunk.GenerateSkyGrid()
 	default:
-		chunk.GenerateTemplate()
+		r := rand.Float64()
+		if r < 0.8 {
+			chunk.GenerateTemplate()
+		} else if rand.Float64() < 0.5 {
+			chunk.GenerateEmpty()
+		} else {
+			chunk.GenerateSkyGrid()
+		}
 	}
 	return chunk
 }
