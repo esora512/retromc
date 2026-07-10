@@ -135,6 +135,7 @@ func gameLoop(world *level.World) {
 			}
 
 			furnaceLogic(world)
+			world.UnloadUnusedChunks()
 
 			// Save world every 1200 ticks = every 60s
 			// if world.Tick%1200 == 0 {

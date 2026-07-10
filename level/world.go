@@ -37,6 +37,30 @@ type Entity interface {
 	GetHP() int16
 }
 
+const VIEW_DISTANCE = 4
+
+func (w *World) UnloadUnusedChunks() {
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+
+	wanted := make(map[ChunkCoord]struct{})
+	for _, pl := range w.Players {
+		cx := WorldToChunkCoord(int32(pl.X))
+		cz := WorldToChunkCoord(int32(pl.Z))
+		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
+			}
+		}
+	}
+
+	for coord := range w.chunks {
+		if _, ok := wanted[coord]; !ok {
+			delete(w.chunks, coord)
+		}
+	}
+}
+
 func (w *World) SnapshotEntities() []Entity {
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()

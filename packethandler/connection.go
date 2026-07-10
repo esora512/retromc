@@ -42,7 +42,6 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	pl.Username = p.Username
 	sendLoginResponse(connection, pl)
 
-	GenerateSquareWorld(world)
 	updateChunks(world, pl.X, pl.Y, pl)
 
 	sendInventory(connection, pl)

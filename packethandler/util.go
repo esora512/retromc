@@ -99,16 +99,7 @@ func presetInventory(inv *inventory.Inventory) {
 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 }
 
-const WORLD_RANGE = 32
 const VIEW_DISTANCE = 2
-
-func GenerateSquareWorld(world *level.World) {
-	for cx := -WORLD_RANGE; cx <= WORLD_RANGE; cx++ {
-		for cz := -WORLD_RANGE; cz <= WORLD_RANGE; cz++ {
-			world.GetOrCreateChunk(int32(cx), int32(cz), level.Template)
-		}
-	}
-}
 
 func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	cx := level.WorldToChunkCoord(int32(x))

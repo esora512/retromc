@@ -17,10 +17,13 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func LogMemStats() (string, string) {
+func LogMemStats() (string, string, string, string) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	return fmt.Sprintf("Alloc = %v MiB", m.Alloc/1024/1024), fmt.Sprintf("TotalAlloc = %v MiB", m.TotalAlloc/1024/1024)
+	return fmt.Sprintf("Alloc = %v MiB", m.Alloc/1024/1024),
+		fmt.Sprintf("Sys = %v MiB", m.Sys/1024/1024),
+		fmt.Sprintf("TotalAlloc = %v MiB", m.TotalAlloc/1024/1024),
+		fmt.Sprintf("NumGC = %v", m.NumGC)
 }
 
 // commandHelp maps each command name to a short description and usage string.
@@ -135,10 +138,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/size") {
 			sendDebugMessage(pl, fmt.Sprintf("World size = %s", world.SizeString()))
-			alloc, totalAlloc := LogMemStats()
+			alloc, sys, totalAlloc, numGC := LogMemStats()
 			sendDebugMessage(pl, alloc)
+			sendDebugMessage(pl, sys)
 			sendDebugMessage(pl, totalAlloc)
-
+			sendDebugMessage(pl, numGC)
 		}
 
 		if strings.HasPrefix(message, "/give") {
