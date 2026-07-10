@@ -3,6 +3,7 @@ package level
 import (
 	"bytes"
 	"compress/zlib"
+	"unsafe"
 )
 
 const (
@@ -19,6 +20,12 @@ type Chunk struct {
 	SizeY byte
 	SizeZ byte
 	Data  []byte
+}
+
+func (c *Chunk) Size() int64 {
+	structOverhead := int64(unsafe.Sizeof(*c))
+	dataBytes := int64(len(c.Data))
+	return structOverhead + dataBytes
 }
 
 func (c *Chunk) CompressData() []byte {

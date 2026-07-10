@@ -7,6 +7,8 @@ import (
 
 	"fmt"
 
+	"runtime"
+
 	"github.com/leNicDev/retromc/constants"
 	entPack "github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -14,6 +16,12 @@ import (
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
+
+func LogMemStats() (string, string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return fmt.Sprintf("Alloc = %v MiB", m.Alloc/1024/1024), fmt.Sprintf("TotalAlloc = %v MiB", m.TotalAlloc/1024/1024)
+}
 
 // commandHelp maps each command name to a short description and usage string.
 // Used by both /help (overview) and /help <command> (detail), and commands
@@ -31,6 +39,7 @@ var commandHelp = []struct {
 	{"/debug", "/debug <water | fallables | entities | growables | time | block | furnaces>"},
 	{"/help", "/help [command]"},
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
+	{"/size", "/size"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -122,6 +131,14 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			pl.SetPosition(x, y, z)
 			BroadcastTeleport(world, pl, x, y, z, byte(pl.Yaw))
 			return false
+		}
+
+		if strings.HasPrefix(message, "/size") {
+			sendDebugMessage(pl, fmt.Sprintf("World size = %s", world.SizeString()))
+			alloc, totalAlloc := LogMemStats()
+			sendDebugMessage(pl, alloc)
+			sendDebugMessage(pl, totalAlloc)
+
 		}
 
 		if strings.HasPrefix(message, "/give") {

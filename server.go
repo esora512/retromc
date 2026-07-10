@@ -40,6 +40,9 @@ func main() {
 		log.Println("Failed to load container save:", err)
 	}
 	gameLoop(world)
+	// go func() {
+	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
 
 	for {
 		// listen for incoming connections
@@ -51,6 +54,7 @@ func main() {
 		// handle connection
 		go handleConnection(connection, world)
 	}
+
 }
 
 func handleKeepAlive(connection net.Conn, stop chan struct{}) {

@@ -2,7 +2,6 @@ package level
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/leNicDev/retromc/constants"
@@ -46,6 +45,47 @@ func (w *World) SnapshotEntities() []Entity {
 		snapshot = append(snapshot, e)
 	}
 	return snapshot
+}
+
+func (w *World) Size() int64 {
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+
+	var total int64
+	for _, c := range w.chunks {
+		if c == nil {
+			continue
+		}
+		total += c.Size()
+	}
+	return total
+}
+
+func (c *Chunk) SizeString() string {
+	return formatBytes(c.Size())
+}
+
+func (w *World) SizeString() string {
+	return formatBytes(w.Size())
+}
+
+func formatBytes(b int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+
+	switch {
+	case b >= GB:
+		return fmt.Sprintf("%.2f GB", float64(b)/float64(GB))
+	case b >= MB:
+		return fmt.Sprintf("%.2f MB", float64(b)/float64(MB))
+	case b >= KB:
+		return fmt.Sprintf("%.2f KB", float64(b)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 type WorldType int
@@ -176,9 +216,6 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	c.Z = cz * CHUNK_SIZE_Z
 
 	// Replay any persisted block changes that fall in this chunk.
-	if len(w.changes) == 0 {
-		log.Print("INFO: No world changes, nothing to re-play")
-	}
 	for k, b := range w.changes {
 		if WorldToChunkCoord(k.X) == cx && WorldToChunkCoord(k.Z) == cz {
 			lx := WorldToLocalCoord(k.X)

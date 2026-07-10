@@ -99,7 +99,7 @@ func presetInventory(inv *inventory.Inventory) {
 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 }
 
-const WORLD_RANGE = 8
+const WORLD_RANGE = 32
 const VIEW_DISTANCE = 2
 
 func GenerateSquareWorld(world *level.World) {
