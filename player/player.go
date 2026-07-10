@@ -71,6 +71,21 @@ func (si *SelectedItem) SetItem(item inventory.Item, slot int16, actionNumber in
 	si.Selected = true
 }
 
+type ChunkCoord struct {
+	X, Z int32
+}
+
+type ChunkSet map[string]*ChunkCoord
+
+func (s ChunkSet) Has(key string) bool {
+	_, ok := s[key]
+	return ok
+}
+
+func (s ChunkSet) Set(key string, x, z int32) {
+	s[key] = &ChunkCoord{X: x, Z: z}
+}
+
 type Player struct {
 	Username     string
 	EntityId     int
@@ -99,7 +114,10 @@ type Player struct {
 	IsCreative           bool
 	DebugBlock           bool
 
-	SentChunks map[string]bool
+	SentChunks           ChunkSet
+	LastChunkX           int32
+	LastChunkZ           int32
+	HasInitializedChunks bool
 
 	HP int16
 }
@@ -147,7 +165,7 @@ func NewPlayer(conn net.Conn) *Player {
 		LYaw:                 0,
 		LPitch:               0,
 		IsCreative:           false,
-		SentChunks:           make(map[string]bool),
+		SentChunks:           make(ChunkSet),
 		DebugBlock:           false,
 		HP:                   20,
 	}

@@ -128,6 +128,7 @@ func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player,
 // 	}
 // }
 
+
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
@@ -183,6 +184,7 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
+	updateChunks(world, x, z, pl)
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
@@ -226,6 +228,8 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
+	updateChunks(world, x, z, pl)
+
 }
 
 func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
@@ -875,14 +879,14 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	cx := level.WorldToChunkCoord(int32(newX))
 	cz := level.WorldToChunkCoord(int32(newZ))
 	coord := level.ChunkCoord{X: cx, Z: cz}
-	if !pl.SentChunks[coord.String()] {
+	if !pl.SentChunks.Has(coord.String()) {
 		chunk := world.GetOrCreateChunk(cx, cz, level.Empty)
 		pre := packets.PreChunkOutPacket{X: cx, Z: cz, Mode: true}
 		connection.Write(pre.Serialize())
 		mapChunk := packets.MapChunkOutPacket{}
 		mapChunk.Apply(*chunk)
 		connection.Write(mapChunk.Serialize())
-		pl.SentChunks[coord.String()] = true
+		pl.SentChunks.Set(coord.String(), coord.X, coord.Z)
 	}
 }
 

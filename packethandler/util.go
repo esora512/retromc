@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"fmt"
 	"log"
 	"net"
 
@@ -98,31 +99,8 @@ func presetInventory(inv *inventory.Inventory) {
 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 }
 
-// sendChunks sends a 2x2 grid of chunks around the spawn point.
-// Each chunk needs a PreChunk (init) followed by its MapChunk (data).
-// Chunks are fetched from the world so any already-mutated state is preserved.
-// func sendChunks(connection net.Conn, world *level.World) {
-// 	for cx := int32(-1); cx <= 0; cx++ {
-// 		for cz := int32(-1); cz <= 0; cz++ {
-// 			// pre-chunk: uses chunk coordinates
-// 			preChunkPacket := packets.PreChunkOutPacket{
-// 				X:    cx,
-// 				Z:    cz,
-// 				Mode: true,
-// 			}
-// 			connection.Write(preChunkPacket.Serialize())
-
-// 			// map-chunk: X/Z are block coordinates of the chunk's origin
-// 			chunk := world.GetOrCreateChunk(cx, cz, level.Template)
-
-// 			mapChunkPacket := packets.MapChunkOutPacket{}
-// 			mapChunkPacket.Apply(*chunk)
-// 			connection.Write(mapChunkPacket.Serialize())
-// 		}
-// 	}
-// }
-
-var WORLD_RANGE = 8
+const WORLD_RANGE = 8
+const VIEW_DISTANCE = 2
 
 func GenerateSquareWorld(world *level.World) {
 	for cx := -WORLD_RANGE; cx <= WORLD_RANGE; cx++ {
@@ -132,25 +110,59 @@ func GenerateSquareWorld(world *level.World) {
 	}
 }
 
-func SendLoadedChunks(conn net.Conn, world *level.World, pl *player.Player) {
-	playerChunkX := int32(math.Floor(float64(pl.X) / 16))
-	playerChunkZ := int32(math.Floor(float64(pl.Z) / 16))
-	const radius = 2
-	for coord, chunk := range world.LoadChunks() {
-		if chunk == nil {
-			continue
-		}
-		dx := coord.X - playerChunkX
-		dz := coord.Z - playerChunkZ
-		if dx < -radius || dx > radius || dz < -radius || dz > radius {
-			continue
-		}
-		pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
-		conn.Write(pre.Serialize())
-		mapChunk := packets.MapChunkOutPacket{}
-		mapChunk.Apply(*chunk)
-		conn.Write(mapChunk.Serialize())
+func updateChunks(world *level.World, x, z float64, pl *player.Player) {
+	cx := level.WorldToChunkCoord(int32(x))
+	cz := level.WorldToChunkCoord(int32(z))
+
+	// Nothing to do if we haven't crossed a chunk boundary
+	if cx == pl.LastChunkX && cz == pl.LastChunkZ && pl.HasInitializedChunks {
+		return
 	}
+
+	wanted := make(map[string]level.ChunkCoord)
+	for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+		for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+			coord := level.ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}
+			wanted[coord.String()] = coord
+		}
+	}
+
+	// Send any chunk in range that hasn't been sent yet
+	for key, coord := range wanted {
+		if !pl.SentChunks.Has(key) {
+			chunk := world.GetOrCreateChunk(coord.X, coord.Z, level.Empty)
+
+			pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
+			pl.Connection.Write(pre.Serialize())
+
+			mapChunk := packets.MapChunkOutPacket{}
+			mapChunk.Apply(*chunk)
+			pl.Connection.Write(mapChunk.Serialize())
+
+			pl.SentChunks.Set(key, coord.X, coord.Z)
+		}
+	}
+
+	// Unload chunks that fell out of range
+	for key, coord := range pl.SentChunks {
+		if _, ok := wanted[key]; !ok {
+			unload := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: false}
+			pl.Connection.Write(unload.Serialize())
+			delete(pl.SentChunks, key)
+		}
+	}
+	pl.LastChunkX = cx
+	pl.LastChunkZ = cz
+	pl.HasInitializedChunks = true
+}
+
+func decodeChunkCoord(key string) (level.ChunkCoord, bool) {
+	var x, z int32
+	n, err := fmt.Sscanf(key, "%d,%d", &x, &z)
+	if err != nil || n != 2 {
+		return level.ChunkCoord{}, false
+	}
+	return level.ChunkCoord{X: x, Z: z}, true
 }
 
 // TODO: Crashes the client for some reason

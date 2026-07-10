@@ -2,6 +2,7 @@ package level
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/leNicDev/retromc/constants"
@@ -175,6 +176,9 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	c.Z = cz * CHUNK_SIZE_Z
 
 	// Replay any persisted block changes that fall in this chunk.
+	if len(w.changes) == 0 {
+		log.Print("INFO: No world changes, nothing to re-play")
+	}
 	for k, b := range w.changes {
 		if WorldToChunkCoord(k.X) == cx && WorldToChunkCoord(k.Z) == cz {
 			lx := WorldToLocalCoord(k.X)
