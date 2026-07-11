@@ -128,7 +128,6 @@ func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player,
 // 	}
 // }
 
-
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
@@ -319,15 +318,15 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 
 	if oldBlock.TypeId == byte(constants.Chest.Value) {
-		inventory.RemoveChest(p.X, int32(p.Y), p.Z)
+		world.RemoveChest(p.X, int32(p.Y), p.Z)
 	}
 
 	if oldBlock.TypeId == byte(constants.Dispenser.Value) {
-		inventory.RemoveDispenser(p.X, int32(p.Y), p.Z)
+		world.RemoveDispenser(p.X, int32(p.Y), p.Z)
 	}
 
 	if oldBlock.TypeId == byte(constants.Furnace.Value) || oldBlock.TypeId == byte(constants.FurnaceLit.Value) {
-		inventory.RemoveFurnace(p.X, int32(p.Y), p.Z)
+		world.RemoveFurnace(p.X, int32(p.Y), p.Z)
 	}
 
 	air := level.NewAirBlock()
@@ -464,7 +463,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if oldExisting.TypeId == byte(constants.Chest.Value) {
-		chest := inventory.GetChest(p.X, int32(p.Y), p.Z)
+		chest := world.GetChest(p.X, int32(p.Y), p.Z)
 		chestPacket := packets.NewChest(byte(chest.Size))
 		connection.Write(chestPacket.Serialize())
 		pl.InventoryType = player.ChestInventory
@@ -476,7 +475,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if oldExisting.TypeId == byte(constants.Dispenser.Value) {
-		dispenser := inventory.GetDispenser(p.X, int32(p.Y), p.Z)
+		dispenser := world.GetDispenser(p.X, int32(p.Y), p.Z)
 		if dispenser == nil {
 			return
 		}
@@ -491,7 +490,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if oldExisting.TypeId == byte(constants.Furnace.Value) || oldExisting.TypeId == byte(constants.FurnaceLit.Value) {
-		furnace := inventory.GetFurnace(p.X, int32(p.Y), p.Z)
+		furnace := world.GetFurnace(p.X, int32(p.Y), p.Z)
 		if furnace == nil {
 			return
 		}
@@ -745,21 +744,21 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if block.IsDirectional() {
 		if block.TypeId == byte(constants.Chest.Value) {
-			check := inventory.PlaceChest(int32(newX), int32(newY), int32(newZ))
+			check := world.PlaceChest(int32(newX), int32(newY), int32(newZ))
 			if !check {
 				return
 			}
 		}
 
 		if block.TypeId == byte(constants.Dispenser.Value) {
-			check := inventory.PlaceDispenser(int32(newX), int32(newY), int32(newZ))
+			check := world.PlaceDispenser(int32(newX), int32(newY), int32(newZ))
 			if !check {
 				return
 			}
 		}
 
 		if block.TypeId == byte(constants.Furnace.Value) {
-			check := inventory.PlaceFurnace(int32(newX), int32(newY), int32(newZ))
+			check := world.PlaceFurnace(int32(newX), int32(newY), int32(newZ))
 			if !check {
 				return
 			}

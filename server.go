@@ -36,7 +36,7 @@ func main() {
 	if err := world.LoadChanges(worldSavePath); err != nil {
 		log.Println("Failed to load world save:", err)
 	}
-	if err := inventory.LoadContainers(containerSavePath); err != nil {
+	if err := world.LoadContainers(containerSavePath); err != nil {
 		log.Println("Failed to load container save:", err)
 	}
 	gameLoop(world)
@@ -298,5 +298,6 @@ func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
 }
 
 func furnaceLogic(world *level.World) {
-	inventory.TickFurnaces(makeSendFurnaceProgress(world), makeSendFurnaceSlot(world), makeSetFurnaceBlock(world))
+	furnaces := world.GetAllFurnaces()
+	inventory.TickFurnaces(furnaces, makeSendFurnaceProgress(world), makeSendFurnaceSlot(world), makeSetFurnaceBlock(world))
 }

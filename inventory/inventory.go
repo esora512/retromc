@@ -21,6 +21,10 @@ const (
 	ChestEnd   = 26
 )
 
+type ContainerPosition struct {
+	X, Y, Z int32
+}
+
 type ItemContainer interface {
 	PeekItem(slot int16) Item
 	SetItem(slot int16, typeId int16, count byte, metadata uint16)

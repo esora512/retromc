@@ -1,22 +1,15 @@
 package inventory
 
 import (
-	"fmt"
 	"log"
 )
 
 const DISPENSER_SIZE = 9
 
-type DispenserPosition struct {
-	X int32
-	Y int32
-	Z int32
-}
-
 type Dispenser struct {
 	Size     uint16
 	Items    []Item
-	Position DispenserPosition
+	Position ContainerPosition
 }
 
 func NewDispenser() *Dispenser {
@@ -31,7 +24,7 @@ func NewDispenser() *Dispenser {
 }
 
 func (d *Dispenser) SetPosition(x, y, z int32) {
-	d.Position = DispenserPosition{x, y, z}
+	d.Position = ContainerPosition{X: x, Y: y, Z: z}
 }
 
 func (d *Dispenser) PeekItem(slot int16) Item {
@@ -71,54 +64,6 @@ func (d *Dispenser) Print() {
 		log.Printf("  slot %2d | id %-5d | count %d", i, item.TypeId, item.Count)
 	}
 	log.Println("=================")
-}
-
-var dispenserRegistry map[string]*Dispenser
-
-func GetDispenser(x, y, z int32) *Dispenser {
-	if dispenserRegistry == nil {
-		dispenserRegistry = make(map[string]*Dispenser)
-	}
-
-	key := dispenserKey(x, y, z)
-
-	if dispenser, ok := dispenserRegistry[key]; ok {
-		return dispenser
-	}
-	return nil
-}
-
-func dispenserKey(x, y, z int32) string {
-	return fmt.Sprintf("%d:%d:%d", x, y, z)
-}
-
-func initDispenserRegistry() {
-	if dispenserRegistry == nil {
-		dispenserRegistry = make(map[string]*Dispenser)
-	}
-}
-
-func PlaceDispenser(x, y, z int32) bool {
-	initDispenserRegistry()
-
-	key := dispenserKey(x, y, z)
-
-	if _, ok := dispenserRegistry[key]; ok {
-		return false
-	}
-
-	dispenser := NewDispenser()
-	dispenser.SetPosition(x, y, z)
-	dispenserRegistry[key] = dispenser
-	return true
-}
-
-func RemoveDispenser(x, y, z int32) {
-	if dispenserRegistry == nil {
-		return
-	}
-	key := dispenserKey(x, y, z)
-	delete(dispenserRegistry, key)
 }
 
 func (d *Dispenser) IsInDispenser(slot int16) bool {

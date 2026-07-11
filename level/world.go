@@ -6,6 +6,7 @@ import (
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
 )
@@ -146,8 +147,10 @@ type World struct {
 	DroppedItems map[int32]*DroppedItem
 	WorldType    WorldType
 
-	Growables map[BlockKey]Growable
-	TickSpeed int64
+	Growables       map[BlockKey]Growable
+	TickSpeed       int64
+	Containers      Containers
+	ChestPlacements ChestPlacement
 }
 
 func NewWorld(worldType WorldType) *World {
@@ -166,6 +169,15 @@ func NewWorld(worldType WorldType) *World {
 		Growables:    make(map[BlockKey]Growable),
 		TickSpeed:    1,
 		DroppedItems: make(map[int32]*DroppedItem),
+		Containers: Containers{
+			Chests:     make(map[BlockKey]*inventory.Chest),
+			Dispensers: make(map[BlockKey]*inventory.Dispenser),
+			Furnaces:   make(map[BlockKey]*inventory.Furnace),
+		},
+		ChestPlacements: ChestPlacement{
+			AdjacentSlots:  make(map[BlockKey]BlockKey),
+			ForbiddenSlots: make(map[BlockKey]struct{}),
+		},
 	}
 }
 

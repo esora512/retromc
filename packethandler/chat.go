@@ -11,7 +11,6 @@ import (
 
 	"github.com/leNicDev/retromc/constants"
 	entPack "github.com/leNicDev/retromc/entities"
-	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -180,7 +179,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			} else {
 				lines = append(lines, "Player data saved successfully.")
 			}
-			if err := inventory.SaveContainers("saves/containers.dat"); err != nil {
+			if err := world.SaveContainers("saves/containers.dat"); err != nil {
 				lines = append(lines, fmt.Sprintf("Failed to save containers: %v", err))
 			} else {
 				lines = append(lines, "Containers saved successfully.")
@@ -276,7 +275,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			switch command {
 			case "players":
 				entities := world.SnapshotEntities()
-				lines := []string{fmt.Sprintf("Players:")}
+				lines := []string{"Players:"}
 				for _, e := range entities {
 					if e.IsPlayer() {
 						x, y, z := e.GetPosition()
@@ -286,7 +285,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendDebugMessage(pl, lines...)
 
 			case "furnaces":
-				for key, f := range inventory.FurnaceRegistry {
+				for key, f := range world.Containers.Furnaces {
 					sendDebugMessage(pl, fmt.Sprintf("Furnace %s:", key))
 					for i, item := range f.Items {
 						sendDebugMessage(pl, fmt.Sprintf("  slot %d: id=%d count=%d meta=%d", i, item.TypeId, item.Count, item.Metadata))

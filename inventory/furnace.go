@@ -1,7 +1,6 @@
 package inventory
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/leNicDev/retromc/constants"
@@ -66,16 +65,10 @@ func IsFuel(typeId int16) bool {
 	return FuelBurnTime(typeId) != 0
 }
 
-type FurnacePosition struct {
-	X int32
-	Y int32
-	Z int32
-}
-
 type Furnace struct {
 	Size     uint16
 	Items    []Item
-	Position FurnacePosition
+	Position ContainerPosition
 
 	Progress   int
 	FuelRemain int
@@ -128,8 +121,8 @@ func (f *Furnace) Output() (bool, Item) {
 	return false, Item{}
 }
 
-func TickFurnaces(sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16), setBlock func(x, y, z int16, lit bool)) {
-	for _, furnace := range FurnaceRegistry {
+func TickFurnaces(furnaces []*Furnace, sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16), setBlock func(x, y, z int16, lit bool)) {
+	for _, furnace := range furnaces {
 		prog, fMax, remain := furnace.Smelt(setSlot)
 		sendProgress(prog, fMax, remain)
 		if furnace.IsBurning {
@@ -176,7 +169,7 @@ func NewFurnace() *Furnace {
 }
 
 func (f *Furnace) SetPosition(x, y, z int32) {
-	f.Position = FurnacePosition{x, y, z}
+	f.Position = ContainerPosition{X: x, Y: y, Z: z}
 }
 
 func (f *Furnace) PeekItem(slot int16) Item {
@@ -216,52 +209,4 @@ func (f *Furnace) Print() {
 		log.Printf("  slot %2d | id %-5d | count %d", i, item.TypeId, item.Count)
 	}
 	log.Println("=================")
-}
-
-var FurnaceRegistry map[string]*Furnace
-
-func initFurnaceRegistry() {
-	if FurnaceRegistry == nil {
-		FurnaceRegistry = make(map[string]*Furnace)
-	}
-}
-
-func GetFurnace(x, y, z int32) *Furnace {
-	if FurnaceRegistry == nil {
-		FurnaceRegistry = make(map[string]*Furnace)
-	}
-
-	key := furnaceKey(x, y, z)
-
-	if furnace, ok := FurnaceRegistry[key]; ok {
-		return furnace
-	}
-	return nil
-}
-
-func furnaceKey(x, y, z int32) string {
-	return fmt.Sprintf("%d:%d:%d", x, y, z)
-}
-
-func PlaceFurnace(x, y, z int32) bool {
-	initFurnaceRegistry()
-
-	key := furnaceKey(x, y, z)
-
-	if _, ok := FurnaceRegistry[key]; ok {
-		return false
-	}
-
-	furnace := NewFurnace()
-	furnace.SetPosition(x, y, z)
-	FurnaceRegistry[key] = furnace
-	return true
-}
-
-func RemoveFurnace(x, y, z int32) {
-	if FurnaceRegistry == nil {
-		return
-	}
-	key := furnaceKey(x, y, z)
-	delete(FurnaceRegistry, key)
 }

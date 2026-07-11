@@ -55,7 +55,7 @@ func broadcastChestContents(world *level.World, source *player.Player, chest *in
 		if pl == source || pl.InventoryType != player.ChestInventory {
 			return
 		}
-		if inventory.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z) == chest {
+		if world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z) == chest {
 			for i := int16(0); i < int16(chest.Size); i++ {
 				sendSetSlot(pl.Connection, 1, i, chest.PeekItem(i))
 			}
@@ -68,7 +68,7 @@ func broadcastDispenserContents(world *level.World, source *player.Player, dispe
 		if pl == source || pl.InventoryType != player.DispenserInventory {
 			return
 		}
-		if inventory.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z) == dispenser {
+		if world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z) == dispenser {
 			for i := int16(0); i < int16(dispenser.Size); i++ {
 				sendSetSlot(pl.Connection, 1, i, dispenser.PeekItem(i))
 			}
@@ -81,7 +81,7 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 		if pl == source || pl.InventoryType != player.FurnaceInventory {
 			return
 		}
-		if inventory.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z) == furnace {
+		if world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z) == furnace {
 			for i := int16(0); i < int16(furnace.Size); i++ {
 				sendSetSlot(pl.Connection, 1, i, furnace.PeekItem(i))
 			}
@@ -89,15 +89,15 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 	})
 }
 
-// presetInventory writes the starting items directly into the player's in-memory
-// inventory. The caller is responsible for sending the inventory to the client.
-func presetInventory(inv *inventory.Inventory) {
-	return
-	// inv.SetItem(36, constants.Rail.Value, 16, 0)
-	// inv.SetItem(37, constants.Minecart.Value, 1, 0)
-	// inv.SetItem(38, constants.Stone.Value, 64, 0)
-	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
-}
+// // presetInventory writes the starting items directly into the player's in-memory
+// // inventory. The caller is responsible for sending the inventory to the client.
+// func presetInventory(inv *inventory.Inventory) {
+// 	return
+// 	// inv.SetItem(36, constants.Rail.Value, 16, 0)
+// 	// inv.SetItem(37, constants.Minecart.Value, 1, 0)
+// 	// inv.SetItem(38, constants.Stone.Value, 64, 0)
+// 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
+// }
 
 const VIEW_DISTANCE = 2
 
@@ -168,13 +168,13 @@ func decodeChunkCoord(key string) (level.ChunkCoord, bool) {
 // }
 
 func sendInventory(connection net.Conn, pl *player.Player) {
-	loaded, err := player.LoadInventory(pl.Username, &pl.Inventory)
+	_, err := player.LoadInventory(pl.Username, &pl.Inventory)
 	if err != nil {
 		log.Printf("Failed to load inventory for %s: %v", pl.Username, err)
 	}
-	if !loaded {
-		presetInventory(&pl.Inventory)
-	}
+	// if !loaded {
+	// 	presetInventory(&pl.Inventory)
+	// }
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),
