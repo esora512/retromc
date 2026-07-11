@@ -73,7 +73,7 @@ func buildDispenserNBT(x, y, z int32, dispenser *inventory.Dispenser) *mcregion.
 	}
 
 	comp := mcregion.NewCompound()
-	comp.String("id", "Dispenser")
+	comp.String("id", "Trap")
 	comp.Int("x", x)
 	comp.Int("y", y)
 	comp.Int("z", z)

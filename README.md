@@ -3,7 +3,7 @@ A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDe
 
 ## Goal
 * Create a functional Minecraft Beta 1.7.3 server 
-* Support initial Skyblock gameplay in a world with no mobs
+* Support basic liminal-space like world gen
 * Play and have fun on that server
 
 ## Side goals
@@ -23,3 +23,4 @@ A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDe
     * Run `sudo tshark -i lo -f "host 127.0.0.1 and tcp port 25565"` on a detached screen
     * Run `python3 BetaPacketPlainTextifier.py -v` (tool can be found [here](https://github.com/OfficialPixelBrush/BetaPacketPlainTextifier))
     * Allows you to inspects packets between client & server
+* NBT Reference: https://github.com/OfficialPixelBrush/BetrockPlusPlus/blob/main/src/bpp_shared/world/storage/region.cpp#L364
