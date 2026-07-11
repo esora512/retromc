@@ -1,10 +1,3 @@
-// This file is meant to live in your `level` package (e.g.
-// level/save_mcregion.go), not in the mcregion package itself — it needs
-// access to World.GetBlock, World.LoadChunks, ChunkCoord, etc. It's kept
-// here only so it ships alongside the mcregion package for reference.
-//
-// Adjust the import path below to match your module, and CHUNK_HEIGHT if
-// your world isn't the classic 128-block-tall Beta format.
 package level
 
 import (
@@ -14,13 +7,82 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
 )
 
-const CHUNK_HEIGHT = 128 
+const CHUNK_HEIGHT = 128
+
+// buildItemNBT encodes one inventory slot. Empty slots should just be
+// omitted from the Items list entirely — Beta format doesn't pad it.
+func buildItemNBT(slot int, itemID int16, damage int16, count byte) *mcregion.Compound {
+	item := mcregion.NewCompound()
+	item.Short("id", itemID)
+	item.Short("Damage", damage)
+	item.Byte("Count", count)
+	item.Byte("Slot", byte(slot))
+	return item
+}
+
+func buildChestNBT(x, y, z int32, chest *inventory.Chest) *mcregion.Compound {
+	var items []*mcregion.Compound
+	for slot, stack := range chest.Items {
+		if stack.TypeId == -1 || stack.Count == 0 {
+			continue
+		}
+		items = append(items, buildItemNBT(slot, stack.TypeId, int16(stack.Metadata), stack.Count))
+	}
+
+	comp := mcregion.NewCompound()
+	comp.String("id", "Chest")
+	comp.Int("x", x)
+	comp.Int("y", y)
+	comp.Int("z", z)
+	comp.CompoundList("Items", items)
+	return comp
+}
+
+func buildFurnaceNBT(x, y, z int32, furnace *inventory.Furnace) *mcregion.Compound {
+	var items []*mcregion.Compound
+	if furnace.Items[0].TypeId != -1 && furnace.Items[0].Count > 0 {
+		items = append(items, buildItemNBT(0, furnace.Items[0].TypeId, int16(furnace.Items[0].Metadata), furnace.Items[0].Count))
+	}
+	if furnace.Items[1].TypeId != -1 && furnace.Items[1].Count > 0 {
+		items = append(items, buildItemNBT(1, furnace.Items[1].TypeId, int16(furnace.Items[1].Metadata), furnace.Items[1].Count))
+	}
+	if furnace.Items[2].TypeId != -1 && furnace.Items[2].Count > 0 {
+		items = append(items, buildItemNBT(2, furnace.Items[2].TypeId, int16(furnace.Items[2].Metadata), furnace.Items[2].Count))
+	}
+
+	comp := mcregion.NewCompound()
+	comp.String("id", "Furnace")
+	comp.Int("x", x)
+	comp.Int("y", y)
+	comp.Int("z", z)
+	comp.CompoundList("Items", items)
+	return comp
+}
+
+func buildDispenserNBT(x, y, z int32, dispenser *inventory.Dispenser) *mcregion.Compound {
+	var items []*mcregion.Compound
+	for slot, stack := range dispenser.Items {
+		if stack.TypeId == -1 || stack.Count == 0 {
+			continue
+		}
+		items = append(items, buildItemNBT(slot, stack.TypeId, int16(stack.Metadata), stack.Count))
+	}
+
+	comp := mcregion.NewCompound()
+	comp.String("id", "Dispenser")
+	comp.Int("x", x)
+	comp.Int("y", y)
+	comp.Int("z", z)
+	comp.CompoundList("Items", items)
+	return comp
+}
 
 // Uses chunk.GetBlock to build NBT chunk block by block
-func buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Compound {
+func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Compound {
 	blocks := make([]byte, 16*CHUNK_HEIGHT*16)
 	data := make([]byte, len(blocks)/2)
 	skyLight := make([]byte, len(blocks)/2)
@@ -66,7 +128,54 @@ func buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Compound {
 	level.ByteArray("BlockLight", blockLight)
 	level.ByteArray("HeightMap", heightMap)
 	level.EmptyList("Entities")
-	level.EmptyList("TileEntities")
+
+	if len(w.Containers.Chests) > 0 {
+		var tileEntities []*mcregion.Compound
+		for pos, inv := range w.Containers.Chests {
+			chunkX := WorldToChunkCoord(pos.X)
+			chunkZ := WorldToChunkCoord(pos.Z)
+			if chunkX != cx || chunkZ != cz {
+				continue
+			}
+			// Negative coord correction
+			lx := pos.X & 15
+			lz := pos.Z & 15
+			worldX := cx*16 + lx
+			worldZ := cz*16 + lz
+			tileEntities = append(tileEntities, buildChestNBT(worldX, int32(pos.Y), worldZ, inv))
+		}
+
+		for pos, inv := range w.Containers.Furnaces {
+			chunkX := WorldToChunkCoord(pos.X)
+			chunkZ := WorldToChunkCoord(pos.Z)
+			if chunkX != cx || chunkZ != cz {
+				continue
+			}
+			lx := pos.X & 15
+			lz := pos.Z & 15
+			worldX := cx*16 + lx
+			worldZ := cz*16 + lz
+			tileEntities = append(tileEntities, buildFurnaceNBT(worldX, int32(pos.Y), worldZ, inv))
+		}
+
+		for pos, inv := range w.Containers.Dispensers {
+			chunkX := WorldToChunkCoord(pos.X)
+			chunkZ := WorldToChunkCoord(pos.Z)
+			if chunkX != cx || chunkZ != cz {
+				continue
+			}
+			lx := pos.X & 15
+			lz := pos.Z & 15
+			worldX := cx*16 + lx
+			worldZ := cz*16 + lz
+			tileEntities = append(tileEntities, buildDispenserNBT(worldX, int32(pos.Y), worldZ, inv))
+		}
+
+		level.CompoundList("TileEntities", tileEntities)
+	} else {
+		level.EmptyList("TileEntities")
+	}
+
 	level.EmptyList("TileTicks")
 
 	root := mcregion.NewCompound()
@@ -94,7 +203,7 @@ func SaveMcRegion(w *World, worldDir string) error {
 		if byRegion[rkey] == nil {
 			byRegion[rkey] = make(map[[2]int32]*mcregion.Compound)
 		}
-		byRegion[rkey][[2]int32{lx, lz}] = buildChunkNBT(ch, coord.X, coord.Z, tick)
+		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, tick)
 	}
 
 	regionDir := filepath.Join(worldDir, "region")

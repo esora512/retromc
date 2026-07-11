@@ -1,8 +1,5 @@
 package mcregion
 
-// A tiny NBT (big-endian) encoder — just enough to write Beta 1.7.3 chunk
-// and level.dat data. Not a general-purpose NBT library.
-
 import (
 	"bytes"
 	"encoding/binary"
@@ -105,4 +102,15 @@ func (c *Compound) Root() []byte {
 	out.Write(c.buf.Bytes())
 	out.WriteByte(tagEnd)
 	return out.Bytes()
+}
+
+func (c *Compound) CompoundList(name string, children []*Compound) {
+	c.buf.WriteByte(tagList)
+	writeName(&c.buf, name)
+	c.buf.WriteByte(tagCompound)
+	binary.Write(&c.buf, binary.BigEndian, int32(len(children)))
+	for _, child := range children {
+		c.buf.Write(child.Bytes())
+		c.buf.WriteByte(tagEnd)
+	}
 }
