@@ -106,25 +106,25 @@ func gameLoop(world *level.World) {
 			// For fast time, set it to TickSpeed to 20
 			world.Tick = (world.Tick + world.TickSpeed) % 24000
 			world.BroadcastTime()
-			fallingBlocksPhysics(world)
+			//fallingBlocksPhysics(world)
 			ridablePhysics(world)
-			world.CleanUpFallable()
+			//world.CleanUpFallable()
 			world.GrowPhysics()
 			packethandler.CollectNearbyItems(world)
 			packethandler.ApplyGravityOnDroppedItems(world)
-			level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
-			if world.Tick%20 == 0 || world.Tick%60 == 0 {
-				waterCfg := level.NewWaterConfig(world)
-				lavaCfg := level.NewLavaConfig(world)
-				level.FluidDecay(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.FluidSpreading(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.InfiniteWaterSource(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.RefreshSourceBlocks(world, waterCfg, packethandler.SetBlockAndNotify)
-				level.FluidDecay(world, lavaCfg, packethandler.SetBlockAndNotify)
-				if world.Tick%60 == 0 {
-					level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
-				}
-			}
+			//level.CheckLavaHarden(world, packethandler.SetBlockAndNotify)
+			// if world.Tick%20 == 0 || world.Tick%60 == 0 {
+			// 	waterCfg := level.NewWaterConfig(world)
+			// 	lavaCfg := level.NewLavaConfig(world)
+			// 	level.FluidDecay(world, waterCfg, packethandler.SetBlockAndNotify)
+			// 	level.FluidSpreading(world, waterCfg, packethandler.SetBlockAndNotify)
+			// 	level.InfiniteWaterSource(world, waterCfg, packethandler.SetBlockAndNotify)
+			// 	level.RefreshSourceBlocks(world, waterCfg, packethandler.SetBlockAndNotify)
+			// 	level.FluidDecay(world, lavaCfg, packethandler.SetBlockAndNotify)
+			// 	if world.Tick%60 == 0 {
+			// 		level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
+			// 	}
+			// }
 			furnaceLogic(world)
 			world.UnloadUnusedChunks()
 		}

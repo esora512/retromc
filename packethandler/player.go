@@ -334,7 +334,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	if oldBlock.TypeId == byte(constants.Sand.Value) || oldBlock.TypeId == byte(constants.Gravel.Value) {
 		world.RemoveFallable(p.X, p.Y, p.Z)
 	}
-	fallingBlockCheck(world)
+	//fallingBlockCheck(world)
 
 	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -873,7 +873,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
-	fallingBlockCheck(world)
+	//fallingBlockCheck(world)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
