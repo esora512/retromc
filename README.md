@@ -24,3 +24,6 @@ A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDe
     * Run `python3 BetaPacketPlainTextifier.py -v` (tool can be found [here](https://github.com/OfficialPixelBrush/BetaPacketPlainTextifier))
     * Allows you to inspects packets between client & server
 * NBT Reference: https://github.com/OfficialPixelBrush/BetrockPlusPlus/blob/main/src/bpp_shared/world/storage/region.cpp#L364
+
+## Golang
+* https://github.com/sasha-s/go-deadlock (Helps to debug deadlocks; became more relevant in this codebase)

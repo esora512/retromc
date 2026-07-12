@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
-	"sync"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -12,6 +11,7 @@ import (
 	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // ChunkCoord is the map key for a chunk's position in the world.
@@ -46,6 +46,11 @@ const VIEW_DISTANCE = 4
 func (w *World) GetLoadedChunk(x, z int32) *Chunk {
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
+	return w.getLoadedChunkLocked(x, z)
+}
+
+// getLoadedChunkLocked assumes w.Mu is already held (read or write) by the caller.
+func (w *World) getLoadedChunkLocked(x, z int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	return w.chunks[ChunkCoord{cx, cz}]
@@ -180,9 +185,8 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu          sync.RWMutex
+	Mu          deadlock.RWMutex
 	chunks      map[ChunkCoord]*Chunk
-	chunkl      map[ChunkCoord]*ChunkLogic
 	Tick        int64
 	Players     map[int32]*player.Player
 	Entities    map[int32]Entity
@@ -231,7 +235,7 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
@@ -240,12 +244,10 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 func (w *World) RemoveDroppedItem(entityId int32) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	chunks := w.LoadChunks()
-	for _, chunk := range chunks {
+	for _, chunk := range w.chunks {
 		logic := chunk.Logic
-		if _, ok := logic.DroppedItems[entityId]; ok {
-			delete(logic.DroppedItems, entityId)
-		}
+		delete(logic.DroppedItems, entityId)
+
 	}
 }
 
@@ -254,7 +256,7 @@ func (w *World) AddFallable(x int32, y byte, z int32) {
 	defer w.Mu.Unlock()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	logic.Fallables[BlockKey{x, y, z}] = struct{}{}
 }
@@ -264,7 +266,7 @@ func (w *World) RemoveFallable(x int32, y byte, z int32) {
 	defer w.Mu.Unlock()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	delete(logic.Fallables, BlockKey{x, y, z})
 }
@@ -304,7 +306,10 @@ func (w *World) ChunkExists(cx, cz int32) bool {
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
+	return w.getOrCreateChunkLocked(cx, cz, worldType)
+}
 
+func (w *World) getOrCreateChunkLocked(cx, cz int32, worldType WorldType) *Chunk {
 	key := ChunkCoord{cx, cz}
 
 	if c, ok := w.chunks[key]; ok {
@@ -320,7 +325,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		if err != nil {
 			log.Printf("chunk (%d,%d): read failed, regenerating: %v", cx, cz, err)
 		} else if lvl != nil {
-			c, err := w.ReadChunkFromNBT(lvl, cx, cz)
+			c, err := w.readChunkFromNBTLocked(lvl, cx, cz) // <-- locked variant, not the public one
 			if err != nil {
 				log.Printf("chunk (%d,%d): decode failed, regenerating: %v", cx, cz, err)
 			} else {
@@ -328,7 +333,6 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 				return c
 			}
 		}
-		// chunk not on disk
 	}
 
 	c := NewChunk(worldType)
