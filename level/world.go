@@ -2,11 +2,14 @@ package level
 
 import (
 	"fmt"
+	"log"
+	"path/filepath"
 	"sync"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
+	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
 )
@@ -39,6 +42,21 @@ type Entity interface {
 }
 
 const VIEW_DISTANCE = 4
+
+func (w *World) UnloadPlayerChunks(pl *player.Player) {
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+
+	cx := WorldToChunkCoord(int32(pl.X))
+	cz := WorldToChunkCoord(int32(pl.Z))
+
+	for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+		for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+			coord := ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}
+			delete(w.chunks, coord)
+		}
+	}
+}
 
 func (w *World) UnloadUnusedChunks() {
 	w.Mu.Lock()
@@ -134,7 +152,6 @@ type DroppedItem struct {
 type World struct {
 	Mu           sync.RWMutex
 	chunks       map[ChunkCoord]*Chunk
-	changes      map[BlockKey]Block
 	Tick         int64
 	Players      map[int32]*player.Player
 	Entities     map[int32]Entity
@@ -151,13 +168,14 @@ type World struct {
 	TickSpeed       int64
 	Containers      Containers
 	ChestPlacements ChestPlacement
+	WorldDir        string
 }
 
 func NewWorld(worldType WorldType) *World {
 	return &World{
+		WorldDir:     "saves",
 		WorldType:    worldType,
 		chunks:       make(map[ChunkCoord]*Chunk),
-		changes:      make(map[BlockKey]Block),
 		EntityCount:  0,
 		Players:      make(map[int32]*player.Player),
 		Entities:     make(map[int32]Entity),
@@ -243,43 +261,34 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	defer w.Mu.Unlock()
 
 	key := ChunkCoord{cx, cz}
+
 	if c, ok := w.chunks[key]; ok {
 		return c
+	}
+
+	if w.WorldDir != "" {
+		rx, rz := cx>>5, cz>>5
+		lx, lz := cx&31, cz&31
+		regionPath := filepath.Join(w.WorldDir, "region", mcregion.RegionFileName(rx*32, rz*32))
+
+		lvl, err := mcregion.ReadChunk(regionPath, lx, lz)
+		if err != nil {
+			log.Printf("chunk (%d,%d): read failed, regenerating: %v", cx, cz, err)
+		} else if lvl != nil {
+			c, err := w.ReadChunkFromNBT(lvl, cx, cz)
+			if err != nil {
+				log.Printf("chunk (%d,%d): decode failed, regenerating: %v", cx, cz, err)
+			} else {
+				w.chunks[key] = c
+				return c
+			}
+		}
+		// chunk not on disk
 	}
 
 	c := NewChunk(worldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
-
-	// Replay any persisted block changes that fall in this chunk.
-	for k, b := range w.changes {
-		if WorldToChunkCoord(k.X) == cx && WorldToChunkCoord(k.Z) == cz {
-			lx := WorldToLocalCoord(k.X)
-			lz := WorldToLocalCoord(k.Z)
-			c.SetBlock(lx, int(k.Y), lz, b)
-			w.SetGrowable(b, k)
-			if b.TypeId == byte(constants.Sand.Value) || b.TypeId == byte(constants.Gravel.Value) {
-				w.Fallables[k] = struct{}{}
-			}
-
-			if b.TypeId == byte(constants.Wheat.Value) {
-				w.Growables[k] = &Wheat{StartTick: w.Tick, State: b.Metadata}
-			}
-
-			if b.IsStillWater() {
-				w.WaterSources[k] = b.Metadata
-			}
-			if b.IsStillLava() {
-				w.LavaSources[k] = b.Metadata
-			}
-			if b.IsFlowingWater() {
-				w.FlowingWater[k] = b.Metadata
-			}
-			if b.IsFlowingLava() {
-				w.FlowingLava[k] = b.Metadata
-			}
-		}
-	}
 
 	w.chunks[key] = &c
 	return &c
@@ -300,7 +309,6 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	key := BlockKey{worldX, worldY, worldZ}
 	w.SetGrowable(block, key)
 
-	w.changes[key] = block
 	if block.IsStillWater() {
 		w.WaterSources[key] = block.Metadata
 		delete(w.FlowingWater, key)

@@ -169,20 +169,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/save") {
 			var lines []string
-			if err := world.SaveChanges("saves/world.dat"); err != nil {
-				lines = append(lines, fmt.Sprintf("Failed to save world: %v", err))
-			} else {
-				lines = append(lines, "World saved successfully.")
-			}
 			if err := player.SaveInventory(pl.Username, pl.Inventory); err != nil {
 				lines = append(lines, fmt.Sprintf("Failed to save player data: %v", err))
 			} else {
 				lines = append(lines, "Player data saved successfully.")
-			}
-			if err := world.SaveContainers("saves/containers.dat"); err != nil {
-				lines = append(lines, fmt.Sprintf("Failed to save containers: %v", err))
-			} else {
-				lines = append(lines, "Containers saved successfully.")
 			}
 			if err := level.SaveMcRegion(world, "mcr_saves/"); err != nil {
 				lines = append(lines, fmt.Sprintf("Failed to save mcr region: %v", err))

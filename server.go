@@ -33,12 +33,6 @@ func main() {
 	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
 
 	world := level.NewWorld(level.Template)
-	if err := world.LoadChanges(worldSavePath); err != nil {
-		log.Println("Failed to load world save:", err)
-	}
-	if err := world.LoadContainers(containerSavePath); err != nil {
-		log.Println("Failed to load container save:", err)
-	}
 	gameLoop(world)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -86,7 +80,6 @@ func handleConnection(connection net.Conn, world *level.World) {
 	reader := bufio.NewReader(connection)
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl)
-		//log.Printf("Player Health for %s: %d", pl.Username, pl.Health)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
 			if pl.Username != "" {
@@ -96,15 +89,13 @@ func handleConnection(connection net.Conn, world *level.World) {
 			}
 			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
 			world.RemovePlayer(pl)
+			world.UnloadPlayerChunks(pl)
 			close(done)
 			connection.Close()
 			return
 		}
 	}
 }
-
-const worldSavePath = "saves/world.dat"
-const containerSavePath = "saves/containers.dat"
 
 func gameLoop(world *level.World) {
 	go func() {
@@ -114,9 +105,9 @@ func gameLoop(world *level.World) {
 			// For fast time, set it to TickSpeed to 20
 			world.Tick = (world.Tick + world.TickSpeed) % 24000
 			world.BroadcastTime()
-			fallingBlocksPhysics(world)
+			// fallingBlocksPhysics(world)
 			ridablePhysics(world)
-			world.CleanUpFallable()
+			// world.CleanUpFallable()
 			world.GrowPhysics()
 			packethandler.CollectNearbyItems(world)
 			packethandler.ApplyGravityOnDroppedItems(world)
@@ -133,19 +124,8 @@ func gameLoop(world *level.World) {
 					level.FluidSpreading(world, lavaCfg, packethandler.SetBlockAndNotify)
 				}
 			}
-
 			furnaceLogic(world)
 			world.UnloadUnusedChunks()
-
-			// Save world every 1200 ticks = every 60s
-			// if world.Tick%1200 == 0 {
-			// 	if err := world.SaveChanges(worldSavePath); err != nil {
-			// 		log.Println("Failed to save world:", err)
-			// 	}
-			// 	if err := inventory.SaveContainers(containerSavePath); err != nil {
-			// 		log.Println("Failed to save containers:", err)
-			// 	}
-			// }
 		}
 	}()
 }

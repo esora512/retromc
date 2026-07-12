@@ -3,10 +3,12 @@ package level
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
 )
@@ -243,4 +245,109 @@ func saveLevelDat(worldDir string, tick int64) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(worldDir, "level.dat"), buf.Bytes(), 0o644)
+}
+
+func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
+	blocks := lvl.Get("Blocks").ByteArr
+	data := lvl.Get("Data").ByteArr
+	skyLight := lvl.Get("SkyLight").ByteArr
+	blockLight := lvl.Get("BlockLight").ByteArr
+
+	if len(blocks) != 16*CHUNK_HEIGHT*16 {
+		return nil, fmt.Errorf("chunk (%d,%d): unexpected Blocks length %d", cx, cz, len(blocks))
+	}
+
+	getNibble := func(arr []byte, index int) byte {
+		if index%2 == 0 {
+			return arr[index/2] & 0x0F
+		}
+		return (arr[index/2] >> 4) & 0x0F
+	}
+
+	c := NewChunk(Empty) // every block gets overwritten below
+	c.X = cx * CHUNK_SIZE_X
+	c.Z = cz * CHUNK_SIZE_Z
+
+	for lx := 0; lx < 16; lx++ {
+		for lz := 0; lz < 16; lz++ {
+			for y := 0; y < CHUNK_HEIGHT; y++ {
+				idx := lx*CHUNK_HEIGHT*16 + lz*CHUNK_HEIGHT + y
+				b := Block{
+					TypeId:   blocks[idx],
+					Metadata: getNibble(data, idx),
+					SkyLight: getNibble(skyLight, idx),
+					Light:    getNibble(blockLight, idx),
+				}
+				c.SetBlock(lx, y, lz, b)
+
+				key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
+				switch {
+				case b.TypeId == byte(constants.Sand.Value), b.TypeId == byte(constants.Gravel.Value):
+					w.Fallables[key] = struct{}{}
+				case b.TypeId == byte(constants.Wheat.Value):
+					w.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
+				}
+				if b.IsStillWater() {
+					w.WaterSources[key] = b.Metadata
+				}
+				if b.IsFlowingWater() {
+					w.FlowingWater[key] = b.Metadata
+				}
+				if b.IsStillLava() {
+					w.LavaSources[key] = b.Metadata
+				}
+				if b.IsFlowingLava() {
+					w.FlowingLava[key] = b.Metadata
+				}
+			}
+		}
+	}
+
+	if teList := lvl.Get("TileEntities"); teList != nil {
+		for _, te := range teList.List {
+			id := te.Get("id")
+			if id == nil {
+				continue
+			}
+			x := te.Get("x").IntVal
+			y := te.Get("y").IntVal
+			z := te.Get("z").IntVal
+			key := BlockKey{x, byte(y), z}
+
+			switch id.StrVal {
+			case "Chest":
+				chest := &inventory.Chest{}
+				loadItemSlots(te, chest.Items[:])
+				w.Containers.Chests[key] = chest
+			case "Furnace":
+				furnace := &inventory.Furnace{}
+				loadItemSlots(te, furnace.Items[:])
+				w.Containers.Furnaces[key] = furnace
+			case "Trap":
+				dispenser := &inventory.Dispenser{}
+				loadItemSlots(te, dispenser.Items[:])
+				w.Containers.Dispensers[key] = dispenser
+			}
+		}
+	}
+
+	return &c, nil
+}
+
+func loadItemSlots(te *mcregion.Tag, slots []inventory.Item) {
+	items := te.Get("Items")
+	if items == nil {
+		return
+	}
+	for _, item := range items.List {
+		slot := int(item.Get("Slot").ByteVal)
+		if slot < 0 || slot >= len(slots) {
+			continue
+		}
+		slots[slot] = inventory.Item{
+			TypeId:   item.Get("id").ShortVal,
+			Count:    item.Get("Count").ByteVal,
+			Metadata: uint16(item.Get("Damage").ShortVal),
+		}
+	}
 }
