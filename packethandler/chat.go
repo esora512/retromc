@@ -137,6 +137,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/size") {
 			sendDebugMessage(pl, fmt.Sprintf("World size = %s", world.SizeString()))
+			sendDebugMessage(pl, fmt.Sprintf("Chunks = %d", len(world.LoadChunks())))
 			alloc, sys, totalAlloc, numGC := LogMemStats()
 			sendDebugMessage(pl, alloc)
 			sendDebugMessage(pl, sys)

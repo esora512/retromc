@@ -174,9 +174,6 @@ func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
 	}
 	level.ApplyPlayerData(pl, data)
 
-	// if !loaded {
-	// 	presetInventory(&pl.Inventory)
-	// }
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),

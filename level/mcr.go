@@ -581,15 +581,23 @@ func ToPlayerData(p *player.Player) *PlayerData {
 }
 
 func ApplyPlayerData(p *player.Player, data *PlayerData) {
-	items := make([]inventory.Item, len(data.Inventory))
-	for i, item := range data.Inventory {
-		items[i].TypeId = item.ItemID
-		items[i].Metadata = uint16(item.Damage)
-		items[i].Count = item.Count
+	size := len(p.Inventory.Items)
+	items := make([]inventory.Item, size)
+	for i := range items {
+		items[i] = inventory.NewItem(-1, 0, 0)
+	}
+	for _, saved := range data.Inventory {
+		if int(saved.Slot) < 0 || int(saved.Slot) >= size {
+			continue
+		}
+		items[saved.Slot] = inventory.Item{
+			TypeId:   saved.ItemID,
+			Metadata: uint16(saved.Damage),
+			Count:    saved.Count,
+		}
 	}
 	p.X, p.Y, p.Z = data.X, data.Y, data.Z
 	p.Yaw, p.Pitch = data.Yaw, data.Pitch
 	p.HP = data.Health
 	p.Inventory.Items = items
-
 }
