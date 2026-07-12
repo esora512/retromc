@@ -169,7 +169,8 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/save") {
 			var lines []string
-			if err := player.SaveInventory(pl.Username, pl.Inventory); err != nil {
+			data := level.ToPlayerData(pl)
+			if err := level.SavePlayerData(world.WorldDir, pl.Username, data); err != nil {
 				lines = append(lines, fmt.Sprintf("Failed to save player data: %v", err))
 			} else {
 				lines = append(lines, "Player data saved successfully.")

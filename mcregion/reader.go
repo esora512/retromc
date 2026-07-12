@@ -3,6 +3,7 @@ package mcregion
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 type TagType byte
@@ -17,21 +18,25 @@ const (
 	TagString    TagType = 8
 	TagList      TagType = 9
 	TagCompound  TagType = 10
+	TagFloat     TagType = 5
+	TagDouble    TagType = 6
 )
 
 // Tag is a parsed NBT tag. Only the fields matching Type are meaningful.
 type Tag struct {
-	Type     TagType
-	Name     string
-	ByteVal  byte
-	ShortVal int16
-	IntVal   int32
-	LongVal  int64
-	StrVal   string
-	ByteArr  []byte
-	ListType TagType
-	List     []*Tag
-	Compound map[string]*Tag
+	Type      TagType
+	Name      string
+	ByteVal   byte
+	ShortVal  int16
+	IntVal    int32
+	LongVal   int64
+	StrVal    string
+	ByteArr   []byte
+	ListType  TagType
+	List      []*Tag
+	Compound  map[string]*Tag
+	FloatVal  float32
+	DoubleVal float64
 }
 
 // Get returns the named child of a compound tag, or nil if absent /
@@ -195,6 +200,18 @@ func (r *nbtReader) readPayload(t TagType) (*Tag, error) {
 			child.Name = childName
 			tag.Compound[childName] = child
 		}
+	case TagFloat:
+		v, err := r.i32()
+		if err != nil {
+			return nil, err
+		}
+		tag.FloatVal = math.Float32frombits(uint32(v))
+	case TagDouble:
+		v, err := r.i64()
+		if err != nil {
+			return nil, err
+		}
+		tag.DoubleVal = math.Float64frombits(uint64(v))
 	default:
 		return nil, fmt.Errorf("nbt: unsupported tag type %d", t)
 	}

@@ -83,7 +83,8 @@ func handleConnection(connection net.Conn, world *level.World) {
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
 			if pl.Username != "" {
-				if saveErr := player.SaveInventory(pl.Username, pl.Inventory); saveErr != nil {
+				pData := level.ToPlayerData(pl)
+				if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
 					log.Println("Failed to save inventory:", saveErr)
 				}
 			}

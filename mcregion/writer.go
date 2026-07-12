@@ -3,6 +3,7 @@ package mcregion
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 )
 
 const (
@@ -15,11 +16,50 @@ const (
 	tagString    = 8
 	tagList      = 9
 	tagCompound  = 10
+
+	tagFloat  = 5
+	tagDouble = 6
 )
 
 // Compound is an ordered, named NBT compound tag being built up for writing.
 type Compound struct {
 	buf bytes.Buffer
+}
+
+func (c *Compound) Float(name string, v float32) {
+	c.buf.WriteByte(tagFloat)
+	writeName(&c.buf, name)
+	binary.Write(&c.buf, binary.BigEndian, math.Float32bits(v))
+}
+
+func (c *Compound) Double(name string, v float64) {
+	c.buf.WriteByte(tagDouble)
+	writeName(&c.buf, name)
+	binary.Write(&c.buf, binary.BigEndian, math.Float64bits(v))
+}
+
+// DoubleList writes a TAG_List of unnamed TAG_Double values — used for
+// Pos and Motion.
+func (c *Compound) DoubleList(name string, values []float64) {
+	c.buf.WriteByte(tagList)
+	writeName(&c.buf, name)
+	c.buf.WriteByte(tagDouble)
+	binary.Write(&c.buf, binary.BigEndian, int32(len(values)))
+	for _, v := range values {
+		binary.Write(&c.buf, binary.BigEndian, math.Float64bits(v))
+	}
+}
+
+// FloatList writes a TAG_List of unnamed TAG_Float values — used for
+// Rotation.
+func (c *Compound) FloatList(name string, values []float32) {
+	c.buf.WriteByte(tagList)
+	writeName(&c.buf, name)
+	c.buf.WriteByte(tagFloat)
+	binary.Write(&c.buf, binary.BigEndian, int32(len(values)))
+	for _, v := range values {
+		binary.Write(&c.buf, binary.BigEndian, math.Float32bits(v))
+	}
 }
 
 func NewCompound() *Compound {

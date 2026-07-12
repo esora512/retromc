@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
+	"github.com/leNicDev/retromc/player"
 )
 
 const CHUNK_HEIGHT = 128
@@ -356,4 +358,238 @@ func loadItemSlots(te *mcregion.Tag, slots []inventory.Item) {
 			Metadata: uint16(item.Get("Damage").ShortVal),
 		}
 	}
+}
+
+type PlayerInventorySlot struct {
+	Slot   byte
+	ItemID int16
+	Damage int16
+	Count  byte
+}
+
+type PlayerData struct {
+	X, Y, Z                   float64
+	MotionX, MotionY, MotionZ float64
+	Yaw, Pitch                float32
+	FallDistance              float32
+	Health                    int16
+	Air                       int16
+	Fire                      int16
+	OnGround                  byte
+	Sleeping                  byte
+	SleepTimer                int16
+	Dimension                 int32
+	DeathTime                 int16
+	HurtTime                  int16
+	AttackTime                int16
+	Inventory                 []PlayerInventorySlot
+}
+
+func playerFilePath(worldDir, name string) string {
+	return filepath.Join(worldDir, "players", name+".dat")
+}
+
+func SavePlayerData(worldDir, name string, data *PlayerData) error {
+	root := buildPlayerNBT(data)
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(root.Root()); err != nil {
+		return err
+	}
+	if err := gw.Close(); err != nil {
+		return err
+	}
+
+	dir := filepath.Join(worldDir, "players")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	finalPath := playerFilePath(worldDir, name)
+	tmpPath := finalPath + ".tmp"
+	if err := os.WriteFile(tmpPath, buf.Bytes(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, finalPath)
+}
+
+func buildPlayerNBT(data *PlayerData) *mcregion.Compound {
+	root := mcregion.NewCompound()
+
+	root.DoubleList("Pos", []float64{data.X, data.Y, data.Z})
+	root.DoubleList("Motion", []float64{data.MotionX, data.MotionY, data.MotionZ})
+	root.FloatList("Rotation", []float32{data.Yaw, data.Pitch})
+	root.Float("FallDistance", data.FallDistance)
+	root.Short("Health", data.Health)
+	root.Short("Air", data.Air)
+	root.Short("Fire", data.Fire)
+	root.Byte("OnGround", data.OnGround)
+	root.Byte("Sleeping", data.Sleeping)
+	root.Short("SleepTimer", data.SleepTimer)
+	root.Int("Dimension", data.Dimension)
+	root.Short("DeathTime", data.DeathTime)
+	root.Short("HurtTime", data.HurtTime)
+	root.Short("AttackTime", data.AttackTime)
+
+	var items []*mcregion.Compound
+	for _, slot := range data.Inventory {
+		item := mcregion.NewCompound()
+		item.Short("id", slot.ItemID)
+		item.Short("Damage", slot.Damage)
+		item.Byte("Count", slot.Count)
+		item.Byte("Slot", slot.Slot)
+		items = append(items, item)
+	}
+	root.CompoundList("Inventory", items)
+
+	return root
+}
+
+// LoadPlayerData reads worldDir/players/<name>.dat. If the file doesn't
+// exist, it returns a fresh PlayerData (NewPlayerData()) rather than an
+// error — matching the C++ reference's "create on first join" behavior.
+func LoadPlayerData(worldDir, name string) (*PlayerData, error) {
+	path := playerFilePath(worldDir, name)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fresh := NewPlayerData()
+			if saveErr := SavePlayerData(worldDir, name, fresh); saveErr != nil {
+				return nil, saveErr
+			}
+			return fresh, nil
+		}
+		return nil, err
+	}
+
+	gr, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	defer gr.Close()
+	decompressed, err := io.ReadAll(gr)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := mcregion.ParseRoot(decompressed)
+	if err != nil {
+		return nil, err
+	}
+
+	return playerDataFromNBT(root)
+}
+
+func NewPlayerData() *PlayerData {
+	return &PlayerData{
+		X: -1, Y: -1000000, Z: -1,
+		Health: 20,
+		Air:    300,
+		Fire:   -20,
+	}
+}
+
+func playerDataFromNBT(root *mcregion.Tag) (*PlayerData, error) {
+	data := NewPlayerData()
+
+	if pos := root.Get("Pos"); pos != nil && len(pos.List) == 3 {
+		data.X = pos.List[0].DoubleVal
+		data.Y = pos.List[1].DoubleVal
+		data.Z = pos.List[2].DoubleVal
+	}
+	if motion := root.Get("Motion"); motion != nil && len(motion.List) == 3 {
+		data.MotionX = motion.List[0].DoubleVal
+		data.MotionY = motion.List[1].DoubleVal
+		data.MotionZ = motion.List[2].DoubleVal
+	}
+	if rot := root.Get("Rotation"); rot != nil && len(rot.List) == 2 {
+		data.Yaw = rot.List[0].FloatVal
+		data.Pitch = rot.List[1].FloatVal
+	}
+	if t := root.Get("FallDistance"); t != nil {
+		data.FallDistance = t.FloatVal
+	}
+	if t := root.Get("Health"); t != nil {
+		data.Health = t.ShortVal
+	}
+	if t := root.Get("Air"); t != nil {
+		data.Air = t.ShortVal
+	}
+	if t := root.Get("Fire"); t != nil {
+		data.Fire = t.ShortVal
+	}
+	if t := root.Get("OnGround"); t != nil {
+		data.OnGround = t.ByteVal
+	}
+	if t := root.Get("Sleeping"); t != nil {
+		data.Sleeping = t.ByteVal
+	}
+	if t := root.Get("SleepTimer"); t != nil {
+		data.SleepTimer = t.ShortVal
+	}
+	if t := root.Get("Dimension"); t != nil {
+		data.Dimension = t.IntVal
+	}
+	if t := root.Get("DeathTime"); t != nil {
+		data.DeathTime = t.ShortVal
+	}
+	if t := root.Get("HurtTime"); t != nil {
+		data.HurtTime = t.ShortVal
+	}
+	if t := root.Get("AttackTime"); t != nil {
+		data.AttackTime = t.ShortVal
+	}
+	if inv := root.Get("Inventory"); inv != nil {
+		for _, item := range inv.List {
+			slot := PlayerInventorySlot{}
+			if s := item.Get("Slot"); s != nil {
+				slot.Slot = s.ByteVal
+			}
+			if id := item.Get("id"); id != nil {
+				slot.ItemID = id.ShortVal
+			}
+			if dmg := item.Get("Damage"); dmg != nil {
+				slot.Damage = dmg.ShortVal
+			}
+			if cnt := item.Get("Count"); cnt != nil {
+				slot.Count = cnt.ByteVal
+			}
+			data.Inventory = append(data.Inventory, slot)
+		}
+	}
+
+	return data, nil
+}
+
+func ToPlayerData(p *player.Player) *PlayerData {
+	items := make([]PlayerInventorySlot, len(p.Inventory.Items))
+	for i, item := range p.Inventory.Items {
+		items[i].Slot = byte(i)
+		items[i].ItemID = item.TypeId
+		items[i].Damage = int16(item.Metadata)
+		items[i].Count = item.Count
+	}
+
+	return &PlayerData{
+		X: p.X, Y: p.Y, Z: p.Z,
+		Yaw:       p.Yaw,
+		Pitch:     p.Pitch,
+		Health:    p.HP,
+		Inventory: items,
+	}
+}
+
+func ApplyPlayerData(p *player.Player, data *PlayerData) {
+	items := make([]inventory.Item, len(data.Inventory))
+	for i, item := range data.Inventory {
+		items[i].TypeId = item.ItemID
+		items[i].Metadata = uint16(item.Damage)
+		items[i].Count = item.Count
+	}
+	p.X, p.Y, p.Z = data.X, data.Y, data.Z
+	p.Yaw, p.Pitch = data.Yaw, data.Pitch
+	p.HP = data.Health
+	p.Inventory.Items = items
+
 }

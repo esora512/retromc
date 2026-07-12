@@ -167,11 +167,13 @@ func decodeChunkCoord(key string) (level.ChunkCoord, bool) {
 // 	connection.Write(outData)
 // }
 
-func sendInventory(connection net.Conn, pl *player.Player) {
-	_, err := player.LoadInventory(pl.Username, &pl.Inventory)
+func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
+	data, err := level.LoadPlayerData(w.WorldDir, pl.Username)
 	if err != nil {
-		log.Printf("Failed to load inventory for %s: %v", pl.Username, err)
+		log.Printf("Failed to load player inventory for %s : %v", pl.Username, err)
 	}
+	level.ApplyPlayerData(pl, data)
+
 	// if !loaded {
 	// 	presetInventory(&pl.Inventory)
 	// }
