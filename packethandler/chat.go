@@ -174,7 +174,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			} else {
 				lines = append(lines, "Player data saved successfully.")
 			}
-			if err := level.SaveMcRegion(world, "mcr_saves/"); err != nil {
+			if err := level.SaveMcRegion(world, world.WorldDir); err != nil {
 				lines = append(lines, fmt.Sprintf("Failed to save mcr region: %v", err))
 			} else {
 				lines = append(lines, "MCR region saved successfully.")

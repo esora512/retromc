@@ -21,13 +21,13 @@ const CHEST_SHIFT = 18        // Move from 27-18 = 9
 const DOUBLE_CHEST_SHIFT = 45 // Move from 54-45 = 9
 const FURNACE_SIZE = 3
 
-func containrKey(x, y, z int32) BlockKey {
+func containerKey(x, y, z int32) BlockKey {
 	return BlockKey{X: x, Y: byte(y), Z: z}
 }
 
 func (w *World) PlaceDispenser(x, y, z int32) bool {
 
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 
 	if _, ok := w.Containers.Dispensers[key]; ok {
 		return false
@@ -40,7 +40,7 @@ func (w *World) PlaceDispenser(x, y, z int32) bool {
 }
 
 func (w *World) GetDispenser(x, y, z int32) *inventory.Dispenser {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 
 	if dispenser, ok := w.Containers.Dispensers[key]; ok {
 		return dispenser
@@ -50,22 +50,22 @@ func (w *World) GetDispenser(x, y, z int32) *inventory.Dispenser {
 }
 
 func (w *World) RemoveDispenser(x, y, z int32) {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	delete(w.Containers.Dispensers, key)
 }
 
 func neighbourKeys(x, y, z int32) [4]BlockKey {
 	return [4]BlockKey{
-		containrKey(x+1, y, z),
-		containrKey(x-1, y, z),
-		containrKey(x, y, z+1),
-		containrKey(x, y, z-1),
+		containerKey(x+1, y, z),
+		containerKey(x-1, y, z),
+		containerKey(x, y, z+1),
+		containerKey(x, y, z-1),
 	}
 }
 
 func (w *World) registerDoubleAdjacentChest(x, y, z int32, excludePosition inventory.ContainerPosition) {
 	for _, n := range neighbourKeys(x, y, z) {
-		if n == containrKey(excludePosition.X, excludePosition.Y, excludePosition.Z) {
+		if n == containerKey(excludePosition.X, excludePosition.Y, excludePosition.Z) {
 			continue
 		}
 		w.ChestPlacements.ForbiddenSlots[n] = struct{}{}
@@ -79,7 +79,7 @@ func (w *World) unregisterDoubleAdjacentChest(x, y, z int32) {
 }
 
 func (w *World) registerSingleAdjacentChest(x, y, z int32) {
-	ownKey := containrKey(x, y, z)
+	ownKey := containerKey(x, y, z)
 	for _, n := range neighbourKeys(x, y, z) {
 		w.ChestPlacements.AdjacentSlots[n] = ownKey
 	}
@@ -92,7 +92,7 @@ func (w *World) unregisterSingleAdjacentChest(x, y, z int32) {
 }
 
 func (w *World) GetChest(x, y, z int32) *inventory.Chest {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	if chest, ok := w.Containers.Chests[key]; ok {
 		return chest
 	}
@@ -103,7 +103,7 @@ func (w *World) RemoveChest(x, y, z int32) {
 	if w.Containers.Chests == nil {
 		return
 	}
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	chest := w.Containers.Chests[key]
 
 	if chest.Size == DOUBLE_CHEST_SIZE {
@@ -139,7 +139,7 @@ func (w *World) RemoveChest(x, y, z int32) {
 
 func (w *World) PlaceChest(x, y, z int32) bool {
 
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	if _, forbidden := w.ChestPlacements.ForbiddenSlots[key]; forbidden {
 		return false
 	}
@@ -176,7 +176,7 @@ func (w *World) PlaceChest(x, y, z int32) bool {
 }
 
 func (w *World) PlaceFurnace(x, y, z int32) bool {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	furnace := inventory.NewFurnace()
 	furnace.SetPosition(x, y, z)
 	w.Containers.Furnaces[key] = furnace
@@ -184,12 +184,12 @@ func (w *World) PlaceFurnace(x, y, z int32) bool {
 }
 
 func (w *World) RemoveFurnace(x, y, z int32) {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	delete(w.Containers.Furnaces, key)
 }
 
 func (w *World) GetFurnace(x, y, z int32) *inventory.Furnace {
-	key := containrKey(x, y, z)
+	key := containerKey(x, y, z)
 	return w.Containers.Furnaces[key]
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -270,10 +271,9 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 		return (arr[index/2] >> 4) & 0x0F
 	}
 
-	c := NewChunk(Empty) // every block gets overwritten below
+	c := NewChunk(w.WorldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
-	logic := NewChunkLogic()
 
 	for lx := 0; lx < 16; lx++ {
 		for lz := 0; lz < 16; lz++ {
@@ -290,27 +290,28 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 				key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
 				switch {
 				case b.TypeId == byte(constants.Sand.Value), b.TypeId == byte(constants.Gravel.Value):
-					logic.Fallables[key] = struct{}{}
+					c.Logic.Fallables[key] = struct{}{}
 				case b.TypeId == byte(constants.Wheat.Value):
-					logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
+					c.Logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 				}
 				if b.IsStillWater() {
-					logic.WaterSources[key] = b.Metadata
+					c.Logic.WaterSources[key] = b.Metadata
 				}
 				if b.IsFlowingWater() {
-					logic.FlowingWater[key] = b.Metadata
+					c.Logic.FlowingWater[key] = b.Metadata
 				}
 				if b.IsStillLava() {
-					logic.LavaSources[key] = b.Metadata
+					c.Logic.LavaSources[key] = b.Metadata
 				}
 				if b.IsFlowingLava() {
-					logic.FlowingLava[key] = b.Metadata
+					c.Logic.FlowingLava[key] = b.Metadata
 				}
 			}
 		}
 	}
 
 	if teList := lvl.Get("TileEntities"); teList != nil {
+		log.Printf("Loading %d tile entities for chunk (%d,%d)", len(teList.List), cx, cz)
 		for _, te := range teList.List {
 			id := te.Get("id")
 			if id == nil {
@@ -323,21 +324,21 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 
 			switch id.StrVal {
 			case "Chest":
-				chest := &inventory.Chest{}
-				loadItemSlots(te, chest.Items[:])
-				w.Containers.Chests[key] = chest
+				chest := inventory.NewChest(CHEST_SIZE)
+				chest.SetPosition(x, y, z)
+				loadItemSlots(te, chest.Items)
+				w.Containers.Chests[key] = &chest
 			case "Furnace":
-				furnace := &inventory.Furnace{}
+				furnace := inventory.NewFurnace()
 				loadItemSlots(te, furnace.Items[:])
 				w.Containers.Furnaces[key] = furnace
 			case "Trap":
-				dispenser := &inventory.Dispenser{}
+				dispenser := inventory.NewDispenser()
 				loadItemSlots(te, dispenser.Items[:])
 				w.Containers.Dispensers[key] = dispenser
 			}
 		}
 	}
-
 	return &c, nil
 }
 
