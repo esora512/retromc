@@ -38,16 +38,16 @@ type GrowableDirt struct {
 }
 
 type PlantRule struct {
-    ValidGround  func(groundType byte) bool
-    PlantedBlock int16
-    UseMeta      bool
+	ValidGround  func(groundType byte) bool
+	PlantedBlock int16
+	UseMeta      bool
 }
 
 var PlantRules = map[int16]PlantRule{
-    constants.Seeds.Value:         {func(g byte) bool { return g == byte(constants.Farmland.Value) }, constants.Wheat.Value, false},
-    constants.Sapling.Value:       {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sapling.Value, true},
-    constants.SugarcaneItem.Value: {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sugarcane.Value, false},
-    constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
+	constants.Seeds.Value:         {func(g byte) bool { return g == byte(constants.Farmland.Value) }, constants.Wheat.Value, false},
+	constants.Sapling.Value:       {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sapling.Value, true},
+	constants.SugarcaneItem.Value: {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sugarcane.Value, false},
+	constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
 }
 
 // TODO: Remove duplicate somehow later -_-
@@ -60,27 +60,35 @@ type BlockChangeOutPacket struct {
 }
 
 func (w *World) SetGrowable(block Block, bk BlockKey) {
+	cx := WorldToChunkCoord(bk.X)
+	cz := WorldToChunkCoord(bk.Z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
 	if block.TypeId == byte(constants.Wheat.Value) {
-		w.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata}
+		logic.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata}
 	}
 	if block.TypeId == byte(constants.Sugarcane.Value) && block.Metadata == 0 {
-		w.Growables[bk] = &Sugarcane{StartTick: w.Tick}
+		logic.Growables[bk] = &Sugarcane{StartTick: w.Tick}
 	}
 	if block.TypeId == byte(constants.Cactus.Value) && block.Metadata == 0 {
-		w.Growables[bk] = &Cactus{StartTick: w.Tick}
+		logic.Growables[bk] = &Cactus{StartTick: w.Tick}
 	}
 	if block.TypeId == byte(constants.Sapling.Value) {
-		w.Growables[bk] = &Sapling{StartTick: w.Tick, WoodType: block.Metadata}
+		logic.Growables[bk] = &Sapling{StartTick: w.Tick, WoodType: block.Metadata}
 	}
 	if block.TypeId == byte(constants.Dirt.Value) {
-		w.Growables[bk] = &GrowableDirt{StartTick: w.Tick}
+		logic.Growables[bk] = &GrowableDirt{StartTick: w.Tick}
 	}
 }
 
 func (w *World) GrowPhysics() {
-	for key, growable := range w.Growables {
-		if growable.GrowNow(w) {
-			growable.Grow(w, &key)
+	chunks := w.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for key, growable := range logic.Growables {
+			if growable.GrowNow(w) {
+				growable.Grow(w, &key)
+			}
 		}
 	}
 }
@@ -161,7 +169,6 @@ func (s *GrowableDirt) GrowNow(w *World) bool {
 	return false
 }
 
-
 func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 	directions := [][2]int{
 		{-1, 0}, // west
@@ -195,12 +202,20 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 		}
 		w.BroadcastPacket(blockChange.Serialize())
 	}
-	delete(w.Growables, *bk)
+	cx := WorldToChunkCoord(bk.X)
+	cz := WorldToChunkCoord(bk.Z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
+	delete(logic.Growables, *bk)
 }
 
 func (c *Wheat) Grow(w *World, bk *BlockKey) {
+	cx := WorldToChunkCoord(bk.X)
+	cz := WorldToChunkCoord(bk.Z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
 	if c.State >= CROP_MAX_STATE {
-		delete(w.Growables, *bk)
+		delete(logic.Growables, *bk)
 		return
 	}
 
@@ -291,7 +306,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	}
 
 	leaves := NewBlockById(constants.Leaves.Value, s.WoodType)
-	topY := bk.Y + byte(trunkHeight - 3) // one above the last log
+	topY := bk.Y + byte(trunkHeight-3) // one above the last log
 
 	// layer offsets: [dy] = list of (dx, dz) to place
 	leafLayers := [4][][2]int{
@@ -339,7 +354,11 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 			w.BroadcastPacket(blockChange.Serialize())
 		}
 	}
-	delete(w.Growables, *bk)
+	cx := WorldToChunkCoord(bk.X)
+	cz := WorldToChunkCoord(bk.Z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
+	delete(logic.Growables, *bk)
 }
 
 func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte) *Block {

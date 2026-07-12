@@ -267,6 +267,7 @@ func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 	c := NewChunk(Empty) // every block gets overwritten below
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
+	logic := NewChunkLogic()
 
 	for lx := 0; lx < 16; lx++ {
 		for lz := 0; lz < 16; lz++ {
@@ -283,21 +284,21 @@ func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 				key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
 				switch {
 				case b.TypeId == byte(constants.Sand.Value), b.TypeId == byte(constants.Gravel.Value):
-					w.Fallables[key] = struct{}{}
+					logic.Fallables[key] = struct{}{}
 				case b.TypeId == byte(constants.Wheat.Value):
-					w.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
+					logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 				}
 				if b.IsStillWater() {
-					w.WaterSources[key] = b.Metadata
+					logic.WaterSources[key] = b.Metadata
 				}
 				if b.IsFlowingWater() {
-					w.FlowingWater[key] = b.Metadata
+					logic.FlowingWater[key] = b.Metadata
 				}
 				if b.IsStillLava() {
-					w.LavaSources[key] = b.Metadata
+					logic.LavaSources[key] = b.Metadata
 				}
 				if b.IsFlowingLava() {
-					w.FlowingLava[key] = b.Metadata
+					logic.FlowingLava[key] = b.Metadata
 				}
 			}
 		}

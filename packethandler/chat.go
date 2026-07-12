@@ -287,17 +287,37 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					}
 				}
 			case "water":
-				lines := []string{fmt.Sprintf("Water sources in world: %d", len(world.WaterSources))}
-				for key := range world.WaterSources {
+				chunks := world.LoadChunks()
+				loadedSources := make(map[level.BlockKey]byte)
+				loadedFlowing := make(map[level.BlockKey]byte)
+				for _, chunk := range chunks {
+					logic := chunk.Logic
+					for key, height := range logic.WaterSources {
+						loadedSources[key] = height
+					}
+					for key, height := range logic.FlowingWater {
+						loadedFlowing[key] = height
+					}
+				}
+				lines := []string{fmt.Sprintf("Water sources in world: %d", len(loadedSources))}
+				for key := range loadedSources {
 					lines = append(lines, fmt.Sprintf("  source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
-				for key := range world.FlowingWater {
+				for key := range loadedFlowing {
 					lines = append(lines, fmt.Sprintf("  flowing at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
 				sendDebugMessage(pl, lines...)
 			case "fallables":
-				lines := []string{fmt.Sprintf("Falling blocks in world: %d", len(world.Fallables))}
-				for key := range world.Fallables {
+				loadedFallables := make(map[level.BlockKey]struct{})
+				chunks := world.LoadChunks()
+				for _, chunk := range chunks {
+					logic := chunk.Logic
+					for key, fallable := range logic.Fallables {
+						loadedFallables[key] = fallable
+					}
+				}
+				lines := []string{fmt.Sprintf("Falling blocks in world: %d", len(loadedFallables))}
+				for key := range loadedFallables {
 					lines = append(lines, fmt.Sprintf("  at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
 				}
 				sendDebugMessage(pl, lines...)
@@ -316,8 +336,16 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 				sendDebugMessage(pl, lines...)
 			case "growables":
-				lines := []string{fmt.Sprintf("Growables in world: %d", len(world.Growables))}
-				for key, e := range world.Growables {
+				loadedGrowables := make(map[level.BlockKey]level.Growable)
+				chunks := world.LoadChunks()
+				for _, chunk := range chunks {
+					logic := chunk.Logic
+					for key, growable := range logic.Growables {
+						loadedGrowables[key] = growable
+					}
+				}
+				lines := []string{fmt.Sprintf("Growables in world: %d", len(loadedGrowables))}
+				for key, e := range loadedGrowables {
 					if crops, ok := e.(*level.Wheat); ok {
 						lines = append(lines, fmt.Sprintf("  Type=Wheat, State=%d, StartTick=%d at x=%d, y=%d, z=%d", crops.State, crops.StartTick, key.X, key.Y, key.Z))
 					}

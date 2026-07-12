@@ -43,6 +43,14 @@ type Entity interface {
 
 const VIEW_DISTANCE = 4
 
+func (w *World) GetLoadedChunk(x, z int32) *Chunk {
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	return w.chunks[ChunkCoord{cx, cz}]
+}
+
 func (w *World) UnloadPlayerChunks(pl *player.Player) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
@@ -148,23 +156,39 @@ type DroppedItem struct {
 	PickupDelay int32
 }
 
-// World holds all loaded chunks and is the single source of truth for block state.
-type World struct {
-	Mu           sync.RWMutex
-	chunks       map[ChunkCoord]*Chunk
-	Tick         int64
-	Players      map[int32]*player.Player
-	Entities     map[int32]Entity
-	Fallables    map[BlockKey]struct{} // Set of sand and gravel blocks that need to be checked for falling each tick.
-	EntityCount  int32
+type ChunkLogic struct {
+	Fallables    map[BlockKey]struct{}
 	WaterSources map[BlockKey]byte
 	FlowingWater map[BlockKey]byte
 	LavaSources  map[BlockKey]byte
 	FlowingLava  map[BlockKey]byte
+	Growables    map[BlockKey]Growable
 	DroppedItems map[int32]*DroppedItem
-	WorldType    WorldType
+}
 
-	Growables       map[BlockKey]Growable
+func NewChunkLogic() *ChunkLogic {
+	return &ChunkLogic{
+		Fallables:    make(map[BlockKey]struct{}),
+		WaterSources: make(map[BlockKey]byte),
+		FlowingWater: make(map[BlockKey]byte),
+		LavaSources:  make(map[BlockKey]byte),
+		FlowingLava:  make(map[BlockKey]byte),
+		Growables:    make(map[BlockKey]Growable),
+		DroppedItems: make(map[int32]*DroppedItem),
+	}
+}
+
+// World holds all loaded chunks and is the single source of truth for block state.
+type World struct {
+	Mu          sync.RWMutex
+	chunks      map[ChunkCoord]*Chunk
+	chunkl      map[ChunkCoord]*ChunkLogic
+	Tick        int64
+	Players     map[int32]*player.Player
+	Entities    map[int32]Entity
+	EntityCount int32
+	WorldType   WorldType
+
 	TickSpeed       int64
 	Containers      Containers
 	ChestPlacements ChestPlacement
@@ -173,20 +197,13 @@ type World struct {
 
 func NewWorld(worldType WorldType) *World {
 	return &World{
-		WorldDir:     "saves",
-		WorldType:    worldType,
-		chunks:       make(map[ChunkCoord]*Chunk),
-		EntityCount:  0,
-		Players:      make(map[int32]*player.Player),
-		Entities:     make(map[int32]Entity),
-		Fallables:    make(map[BlockKey]struct{}),
-		WaterSources: make(map[BlockKey]byte),
-		FlowingWater: make(map[BlockKey]byte),
-		LavaSources:  make(map[BlockKey]byte),
-		FlowingLava:  make(map[BlockKey]byte),
-		Growables:    make(map[BlockKey]Growable),
-		TickSpeed:    1,
-		DroppedItems: make(map[int32]*DroppedItem),
+		WorldDir:    "saves",
+		WorldType:   worldType,
+		chunks:      make(map[ChunkCoord]*Chunk),
+		EntityCount: 0,
+		Players:     make(map[int32]*player.Player),
+		Entities:    make(map[int32]Entity),
+		TickSpeed:   1,
 		Containers: Containers{
 			Chests:     make(map[BlockKey]*inventory.Chest),
 			Dispensers: make(map[BlockKey]*inventory.Dispenser),
@@ -212,39 +229,67 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
 	entityId := w.NextEntityId()
-	w.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
+	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
 }
 
 func (w *World) RemoveDroppedItem(entityId int32) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	delete(w.DroppedItems, entityId)
+	chunks := w.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		if _, ok := logic.DroppedItems[entityId]; ok {
+			delete(logic.DroppedItems, entityId)
+		}
+	}
 }
 
 func (w *World) AddFallable(x int32, y byte, z int32) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	w.Fallables[BlockKey{x, y, z}] = struct{}{}
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
+	logic.Fallables[BlockKey{x, y, z}] = struct{}{}
 }
 
 func (w *World) RemoveFallable(x int32, y byte, z int32) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	delete(w.Fallables, BlockKey{x, y, z})
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
+	delete(logic.Fallables, BlockKey{x, y, z})
 }
 
 func (w *World) CleanUpFallable() {
-	for key := range w.Fallables {
-		block := w.GetBlock(key.X, key.Y, key.Z)
-		if block.TypeId != byte(constants.Sand.Value) && block.TypeId != byte(constants.Gravel.Value) {
-			w.RemoveFallable(key.X, key.Y, key.Z)
+	for _, chunk := range w.LoadChunks() {
+		w.Mu.Lock()
+		for key := range chunk.Logic.Fallables {
+			block := chunk.GetBlock(WorldToLocalCoord(key.X), int(key.Y), WorldToLocalCoord(key.Z))
+			if block.TypeId != byte(constants.Sand.Value) && block.TypeId != byte(constants.Gravel.Value) {
+				delete(chunk.Logic.Fallables, key)
+			}
 		}
+		w.Mu.Unlock()
 	}
 }
 
-func (w *World) LoadChunks() map[ChunkCoord]*Chunk {
-	return w.chunks
+func (w *World) LoadChunks() []*Chunk {
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	chunks := make([]*Chunk, 0, len(w.chunks))
+	for _, c := range w.chunks {
+		chunks = append(chunks, c)
+	}
+	return chunks
 }
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
@@ -298,7 +343,8 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz, Empty)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	logic := chunk.Logic
 
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
@@ -310,22 +356,22 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	w.SetGrowable(block, key)
 
 	if block.IsStillWater() {
-		w.WaterSources[key] = block.Metadata
-		delete(w.FlowingWater, key)
+		logic.WaterSources[key] = block.Metadata
+		delete(logic.FlowingWater, key)
 	} else if block.IsFlowingWater() {
-		w.FlowingWater[key] = block.Metadata
-		delete(w.WaterSources, key)
+		logic.FlowingWater[key] = block.Metadata
+		delete(logic.WaterSources, key)
 	} else if block.IsStillLava() {
-		w.LavaSources[key] = block.Metadata
-		delete(w.FlowingLava, key)
+		logic.LavaSources[key] = block.Metadata
+		delete(logic.FlowingLava, key)
 	} else if block.IsFlowingLava() {
-		w.FlowingLava[key] = block.Metadata
-		delete(w.LavaSources, key)
+		logic.FlowingLava[key] = block.Metadata
+		delete(logic.LavaSources, key)
 	} else {
-		delete(w.WaterSources, key)
-		delete(w.FlowingWater, key)
-		delete(w.LavaSources, key)
-		delete(w.FlowingLava, key)
+		delete(logic.WaterSources, key)
+		delete(logic.FlowingWater, key)
+		delete(logic.LavaSources, key)
+		delete(logic.FlowingLava, key)
 	}
 	w.Mu.Unlock()
 }
@@ -333,7 +379,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz, Empty)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
 
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)

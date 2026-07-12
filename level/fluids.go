@@ -44,30 +44,34 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 		return false
 	}
 
-	for key, height := range world.FlowingLava {
-		x, y, z := key.X, int32(key.Y), key.Z
-		if !touchesWater(x, y, z) {
-			continue
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for key, height := range logic.FlowingLava {
+			x, y, z := key.X, int32(key.Y), key.Z
+			if !touchesWater(x, y, z) {
+				continue
+			}
+			if height <= 4 {
+				cobble := NewCobblestoneBlock()
+				setBlock(world, x, y, z, &cobble)
+			}
 		}
-		if height <= 4 {
-			cobble := NewCobblestoneBlock()
-			setBlock(world, x, y, z, &cobble)
-		}
-	}
 
-	for key := range world.LavaSources {
-		x, y, z := key.X, int32(key.Y), key.Z
-		// Make sure it wasn't already replaced this tick
-		b := world.GetBlock(x, byte(y), z)
-		if !b.IsLava() {
-			delete(world.LavaSources, key)
-			continue
+		for key := range logic.LavaSources {
+			x, y, z := key.X, int32(key.Y), key.Z
+			// Make sure it wasn't already replaced this tick
+			b := world.GetBlock(x, byte(y), z)
+			if !b.IsLava() {
+				delete(logic.LavaSources, key)
+				continue
+			}
+			if !touchesWater(x, y, z) {
+				continue
+			}
+			obsidian := NewObsidianBlock()
+			setBlock(world, x, y, z, &obsidian)
 		}
-		if !touchesWater(x, y, z) {
-			continue
-		}
-		obsidian := NewObsidianBlock()
-		setBlock(world, x, y, z, &obsidian)
 	}
 }
 
@@ -80,27 +84,51 @@ type FluidConfig struct {
 }
 
 func NewWaterConfig(world *World) FluidConfig {
+	loadedSources := make(map[BlockKey]byte)
+	loadedFlowing := make(map[BlockKey]byte)
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for key, height := range logic.WaterSources {
+			loadedSources[key] = height
+		}
+		for key, height := range logic.FlowingWater {
+			loadedFlowing[key] = height
+		}
+	}
 	return FluidConfig{
 		IsFluid: func(b Block) bool { return b.IsWater() },
 		NewBlock: func(h byte) Block {
 			block := NewFlowingWaterBlock(h)
 			return block
 		},
-		Sources:         world.WaterSources,
-		Flowing:         world.FlowingWater,
+		Sources:         loadedSources,
+		Flowing:         loadedFlowing,
 		MaxSpreadHeight: 7,
 	}
 }
 
 func NewLavaConfig(world *World) FluidConfig {
+	loadedSources := make(map[BlockKey]byte)
+	loadedFlowing := make(map[BlockKey]byte)
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for key, height := range logic.LavaSources {
+			loadedSources[key] = height
+		}
+		for key, height := range logic.FlowingLava {
+			loadedFlowing[key] = height
+		}
+	}
 	return FluidConfig{
 		IsFluid: func(b Block) bool { return b.IsLava() },
 		NewBlock: func(h byte) Block {
 			block := NewFlowingLavaBlock(h)
 			return block
 		},
-		Sources:         world.LavaSources,
-		Flowing:         world.FlowingLava,
+		Sources:         loadedSources,
+		Flowing:         loadedFlowing,
 		MaxSpreadHeight: 7,
 	}
 }

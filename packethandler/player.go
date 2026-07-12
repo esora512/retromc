@@ -373,7 +373,9 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 			blockItem = constants.WheatItem.Value
 		}
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(world.Growables, bk)
+		chunk := world.GetLoadedChunk(p.X, p.Z)
+		logic := chunk.Logic
+		delete(logic.Growables, bk)
 	}
 
 	if blockItem == constants.Leaves.Value {
@@ -395,7 +397,8 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		blockMeta = 0
 
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(world.Growables, bk)
+		chunk := world.GetLoadedChunk(p.X, p.Z)
+		delete(chunk.Logic.Growables, bk)
 
 		for i := 1; i <= 3; i++ {
 			aboveY := p.Y + byte(i)
@@ -418,14 +421,16 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 
 	if blockItem == constants.Sapling.Value {
+		chunk := world.GetLoadedChunk(p.X, p.Z)
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(world.Growables, bk)
+		delete(chunk.Logic.Growables, bk)
 	}
 
 	if blockItem == constants.Grass.Value {
+		chunk := world.GetLoadedChunk(p.X, p.Z)
 		blockItem = constants.Dirt.Value
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(world.Growables, bk)
+		delete(chunk.Logic.Growables, bk)
 	}
 
 	if blockItem == 0 {
@@ -626,11 +631,13 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if existing.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
 		air := level.NewAirBlock()
+		chunk := world.GetLoadedChunk(newX, newZ)
+		logic := chunk.Logic
 		SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
-		delete(world.WaterSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(world.FlowingWater, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(world.LavaSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(world.FlowingLava, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(logic.WaterSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(logic.FlowingWater, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(logic.LavaSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
+		delete(logic.FlowingLava, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
 
 		var bucketItem inventory.Item
 		if existing.IsWater() {
@@ -890,9 +897,13 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 }
 
 func fallingBlockCheck(world *level.World) {
-	for key := range world.Fallables {
-		log.Printf("FallingBlockCheck: checking block at X=%d Y=%d Z=%d", key.X, key.Y, key.Z)
-		CheckFallingBlock(world, key.X, key.Y, key.Z)
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for key := range logic.Fallables {
+			log.Printf("FallingBlockCheck: checking block at X=%d Y=%d Z=%d", key.X, key.Y, key.Z)
+			CheckFallingBlock(world, key.X, key.Y, key.Z)
+		}
 	}
 }
 
@@ -957,44 +968,52 @@ func CheckFallingBlock(world *level.World, x int32, y byte, z int32) {
 const pickupRangeSq = 1.5 * 1.5
 
 func CollectNearbyItems(world *level.World) {
-	for entityId, dropped := range world.DroppedItems {
-		if dropped.PickupDelay > 0 {
-			dropped.PickupDelay--
-			continue
-		}
-		itemX := float64(dropped.X)
-		itemY := float64(dropped.Y)
-		itemZ := float64(dropped.Z)
-
-		for _, pl := range world.Players {
-			dx := pl.X - itemX
-			dy := pl.Y - itemY
-			dz := pl.Z - itemZ
-			if dx*dx+dy*dy+dz*dz > pickupRangeSq {
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for entityId, dropped := range logic.DroppedItems {
+			if dropped.PickupDelay > 0 {
+				dropped.PickupDelay--
 				continue
 			}
+			itemX := float64(dropped.X)
+			itemY := float64(dropped.Y)
+			itemZ := float64(dropped.Z)
 
-			slot := pl.Inventory.AddItem(int16(dropped.ItemId), uint16(dropped.Metadata), dropped.Amount)
-			if slot < 0 {
-				continue
+			for _, pl := range world.Players {
+				dx := pl.X - itemX
+				dy := pl.Y - itemY
+				dz := pl.Z - itemZ
+				if dx*dx+dy*dy+dz*dz > pickupRangeSq {
+					continue
+				}
+
+				slot := pl.Inventory.AddItem(int16(dropped.ItemId), uint16(dropped.Metadata), dropped.Amount)
+				if slot < 0 {
+					continue
+				}
+				sendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
+
+				collect := packets.CollectItem(entityId, int32(pl.GetEntityId()))
+				world.BroadcastPacket(collect)
+
+				world.RemoveDroppedItem(entityId)
+				break
 			}
-			sendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
-
-			collect := packets.CollectItem(entityId, int32(pl.GetEntityId()))
-			world.BroadcastPacket(collect)
-
-			world.RemoveDroppedItem(entityId)
-			break
 		}
 	}
 }
 
 func ApplyGravityOnDroppedItems(world *level.World) {
-	for entityId, dropped := range world.DroppedItems {
-		below := world.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
-		if below.IsAir() || below.IsLiquid() {
-			dropped.Y -= 1
-			world.DroppedItems[entityId] = dropped
+	chunks := world.LoadChunks()
+	for _, chunk := range chunks {
+		logic := chunk.Logic
+		for entityId, dropped := range logic.DroppedItems {
+			below := world.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
+			if below.IsAir() || below.IsLiquid() {
+				dropped.Y -= 1
+				logic.DroppedItems[entityId] = dropped
+			}
 		}
 	}
 }

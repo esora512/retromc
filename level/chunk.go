@@ -21,6 +21,7 @@ type Chunk struct {
 	SizeY byte
 	SizeZ byte
 	Data  []byte
+	Logic *ChunkLogic
 }
 
 func (c *Chunk) Size() int64 {
@@ -217,6 +218,7 @@ func NewChunk(worldType WorldType) Chunk {
 		SizeX: CHUNK_SIZE_X - 1,
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
+		Logic: NewChunkLogic(),
 	}
 	switch worldType {
 	case SkyGrid:
