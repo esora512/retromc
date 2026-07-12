@@ -54,7 +54,10 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		p := packets.ReadEntityActionInPacket(packetReader)
 		handleEntityActionInPacket(p, pl, world)
 	case packet.PlayerAnimation:
-		packets.ReadPlayerAnimationInPacket(packetReader)
+		p := packets.ReadPlayerAnimationInPacket(packetReader)
+		if p.Animation == 1 {
+			world.MulticastPacket(packets.ArmSwing(pl), pl)
+		}
 	case packet.PlayerDigging:
 		p := packets.ReadPlayerDiggingInPacket(packetReader)
 		handlePlayerDiggingInPacket(connection, p, world, pl)

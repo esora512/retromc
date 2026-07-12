@@ -222,6 +222,8 @@ func ReadPlayerAnimationInPacket(reader *packet.PacketReader) PlayerAnimationInP
 	return packet
 }
 
+
+
 type PlayerLookInPacket struct {
 	packet.Packet
 	Yaw      float32

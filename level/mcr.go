@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -311,7 +310,6 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 	}
 
 	if teList := lvl.Get("TileEntities"); teList != nil {
-		log.Printf("Loading %d tile entities for chunk (%d,%d)", len(teList.List), cx, cz)
 		for _, te := range teList.List {
 			id := te.Get("id")
 			if id == nil {

@@ -225,7 +225,7 @@ func NewChunk(worldType WorldType) Chunk {
 		chunk.GenerateSkyGrid()
 	default:
 		r := rand.Float64()
-		if r < 0.8 {
+		if r < 0.95 {
 			chunk.GenerateTemplate()
 		} else if rand.Float64() < 0.5 {
 			chunk.GenerateEmpty()

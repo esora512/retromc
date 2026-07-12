@@ -140,7 +140,10 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		}
 
 		if newHP <= 0 {
-			log.Printf("%s killed %s", player.Username, other.GetName())
+			cMsgPkt := packets.ChatMessagePacket{
+				Message:    other.GetName() + " was killed by " + player.Username,
+			}
+			world.BroadcastPacket(cMsgPkt.Serialize())
 			p := packets.EntityEventOutPacket{
 				EntityId: other.GetEntityId(),
 				Action:   3,
