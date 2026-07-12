@@ -282,7 +282,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 			case "furnaces":
 				for key, f := range world.Containers.Furnaces {
-					sendDebugMessage(pl, fmt.Sprintf("Furnace %s:", key))
+					sendDebugMessage(pl, fmt.Sprintf("Furnace x=%d, y=%d, z=%d:", key.X, key.Y, key.Z))
 					for i, item := range f.Items {
 						sendDebugMessage(pl, fmt.Sprintf("  slot %d: id=%d count=%d meta=%d", i, item.TypeId, item.Count, item.Metadata))
 					}
