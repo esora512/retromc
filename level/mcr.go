@@ -290,8 +290,6 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 
 				key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
 				switch {
-				case b.TypeId == byte(constants.Sand.Value), b.TypeId == byte(constants.Gravel.Value):
-					c.Logic.Fallables[key] = struct{}{}
 				case b.TypeId == byte(constants.Wheat.Value):
 					c.Logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 				}

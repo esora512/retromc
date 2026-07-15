@@ -872,8 +872,12 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		}
 		return
 	}
+
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
-	//fallingBlockCheck(world)
+	if block.TypeId == byte(constants.Sand.Value) || block.TypeId == byte(constants.Gravel.Value) {
+		world.AddFallable(newX, byte(newY), newZ)
+	}
+	fallingBlockCheck(world)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
@@ -897,11 +901,10 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 }
 
 func fallingBlockCheck(world *level.World) {
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for key := range logic.Fallables {
-			log.Printf("FallingBlockCheck: checking block at X=%d Y=%d Z=%d", key.X, key.Y, key.Z)
 			CheckFallingBlock(world, key.X, key.Y, key.Z)
 		}
 	}
@@ -918,9 +921,6 @@ func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 		BlockMeta: block.Metadata,
 	}
 	world.BroadcastPacket(blockChange.Serialize())
-	if block.TypeId == byte(constants.Sand.Value) || block.TypeId == byte(constants.Gravel.Value) {
-		world.AddFallable(x, byte(y), z)
-	}
 }
 
 func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
@@ -968,7 +968,7 @@ func CheckFallingBlock(world *level.World, x int32, y byte, z int32) {
 const pickupRangeSq = 1.5 * 1.5
 
 func CollectNearbyItems(world *level.World) {
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1) // 3x3 chunks around each player
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for entityId, dropped := range logic.DroppedItems {
@@ -996,8 +996,7 @@ func CollectNearbyItems(world *level.World) {
 
 				collect := packets.CollectItem(entityId, int32(pl.GetEntityId()))
 				world.BroadcastPacket(collect)
-
-				world.RemoveDroppedItem(entityId)
+				world.RemoveDroppedItem(entityId, dropped.X, dropped.Z)
 				break
 			}
 		}
@@ -1005,14 +1004,13 @@ func CollectNearbyItems(world *level.World) {
 }
 
 func ApplyGravityOnDroppedItems(world *level.World) {
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
-		for entityId, dropped := range logic.DroppedItems {
+		for _, dropped := range logic.DroppedItems {
 			below := world.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
 			if below.IsAir() || below.IsLiquid() {
-				dropped.Y -= 1
-				logic.DroppedItems[entityId] = dropped
+				dropped.Y--
 			}
 		}
 	}

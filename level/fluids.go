@@ -36,6 +36,9 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 
 	touchesWater := func(x, y, z int32) bool {
 		for _, n := range neighbors {
+			if !world.IsLoaded(x+n.dx, z+n.dz) {
+				continue
+			}
 			b := world.GetBlock(x+n.dx, byte(y+n.dy), z+n.dz)
 			if b.IsWater() {
 				return true
@@ -44,7 +47,7 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 		return false
 	}
 
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for key, height := range logic.FlowingLava {
@@ -61,6 +64,9 @@ func CheckLavaHarden(world *World, setBlock SetBlock) {
 		for key := range logic.LavaSources {
 			x, y, z := key.X, int32(key.Y), key.Z
 			// Make sure it wasn't already replaced this tick
+			if !world.IsLoaded(x, z) {
+				continue
+			}
 			b := world.GetBlock(x, byte(y), z)
 			if !b.IsLava() {
 				delete(logic.LavaSources, key)
@@ -86,13 +92,12 @@ type FluidConfig struct {
 func NewWaterConfig(world *World) FluidConfig {
 	loadedSources := make(map[BlockKey]byte)
 	loadedFlowing := make(map[BlockKey]byte)
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1)
 	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for key, height := range logic.WaterSources {
+		for key, height := range chunk.Logic.WaterSources {
 			loadedSources[key] = height
 		}
-		for key, height := range logic.FlowingWater {
+		for key, height := range chunk.Logic.FlowingWater {
 			loadedFlowing[key] = height
 		}
 	}
@@ -111,13 +116,12 @@ func NewWaterConfig(world *World) FluidConfig {
 func NewLavaConfig(world *World) FluidConfig {
 	loadedSources := make(map[BlockKey]byte)
 	loadedFlowing := make(map[BlockKey]byte)
-	chunks := world.LoadChunks()
+	chunks := world.PlayerActiveChunks(1)
 	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for key, height := range logic.LavaSources {
+		for key, height := range chunk.Logic.LavaSources {
 			loadedSources[key] = height
 		}
-		for key, height := range logic.FlowingLava {
+		for key, height := range chunk.Logic.FlowingLava {
 			loadedFlowing[key] = height
 		}
 	}
@@ -164,10 +168,14 @@ func FluidDecay(world *World, cfg FluidConfig, setBlock SetBlock) {
 			if ny < 0 || ny > 255 {
 				continue
 			}
+			if !world.IsLoaded(nx, nz) {
+				continue
+			}
 			nKey := BlockKey{X: nx, Y: byte(ny), Z: nz}
 			if visited[nKey] {
 				continue
 			}
+
 			if cfg.IsFluid(world.GetBlock(nx, byte(ny), nz)) {
 				visited[nKey] = true
 				queue = append(queue, nKey)
@@ -206,7 +214,9 @@ func findHoleNearSource(world *World, sourceKey BlockKey, cfg FluidConfig) (Bloc
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
-
+		if !world.IsLoaded(cur.X, cur.Z) {
+			continue
+		}
 		b := world.GetBlock(cur.X, cur.Y-1, cur.Z)
 		// a hole must be either air or flowing water
 		// latter allows us to keep the same state even if the hole is filled with flowing water
@@ -255,7 +265,9 @@ func FluidSpreading(world *World, cfg FluidConfig, setBlock SetBlock) {
 	for _, entry := range allFluids {
 		x, y, z := entry.key.X, entry.key.Y, entry.key.Z
 		height := entry.height
-
+		if !world.IsLoaded(x, z) {
+			continue
+		}
 		b := world.GetBlock(x, y-1, z)
 		if y > 0 && b.IsAir() {
 			setFlowingFluid(world, x, int32(y)-1, z, 0, cfg, setBlock)

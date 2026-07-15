@@ -44,8 +44,6 @@ type Entity interface {
 const VIEW_DISTANCE = 4
 
 func (w *World) GetLoadedChunk(x, z int32) *Chunk {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	return w.getLoadedChunkLocked(x, z)
 }
 
@@ -54,6 +52,75 @@ func (w *World) getLoadedChunkLocked(x, z int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	return w.chunks[ChunkCoord{cx, cz}]
+}
+
+func (w *World) GetLoadedChunks() []*Chunk {
+	wanted := w.wantedChunks()
+	chunks := make([]*Chunk, 0, len(wanted))
+	for wa := range wanted {
+		if c, ok := w.chunks[wa]; ok {
+			chunks = append(chunks, c)
+		}
+	}
+	return chunks
+}
+
+func (w *World) wantedChunks() map[ChunkCoord]struct{} {
+	wanted := make(map[ChunkCoord]struct{})
+	for _, pl := range w.Players {
+		cx := WorldToChunkCoord(int32(pl.X))
+		cz := WorldToChunkCoord(int32(pl.Z))
+		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
+			}
+		}
+	}
+	return wanted
+}
+
+func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+
+	seen := make(map[ChunkCoord]struct{})
+	chunks := make([]*Chunk, 0, len(w.Players)*9)
+	for _, pl := range w.Players {
+		cx := WorldToChunkCoord(int32(pl.X))
+		cz := WorldToChunkCoord(int32(pl.Z))
+		for dx := -radius; dx <= radius; dx++ {
+			for dz := -radius; dz <= radius; dz++ {
+				coord := ChunkCoord{X: cx + dx, Z: cz + dz}
+				if _, dup := seen[coord]; dup {
+					continue
+				}
+				seen[coord] = struct{}{}
+				if c, ok := w.chunks[coord]; ok {
+					chunks = append(chunks, c)
+				}
+			}
+		}
+	}
+	return chunks
+}
+
+func (w *World) UnloadUnusedChunks() {
+	wanted := w.wantedChunks()
+	for coord := range w.chunks {
+		if _, ok := wanted[coord]; !ok {
+			delete(w.chunks, coord)
+		}
+	}
+}
+
+func (w *World) IsLoaded(x, z int32) bool {
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	coord := ChunkCoord{X: cx, Z: cz}
+	if _, ok := w.chunks[coord]; ok {
+		return true
+	}
+	return false
 }
 
 func (w *World) UnloadPlayerChunks(pl *player.Player) {
@@ -71,28 +138,6 @@ func (w *World) UnloadPlayerChunks(pl *player.Player) {
 	}
 }
 
-func (w *World) UnloadUnusedChunks() {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-
-	wanted := make(map[ChunkCoord]struct{})
-	for _, pl := range w.Players {
-		cx := WorldToChunkCoord(int32(pl.X))
-		cz := WorldToChunkCoord(int32(pl.Z))
-		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
-			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
-				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
-			}
-		}
-	}
-
-	for coord := range w.chunks {
-		if _, ok := wanted[coord]; !ok {
-			delete(w.chunks, coord)
-		}
-	}
-}
-
 func (w *World) SnapshotEntities() []Entity {
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
@@ -104,8 +149,8 @@ func (w *World) SnapshotEntities() []Entity {
 }
 
 func (w *World) Size() int64 {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 
 	var total int64
 	for _, c := range w.chunks {
@@ -186,6 +231,7 @@ func NewChunkLogic() *ChunkLogic {
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	Mu          deadlock.RWMutex
+	Lockcount   int
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
@@ -241,13 +287,14 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 	return entityId
 }
 
-func (w *World) RemoveDroppedItem(entityId int32) {
+func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	for _, chunk := range w.chunks {
-		logic := chunk.Logic
-		delete(logic.DroppedItems, entityId)
-
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	chunk, ok := w.chunks[ChunkCoord{X: cx, Z: cz}]
+	if ok {
+		delete(chunk.Logic.DroppedItems, entityId)
 	}
 }
 
@@ -272,7 +319,7 @@ func (w *World) RemoveFallable(x int32, y byte, z int32) {
 }
 
 func (w *World) CleanUpFallable() {
-	for _, chunk := range w.LoadChunks() {
+	for _, chunk := range w.PlayerActiveChunks(1) {
 		w.Mu.Lock()
 		for key := range chunk.Logic.Fallables {
 			block := chunk.GetBlock(WorldToLocalCoord(key.X), int(key.Y), WorldToLocalCoord(key.Z))
