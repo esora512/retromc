@@ -106,6 +106,8 @@ func gameLoop(world *level.World) {
 			// For fast time, set it to TickSpeed to 20
 			world.Tick = (world.Tick + world.TickSpeed) % 24000
 			world.BroadcastTime()
+			world.TickFluids(world.Tick)
+			world.TickFallables(world.Tick)
 			fallingBlocksPhysics(world)
 			ridablePhysics(world)
 			world.GrowPhysics()

@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"net"
-	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/crafting"
@@ -331,8 +330,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
-	if oldBlock.TypeId == byte(constants.Sand.Value) || oldBlock.TypeId == byte(constants.Gravel.Value) {
-	}
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
 
 	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -447,6 +445,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	dropZ := int32(p.Z)
 	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0)
 	world.BroadcastPacket(spawnPacket)
+	world.TriggerFluidUpdate(dropX, dropY, dropZ, SetBlockAndNotify)
 }
 
 // handlePlayerBlockPlacementInPacket handles block-place events.
@@ -630,6 +629,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	if existing.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
 		air := level.NewAirBlock()
 		SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
+		world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
 		var bucketItem inventory.Item
 		if existing.IsWater() {
 			bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
@@ -861,10 +861,13 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			pl.Inventory.RemoveOne(slot)
 			sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		}
+		world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
 		return
 	}
 
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
+	world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
@@ -887,7 +890,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 }
 
-
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 	world.SetBlock(x, byte(y), z, *block)
 	//log.Printf("SetBlockAndNotify: X=%d Y=%d Z=%d Type=%d Meta=%d", x, y, z, block.TypeId, block.Metadata)
@@ -909,38 +911,6 @@ func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Pla
 	}
 	pl.HotbarSlot = p.Slot + 36
 	sendEquipmentChangeForHotbarSlot(world, pl)
-}
-
-func CheckFallingBlock(world *level.World, x int32, y byte, z int32) {
-	block := world.GetBlock(x, y, z)
-	beneath := world.GetBlock(x, y-1, z)
-	if !beneath.IsAir() && !beneath.IsLiquid() {
-		return
-	}
-
-	air := level.NewAirBlock()
-	time.Sleep(0 * time.Millisecond)
-	SetBlockAndNotify(world, x, int32(y), z, &air)
-
-	ObjectType := byte(0)
-	if block.TypeId == byte(constants.Sand.Value) {
-		ObjectType = 70
-	} else if block.TypeId == byte(constants.Gravel.Value) {
-		ObjectType = 71
-	}
-
-	entityId := world.NextEntityId()
-	spawnPacket := packets.SpawnObject{
-		EntityId:   entityId,
-		ObjectType: ObjectType,
-		X:          int32(math.Floor((float64(x) + 0.5) * 32)),
-		Y:          int32(math.Floor(float64(y) * 32)),
-		Z:          int32(math.Floor((float64(z) + 0.5) * 32)),
-	}
-
-	falling := entities.NewBlockEntity(entityId, int16(block.TypeId), byte(block.Metadata), float64(x), float64(y), float64(z))
-	world.BroadcastPacket(spawnPacket.Serialize())
-	world.AddEntity(falling)
 }
 
 const pickupRangeSq = 1.5 * 1.5

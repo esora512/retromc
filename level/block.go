@@ -49,7 +49,7 @@ type BlockDirections struct {
 }
 
 func (b *Block) IsTransparent() bool {
-	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value) 
+	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }
 
 func (b *Block) IsRail() bool {
@@ -86,6 +86,14 @@ func (b *Block) IsWater() bool {
 
 func (b *Block) IsLava() bool {
 	return b.TypeId == byte(constants.LavaStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value)
+}
+
+func (b *Block) IsFluid() bool {
+	return b.IsWater() || b.IsLava()
+}
+
+func (b *Block) NewBlock(meta byte) Block {
+	return NewBlockById(int16(b.TypeId), meta)
 }
 
 func (b *Block) IsPoweredRail() bool {

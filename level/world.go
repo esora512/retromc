@@ -220,13 +220,13 @@ func NewChunkLogic() *ChunkLogic {
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	Mu          deadlock.RWMutex
-	Lockcount   int
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
 	Entities    map[int32]Entity
 	EntityCount int32
 	WorldType   WorldType
+	Scheduler   BlockUpdateScheduler
 
 	TickSpeed       int64
 	Containers      Containers
@@ -252,6 +252,7 @@ func NewWorld(worldType WorldType) *World {
 			AdjacentSlots:  make(map[BlockKey]BlockKey),
 			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
+		Scheduler: NewBlockUpdateScheduler(),
 	}
 }
 

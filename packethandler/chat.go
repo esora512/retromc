@@ -35,6 +35,7 @@ var commandHelp = []struct {
 	{"/give", "/give <item>"},
 	{"/save", "/save"},
 	{"/destroy", "/destroy <x> <y> <z>"},
+	{"/place", "/place <block> <x> <y> <z> | /place plane <block> <x1> <z1> <x2> <z2> <x3> <z3> <x4> <z4> <y>"},
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
 	{"/time", "/time <set | tickspeed> <value>"},
@@ -132,6 +133,44 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			pl.SetPosition(x, y, z)
 			BroadcastTeleport(world, pl, x, y, z, byte(pl.Yaw))
+			return false
+		}
+
+		if strings.HasPrefix(message, "/place") {
+			args := strings.Fields(strings.TrimPrefix(message, "/place"))
+			if len(args) == 0 {
+				sendUsage(pl, "/place")
+				return false
+			}
+
+			if args[0] == "plane" {
+				handlePlacePlaneCommand(pl, world, args[1:])
+				return false
+			}
+
+			// Expected format: /place <block> <x> <y> <z>
+			if len(args) != 4 {
+				sendUsage(pl, "/place")
+				return false
+			}
+
+			blockName := args[0]
+			var x, y, z int32
+			_, err := fmt.Sscanf(strings.Join(args[1:], " "), "%d %d %d", &x, &y, &z)
+			if err != nil {
+				sendUsage(pl, "/place")
+				return false
+			}
+
+			b := constants.GetBlockByName(blockName)
+			if b.Value == -1 {
+				sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
+				return false
+			}
+			block := level.NewBlockById(b.Value, byte(b.Meta))
+
+			SetBlockAndNotify(world, x, y, z, &block)
+			sendDebugMessage(pl, fmt.Sprintf("Placed %s at x=%d, y=%d, z=%d", blockName, x, y, z))
 			return false
 		}
 
@@ -351,6 +390,118 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	p.Message = "<" + pl.Username + "> " + message
 	world.BroadcastPacket(p.Serialize())
 	return false
+}
+
+// planePoint represents one (x, z) corner of a plane, at a shared y-level.
+type planePoint struct {
+	X, Z int32
+}
+
+// handlePlacePlaneCommand parses "plane <block> <x1> <z1> <x2> <z2> <x3> <z3> <x4> <z4> <y>"
+// (the args slice passed in has already had the leading "/place plane" stripped)
+// and fills the quadrilateral described by the 4 corner points with the given block,
+// at the given y level.
+func handlePlacePlaneCommand(pl *player.Player, world *level.World, args []string) {
+	if len(args) != 10 {
+		sendUsage(pl, "/place")
+		return
+	}
+
+	blockName := args[0]
+	b := constants.GetBlockByName(blockName)
+	if b.Value == -1 {
+		sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
+		return
+	}
+
+	block := level.NewBlockById(b.Value, byte(b.Meta))
+	var x1, z1, x2, z2, x3, z3, x4, z4, y int32
+	_, err := fmt.Sscanf(strings.Join(args[1:], " "), "%d %d %d %d %d %d %d %d %d", &x1, &z1, &x2, &z2, &x3, &z3, &x4, &z4, &y)
+	if err != nil {
+		sendUsage(pl, "/place")
+		return
+	}
+
+	corners := []planePoint{
+		{X: x1, Z: z1},
+		{X: x2, Z: z2},
+		{X: x3, Z: z3},
+		{X: x4, Z: z4},
+	}
+
+	minX, maxX := corners[0].X, corners[0].X
+	minZ, maxZ := corners[0].Z, corners[0].Z
+	for _, c := range corners[1:] {
+		if c.X < minX {
+			minX = c.X
+		}
+		if c.X > maxX {
+			maxX = c.X
+		}
+		if c.Z < minZ {
+			minZ = c.Z
+		}
+		if c.Z > maxZ {
+			maxZ = c.Z
+		}
+	}
+
+	placed := 0
+	for x := minX; x <= maxX; x++ {
+		for z := minZ; z <= maxZ; z++ {
+			if !pointInPolygon(x, z, corners) {
+				continue
+			}
+			SetBlockAndNotify(world, x, y, z, &block)
+			placed++
+		}
+	}
+
+	sendDebugMessage(pl, fmt.Sprintf("Placed %d %s block(s) in plane at y=%d", placed, blockName, y))
+}
+
+// pointInPolygon reports whether the point (x, z) lies inside (or on the boundary of)
+// the polygon described by corners, using a ray-casting test.
+func pointInPolygon(x, z int32, corners []planePoint) bool {
+	inside := false
+	n := len(corners)
+	j := n - 1
+	fx, fz := float64(x), float64(z)
+	for i := 0; i < n; i++ {
+		xi, zi := float64(corners[i].X), float64(corners[i].Z)
+		xj, zj := float64(corners[j].X), float64(corners[j].Z)
+
+		// Treat points exactly on an edge as inside.
+		if onSegment(fx, fz, xi, zi, xj, zj) {
+			return true
+		}
+
+		if (zi > fz) != (zj > fz) {
+			xIntersect := (xj-xi)*(fz-zi)/(zj-zi) + xi
+			if fx < xIntersect {
+				inside = !inside
+			}
+		}
+		j = i
+	}
+	return inside
+}
+
+// onSegment reports whether point (px, pz) lies on the line segment from (ax, az) to (bx, bz).
+func onSegment(px, pz, ax, az, bx, bz float64) bool {
+	crossProduct := (pz-az)*(bx-ax) - (px-ax)*(bz-az)
+	if crossProduct*crossProduct > 1e-9 {
+		return false
+	}
+	dotProduct := (px-ax)*(bx-ax) + (pz-az)*(bz-az)
+	if dotProduct < 0 {
+		return false
+	}
+	squaredLength := (bx-ax)*(bx-ax) + (bz-az)*(bz-az)
+	if dotProduct > squaredLength {
+		return false
+	}
+	return true
 }
 
 func printGiveHelp(pl *player.Player, pattern string) {
