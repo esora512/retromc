@@ -293,18 +293,6 @@ func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk,
 				case b.TypeId == byte(constants.Wheat.Value):
 					c.Logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
 				}
-				if b.IsStillWater() {
-					c.Logic.WaterSources[key] = b.Metadata
-				}
-				if b.IsFlowingWater() {
-					c.Logic.FlowingWater[key] = b.Metadata
-				}
-				if b.IsStillLava() {
-					c.Logic.LavaSources[key] = b.Metadata
-				}
-				if b.IsFlowingLava() {
-					c.Logic.FlowingLava[key] = b.Metadata
-				}
 			}
 		}
 	}

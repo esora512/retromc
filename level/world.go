@@ -5,7 +5,6 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
@@ -207,22 +206,12 @@ type DroppedItem struct {
 }
 
 type ChunkLogic struct {
-	Fallables    map[BlockKey]struct{}
-	WaterSources map[BlockKey]byte
-	FlowingWater map[BlockKey]byte
-	LavaSources  map[BlockKey]byte
-	FlowingLava  map[BlockKey]byte
 	Growables    map[BlockKey]Growable
 	DroppedItems map[int32]*DroppedItem
 }
 
 func NewChunkLogic() *ChunkLogic {
 	return &ChunkLogic{
-		Fallables:    make(map[BlockKey]struct{}),
-		WaterSources: make(map[BlockKey]byte),
-		FlowingWater: make(map[BlockKey]byte),
-		LavaSources:  make(map[BlockKey]byte),
-		FlowingLava:  make(map[BlockKey]byte),
 		Growables:    make(map[BlockKey]Growable),
 		DroppedItems: make(map[int32]*DroppedItem),
 	}
@@ -281,7 +270,7 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
@@ -295,39 +284,6 @@ func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
 	chunk, ok := w.chunks[ChunkCoord{X: cx, Z: cz}]
 	if ok {
 		delete(chunk.Logic.DroppedItems, entityId)
-	}
-}
-
-func (w *World) AddFallable(x int32, y byte, z int32) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
-	logic := chunk.Logic
-	logic.Fallables[BlockKey{x, y, z}] = struct{}{}
-}
-
-func (w *World) RemoveFallable(x int32, y byte, z int32) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
-	logic := chunk.Logic
-	delete(logic.Fallables, BlockKey{x, y, z})
-}
-
-func (w *World) CleanUpFallable() {
-	for _, chunk := range w.PlayerActiveChunks(1) {
-		w.Mu.Lock()
-		for key := range chunk.Logic.Fallables {
-			block := chunk.GetBlock(WorldToLocalCoord(key.X), int(key.Y), WorldToLocalCoord(key.Z))
-			if block.TypeId != byte(constants.Sand.Value) && block.TypeId != byte(constants.Gravel.Value) {
-				delete(chunk.Logic.Fallables, key)
-			}
-		}
-		w.Mu.Unlock()
 	}
 }
 
@@ -353,10 +309,10 @@ func (w *World) ChunkExists(cx, cz int32) bool {
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	return w.getOrCreateChunkLocked(cx, cz, worldType)
+	return w.getOrCreateChunk(cx, cz, worldType)
 }
 
-func (w *World) getOrCreateChunkLocked(cx, cz int32, worldType WorldType) *Chunk {
+func (w *World) getOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	key := ChunkCoord{cx, cz}
 
 	if c, ok := w.chunks[key]; ok {
@@ -395,8 +351,6 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
-	logic := chunk.Logic
-
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
@@ -405,25 +359,6 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	w.Mu.Lock()
 	key := BlockKey{worldX, worldY, worldZ}
 	w.SetGrowable(block, key)
-
-	if block.IsStillWater() {
-		logic.WaterSources[key] = block.Metadata
-		delete(logic.FlowingWater, key)
-	} else if block.IsFlowingWater() {
-		logic.FlowingWater[key] = block.Metadata
-		delete(logic.WaterSources, key)
-	} else if block.IsStillLava() {
-		logic.LavaSources[key] = block.Metadata
-		delete(logic.FlowingLava, key)
-	} else if block.IsFlowingLava() {
-		logic.FlowingLava[key] = block.Metadata
-		delete(logic.LavaSources, key)
-	} else {
-		delete(logic.WaterSources, key)
-		delete(logic.FlowingWater, key)
-		delete(logic.LavaSources, key)
-		delete(logic.FlowingLava, key)
-	}
 	w.Mu.Unlock()
 }
 

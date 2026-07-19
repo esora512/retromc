@@ -332,9 +332,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	air := level.NewAirBlock()
 	world.SetBlock(p.X, p.Y, p.Z, air)
 	if oldBlock.TypeId == byte(constants.Sand.Value) || oldBlock.TypeId == byte(constants.Gravel.Value) {
-		world.RemoveFallable(p.X, p.Y, p.Z)
 	}
-	//fallingBlockCheck(world)
 
 	// Notify all players of the block change.
 	blockChange := packets.BlockChangeOutPacket{
@@ -631,14 +629,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if existing.IsLiquid() && heldItem.TypeId == constants.Bucket.Value {
 		air := level.NewAirBlock()
-		chunk := world.GetLoadedChunk(newX, newZ)
-		logic := chunk.Logic
 		SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
-		delete(logic.WaterSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(logic.FlowingWater, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(logic.LavaSources, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-		delete(logic.FlowingLava, level.BlockKey{X: newX, Y: byte(newY), Z: newZ})
-
 		var bucketItem inventory.Item
 		if existing.IsWater() {
 			bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
@@ -874,10 +865,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
-	if block.TypeId == byte(constants.Sand.Value) || block.TypeId == byte(constants.Gravel.Value) {
-		world.AddFallable(newX, byte(newY), newZ)
-	}
-	fallingBlockCheck(world)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
@@ -900,15 +887,6 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 }
 
-func fallingBlockCheck(world *level.World) {
-	chunks := world.PlayerActiveChunks(1)
-	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for key := range logic.Fallables {
-			CheckFallingBlock(world, key.X, key.Y, key.Z)
-		}
-	}
-}
 
 func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
 	world.SetBlock(x, byte(y), z, *block)

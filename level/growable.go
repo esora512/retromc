@@ -205,7 +205,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }
@@ -213,7 +213,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 func (c *Wheat) Grow(w *World, bk *BlockKey) {
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	if c.State >= CROP_MAX_STATE {
 		delete(logic.Growables, *bk)
@@ -357,7 +357,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunkLocked(cx, cz, w.WorldType)
+	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }

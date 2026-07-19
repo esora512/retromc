@@ -288,41 +288,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 						sendDebugMessage(pl, fmt.Sprintf("  slot %d: id=%d count=%d meta=%d", i, item.TypeId, item.Count, item.Metadata))
 					}
 				}
-			case "water":
-				chunks := world.LoadChunks()
-				loadedSources := make(map[level.BlockKey]byte)
-				loadedFlowing := make(map[level.BlockKey]byte)
-				for _, chunk := range chunks {
-					logic := chunk.Logic
-					for key, height := range logic.WaterSources {
-						loadedSources[key] = height
-					}
-					for key, height := range logic.FlowingWater {
-						loadedFlowing[key] = height
-					}
-				}
-				lines := []string{fmt.Sprintf("Water sources in world: %d", len(loadedSources))}
-				for key := range loadedSources {
-					lines = append(lines, fmt.Sprintf("  source at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
-				}
-				for key := range loadedFlowing {
-					lines = append(lines, fmt.Sprintf("  flowing at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
-				}
-				sendDebugMessage(pl, lines...)
-			case "fallables":
-				loadedFallables := make(map[level.BlockKey]struct{})
-				chunks := world.LoadChunks()
-				for _, chunk := range chunks {
-					logic := chunk.Logic
-					for key, fallable := range logic.Fallables {
-						loadedFallables[key] = fallable
-					}
-				}
-				lines := []string{fmt.Sprintf("Falling blocks in world: %d", len(loadedFallables))}
-				for key := range loadedFallables {
-					lines = append(lines, fmt.Sprintf("  at x=%d, y=%d, z=%d", key.X, key.Y, key.Z))
-				}
-				sendDebugMessage(pl, lines...)
 			case "entities":
 				entities := world.SnapshotEntities()
 				lines := []string{fmt.Sprintf("Entities in world: %d", len(entities))}
