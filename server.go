@@ -33,7 +33,8 @@ func main() {
 	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
 
 	world := level.NewWorld(level.Template)
-	gameLoop(world)
+	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.EntityDespawnPacket)
+	gameLoop(world, entityTracker)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
@@ -98,7 +99,7 @@ func handleConnection(connection net.Conn, world *level.World) {
 	}
 }
 
-func gameLoop(world *level.World) {
+func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
@@ -115,6 +116,10 @@ func gameLoop(world *level.World) {
 			packethandler.ApplyGravityOnDroppedItems(world)
 			furnaceLogic(world)
 			world.UnloadUnusedChunks()
+			if world.Tick%10 == 0 {
+				entityTracker.Manage(world)
+			}
+
 		}
 	}()
 }

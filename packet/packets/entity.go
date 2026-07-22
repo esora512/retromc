@@ -226,6 +226,14 @@ func PlayerEntityDespawnPacket(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
+func EntityDespawnPacket(id int32) []byte {
+	p := EntityDespawnOutPacket{
+		EntityId: id,
+	}
+	return p.Serialize()
+}
+
+
 func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))

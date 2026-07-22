@@ -46,38 +46,38 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 
 	sendInventory(connection, pl, world)
 	sendPlayerPositionAndLook(connection)
-	spawnPacket := packets.SpawnPlayerEntityPacket(pl)
-	// Inform other players of the new player
-	world.MulticastPacket(spawnPacket, pl)
+	// spawnPacket := packets.SpawnPlayerEntityPacket(pl)
+	// // Inform other players of the new player
+	// world.MulticastPacket(spawnPacket, pl)
 	chatPacket := packets.ChatMessagePacket{
 		Message: "\u00a7e" + pl.Username + " joined the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
-	world.ForEachPlayer(func(other *player.Player) {
-		if other == pl {
-			return
-		}
-		packets.SetEquipment(pl, func(b []byte) {
-			other.Connection.Write(b)
-		})
-	})
+	// world.ForEachPlayer(func(other *player.Player) {
+	// 	if other == pl {
+	// 		return
+	// 	}
+	// 	packets.SetEquipment(pl, func(b []byte) {
+	// 		other.Connection.Write(b)
+	// 	})
+	// })
 
-	// Inform the new player of other players
-	world.ForEachPlayer(func(other *player.Player) {
-		if other == pl {
-			return
-		}
-		pl.Connection.Write(packets.SpawnPlayerEntityPacket(other))
-		packets.SetEquipment(other, func(b []byte) {
-			pl.Connection.Write(b)
-		})
-	})
+	// // Inform the new player of other players
+	// world.ForEachPlayer(func(other *player.Player) {
+	// 	if other == pl {
+	// 		return
+	// 	}
+	// 	pl.Connection.Write(packets.SpawnPlayerEntityPacket(other))
+	// 	packets.SetEquipment(other, func(b []byte) {
+	// 		pl.Connection.Write(b)
+	// 	})
+	// })
 
-	for _, e := range world.Entities {
-		if !e.IsPlayer() {
-			pl.Connection.Write(packets.SpawnObjectPacket(e))
-		}
-	}
+	// for _, e := range world.Entities {
+	// 	if !e.IsPlayer() {
+	// 		pl.Connection.Write(packets.SpawnObjectPacket(e))
+	// 	}
+	// }
 }
 
 func sendLoginResponse(connection net.Conn, pl *player.Player) {

@@ -3,6 +3,7 @@ package level
 import (
 	"fmt"
 	"log"
+	"math"
 	"path/filepath"
 
 	"github.com/leNicDev/retromc/entities"
@@ -12,6 +13,8 @@ import (
 	"github.com/leNicDev/retromc/player"
 	"github.com/sasha-s/go-deadlock"
 )
+
+const VIEW_DISTANCE = 4
 
 // ChunkCoord is the map key for a chunk's position in the world.
 type ChunkCoord struct {
@@ -40,14 +43,62 @@ type Entity interface {
 	GetHP() int16
 }
 
-const VIEW_DISTANCE = 4
-
-func (w *World) GetLoadedChunk(x, z int32) *Chunk {
-	return w.getLoadedChunkLocked(x, z)
+type EntityTracker struct {
+	SpawnPlayer   func(pl *player.Player) []byte
+	DespawnEntity func(id int32) []byte
+	visible       map[int32]map[int32]bool
 }
 
-// getLoadedChunkLocked assumes w.Mu is already held (read or write) by the caller.
-func (w *World) getLoadedChunkLocked(x, z int32) *Chunk {
+func NewEntityTracker(
+	spawnPlayer func(pl *player.Player) []byte,
+	despawnEntity func(id int32) []byte,
+) *EntityTracker {
+	return &EntityTracker{
+		SpawnPlayer:   spawnPlayer,
+		DespawnEntity: despawnEntity,
+		visible:       make(map[int32]map[int32]bool),
+	}
+}
+
+func (et *EntityTracker) Manage(w *World) {
+	const distance = VIEW_DISTANCE * 8
+
+	for _, viewer := range w.Players {
+		viewerID := viewer.GetEntityId()
+
+		if et.visible[viewerID] == nil {
+			et.visible[viewerID] = make(map[int32]bool)
+		}
+
+		x1, _, z1 := viewer.GetPosition()
+
+		for _, target := range w.Players {
+			targetID := target.GetEntityId()
+
+			if viewerID == targetID {
+				continue
+			}
+
+			x2, _, z2 := target.GetPosition()
+
+			dx := math.Abs(x1 - x2)
+			dz := math.Abs(z1 - z2)
+
+			isVisible := et.visible[viewerID][targetID]
+
+			if !isVisible && dx <= distance && dz <= distance {
+				viewer.Connection.Write(et.SpawnPlayer(target))
+				et.visible[viewerID][targetID] = true
+
+			} else if isVisible && (dx > distance || dz > distance) {
+				viewer.Connection.Write(et.DespawnEntity(targetID))
+				delete(et.visible[viewerID], targetID)
+			}
+		}
+	}
+}
+
+func (w *World) GetLoadedChunk(x, z int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	return w.chunks[ChunkCoord{cx, cz}]
@@ -253,6 +304,13 @@ func NewWorld(worldType WorldType) *World {
 			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
 		Scheduler: NewBlockUpdateScheduler(),
+	}
+}
+
+func (w *World) DebugEntities() {
+	for i, e := range w.Entities {
+		x, y, z := e.GetPosition()
+		log.Printf("%d : x=%f, y=%f, z=%f", i, math.Round(x), math.Round(y), math.Round(z))
 	}
 }
 

@@ -60,7 +60,7 @@ type BlockChangeOutPacket struct {
 }
 
 func (w *World) SetGrowable(block Block, bk BlockKey) {
-	chunk := w.getLoadedChunkLocked(bk.X, bk.Z)
+	chunk := w.GetLoadedChunk(bk.X, bk.Z)
 	if chunk == nil {
 		return
 	}
