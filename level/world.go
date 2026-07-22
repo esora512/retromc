@@ -46,16 +46,19 @@ type Entity interface {
 type EntityTracker struct {
 	SpawnPlayer   func(pl *player.Player) []byte
 	DespawnEntity func(id int32) []byte
+	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
 	visible       map[int32]map[int32]bool
 }
 
 func NewEntityTracker(
 	spawnPlayer func(pl *player.Player) []byte,
 	despawnEntity func(id int32) []byte,
+	setEquipment func(pl *player.Player, send func([]byte) (int, error)),
 ) *EntityTracker {
 	return &EntityTracker{
 		SpawnPlayer:   spawnPlayer,
 		DespawnEntity: despawnEntity,
+		SetEquipment:  setEquipment,
 		visible:       make(map[int32]map[int32]bool),
 	}
 }
@@ -88,6 +91,7 @@ func (et *EntityTracker) Manage(w *World) {
 
 			if !isVisible && dx <= distance && dz <= distance {
 				viewer.Connection.Write(et.SpawnPlayer(target))
+				et.SetEquipment(target, viewer.Connection.Write)
 				et.visible[viewerID][targetID] = true
 
 			} else if isVisible && (dx > distance || dz > distance) {

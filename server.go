@@ -33,7 +33,7 @@ func main() {
 	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
 
 	world := level.NewWorld(level.Template)
-	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.EntityDespawnPacket)
+	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
