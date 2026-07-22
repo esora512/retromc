@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"fmt"
 	"log"
 	"net"
 
@@ -49,6 +50,11 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	// spawnPacket := packets.SpawnPlayerEntityPacket(pl)
 	// // Inform other players of the new player
 	// world.MulticastPacket(spawnPacket, pl)
+	serverPacket1 := packets.ChatMessagePacket{
+		Message: "\u00a7e" + fmt.Sprintf("Server runs on retromc (dev/%s)", world.CommitHash),
+	}
+	pl.Connection.Write(serverPacket1.Serialize())
+
 	chatPacket := packets.ChatMessagePacket{
 		Message: "\u00a7e" + pl.Username + " joined the game",
 	}

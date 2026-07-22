@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"log"
 	"net"
 	"os"
@@ -16,13 +17,19 @@ import (
 )
 
 const (
-	CON_HOST = "localhost"
-	CON_PORT = "25565"
 	CON_TYPE = "tcp"
 )
 
+var (
+	GitCommit = "unknown"
+	BuildTime = "unknown"
+)
+
 func main() {
-	l, err := net.Listen(CON_TYPE, CON_HOST+":"+CON_PORT)
+	host := flag.String("host", "localhost", "Address to bind the server to")
+	port := flag.String("port", "25565", "Port to bind the server to")
+	flag.Parse()
+	l, err := net.Listen(CON_TYPE, *host+":"+*port)
 	if err != nil {
 		log.Panicln("Failed to bind to address", err.Error())
 	}
@@ -30,9 +37,9 @@ func main() {
 	// close listener when the application closes
 	defer l.Close()
 
-	log.Printf("Server listening on %s:%s (PID: %d)", CON_HOST, CON_PORT, os.Getpid())
+	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(level.Template)
+	world := level.NewWorld(GitCommit)
 	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {

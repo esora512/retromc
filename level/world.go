@@ -287,12 +287,14 @@ type World struct {
 	Containers      Containers
 	ChestPlacements ChestPlacement
 	WorldDir        string
+	CommitHash      string
 }
 
-func NewWorld(worldType WorldType) *World {
+func NewWorld(commitHash string) *World {
 	return &World{
+		CommitHash:  commitHash,
 		WorldDir:    "saves",
-		WorldType:   worldType,
+		WorldType:   Template,
 		chunks:      make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),

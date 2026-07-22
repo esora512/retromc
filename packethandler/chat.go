@@ -43,6 +43,7 @@ var commandHelp = []struct {
 	{"/help", "/help [command]"},
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 	{"/size", "/size"},
+	{"/version", "/version"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -181,6 +182,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			sendDebugMessage(pl, sys)
 			sendDebugMessage(pl, totalAlloc)
 			sendDebugMessage(pl, numGC)
+		}
+
+		if strings.HasPrefix(message, "/version") {
+			sendDebugMessage(pl, fmt.Sprintf("dev/%s", world.CommitHash))
 		}
 
 		if strings.HasPrefix(message, "/give") {
