@@ -2,6 +2,8 @@ package packethandler
 
 import (
 	"log"
+	"math"
+	"math/rand"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/crafting"
@@ -104,6 +106,38 @@ func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, d
 	return newDmg
 }
 
+const (
+	knockbackHorizontal = 0.4 // blocks/tick, vanilla-ish values
+	knockbackVertical   = 0.4
+)
+
+func calcKnockbackVelocity(attacker, victim *player.Player) (vx, vy, vz float64) {
+	dx := victim.X - attacker.X
+	dz := victim.Z - attacker.Z
+
+	dist := math.Sqrt(dx*dx + dz*dz)
+	if dist < 1e-4 {
+		dx = (rand.Float64() - rand.Float64()) * 0.01
+		dz = (rand.Float64() - rand.Float64()) * 0.01
+		dist = math.Sqrt(dx*dx + dz*dz)
+	}
+	dx /= dist
+	dz /= dist
+
+	return dx * knockbackHorizontal, knockbackVertical, dz * knockbackHorizontal
+}
+
+func applyKnockback(w *level.World, attacker, victim *player.Player) {
+	vx, vy, vz := calcKnockbackVelocity(attacker, victim)
+	ev := packets.EntityVelocity{
+		EntityId: victim.GetEntityId(),
+		Vx:       int16(vx),
+		Vy:       int16(vy),
+		Vz:       int16(vz),
+	}
+	w.BroadcastPacket(ev.Serialize())
+}
+
 func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World) {
 	player := world.Players[p.PlayerId]
 	other := world.Entities[p.EntityId]
@@ -130,6 +164,11 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
+		// if other.IsPlayer() {
+		// 	otherPl := world.Players[other.GetEntityId()]
+		// 	applyKnockback(world, pl, otherPl)
+
+		// }
 
 		if other.IsRideable() {
 			p := packets.EntityEventOutPacket{
@@ -141,7 +180,7 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 
 		if newHP <= 0 {
 			cMsgPkt := packets.ChatMessagePacket{
-				Message:    other.GetName() + " was killed by " + player.Username,
+				Message: other.GetName() + " was killed by " + player.Username,
 			}
 			world.BroadcastPacket(cMsgPkt.Serialize())
 			p := packets.EntityEventOutPacket{
@@ -149,10 +188,6 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 				Action:   3,
 			}
 			world.BroadcastPacket(p.Serialize())
-			// if other.IsPlayer() {
-			// 	otherPlayer := world.Players[other.GetEntityId()]
-			// 	world.BroadcastPacket(packets.PlayerEntityDespawnPacket(otherPlayer))
-			// }
 
 			if other.IsRideable() {
 				ridable, _ := other.(*entities.RideableEntity)

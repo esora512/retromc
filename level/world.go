@@ -11,7 +11,7 @@ import (
 	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
-	"github.com/sasha-s/go-deadlock"
+	"sync"
 )
 
 const VIEW_DISTANCE = 4
@@ -285,7 +285,7 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu          deadlock.RWMutex
+	Mu          sync.RWMutex
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
