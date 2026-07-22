@@ -83,7 +83,10 @@ func handleConnection(connection net.Conn, world *level.World) {
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
-
+	if old, ok := world.GetPlayerByUsername(pl.Username); ok {
+		old.Connection.Close()
+		world.RemovePlayer(old)
+	}
 	world.AddPlayer(pl)
 	reader := bufio.NewReader(connection)
 	for {

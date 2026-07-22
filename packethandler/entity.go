@@ -149,10 +149,10 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 				Action:   3,
 			}
 			world.BroadcastPacket(p.Serialize())
-			if other.IsPlayer() {
-				otherPlayer := world.Players[other.GetEntityId()]
-				world.BroadcastPacket(packets.PlayerEntityDespawnPacket(otherPlayer))
-			}
+			// if other.IsPlayer() {
+			// 	otherPlayer := world.Players[other.GetEntityId()]
+			// 	world.BroadcastPacket(packets.PlayerEntityDespawnPacket(otherPlayer))
+			// }
 
 			if other.IsRideable() {
 				ridable, _ := other.(*entities.RideableEntity)

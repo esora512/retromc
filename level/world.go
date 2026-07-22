@@ -43,6 +43,15 @@ type Entity interface {
 	GetHP() int16
 }
 
+func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
+	for _, pl := range w.Players {
+		if pl.Username == name {
+			return pl, true
+		}
+	}
+	return nil, false
+}
+
 type EntityTracker struct {
 	SpawnPlayer   func(pl *player.Player) []byte
 	DespawnEntity func(id int32) []byte
@@ -88,13 +97,15 @@ func (et *EntityTracker) Manage(w *World) {
 			dz := math.Abs(z1 - z2)
 
 			isVisible := et.visible[viewerID][targetID]
+			inRange := dx <= distance && dz <= distance
+			alive := target.GetHP() > 0
 
-			if !isVisible && dx <= distance && dz <= distance {
+			if !isVisible && inRange && alive {
 				viewer.Connection.Write(et.SpawnPlayer(target))
 				et.SetEquipment(target, viewer.Connection.Write)
 				et.visible[viewerID][targetID] = true
 
-			} else if isVisible && (dx > distance || dz > distance) {
+			} else if isVisible && (!inRange || !alive) {
 				viewer.Connection.Write(et.DespawnEntity(targetID))
 				delete(et.visible[viewerID], targetID)
 			}
