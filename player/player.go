@@ -97,6 +97,7 @@ type Player struct {
 
 	// Last valid position — used for boundary rubber-banding.
 	X, Y, Z              float64
+	Vx, Vy, Vz           float64
 	Lx, Ly, Lz           float64
 	Stance               float64
 	Yaw, Pitch           float32
@@ -153,6 +154,9 @@ func NewPlayer(conn net.Conn) *Player {
 		X:                    SpawnX,
 		Y:                    SpawnY,
 		Z:                    SpawnZ,
+		Vx:                   0,
+		Vy:                   0,
+		Vz:                   0,
 		Stance:               SpawnStance,
 		Workbench:            *inventory.NewWorkbench(),
 		InventoryType:        PlayerInventory,

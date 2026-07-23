@@ -107,15 +107,16 @@ func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, d
 }
 
 const (
-	knockbackHorizontal = 0.4 // blocks/tick, vanilla-ish values
-	knockbackVertical   = 0.4
+	knockbackVelocityDampening = 0.5
+	knockbackHorizontal        = 0.4
+	knockbackVertical          = 0.4
 )
 
-func calcKnockbackVelocity(attacker, victim *player.Player) (vx, vy, vz float64) {
-	dx := victim.X - attacker.X
-	dz := victim.Z - attacker.Z
-
+func applyKnockback(w *level.World, attacker, victim *player.Player) {
+	dx := attacker.X - victim.X
+	dz := attacker.Z - victim.Z
 	dist := math.Sqrt(dx*dx + dz*dz)
+
 	if dist < 1e-4 {
 		dx = (rand.Float64() - rand.Float64()) * 0.01
 		dz = (rand.Float64() - rand.Float64()) * 0.01
@@ -124,16 +125,18 @@ func calcKnockbackVelocity(attacker, victim *player.Player) (vx, vy, vz float64)
 	dx /= dist
 	dz /= dist
 
-	return dx * knockbackHorizontal, knockbackVertical, dz * knockbackHorizontal
-}
+	vX, vY, vZ := victim.Vx, victim.Vy, victim.Vz
+	vX *= knockbackVelocityDampening
+	vZ *= knockbackVelocityDampening
+	vX -= dx * knockbackHorizontal
+	vZ -= dz * knockbackHorizontal
+	vY = math.Min(vY+knockbackVertical, knockbackVertical)
 
-func applyKnockback(w *level.World, attacker, victim *player.Player) {
-	vx, vy, vz := calcKnockbackVelocity(attacker, victim)
 	ev := packets.EntityVelocity{
 		EntityId: victim.GetEntityId(),
-		Vx:       int16(vx),
-		Vy:       int16(vy),
-		Vz:       int16(vz),
+		Vx:       vX,
+		Vy:       vY,
+		Vz:       vZ,
 	}
 	w.BroadcastPacket(ev.Serialize())
 }
@@ -164,11 +167,11 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
-		// if other.IsPlayer() {
-		// 	otherPl := world.Players[other.GetEntityId()]
-		// 	applyKnockback(world, pl, otherPl)
+		if other.IsPlayer() {
+			otherPl := world.Players[other.GetEntityId()]
+			applyKnockback(world, pl, otherPl)
 
-		// }
+		}
 
 		if other.IsRideable() {
 			p := packets.EntityEventOutPacket{
