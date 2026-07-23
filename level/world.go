@@ -6,12 +6,13 @@ import (
 	"math"
 	"path/filepath"
 
+	"sync"
+
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
-	"sync"
 )
 
 const VIEW_DISTANCE = 4
@@ -404,7 +405,7 @@ func (w *World) getOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		if err != nil {
 			log.Printf("chunk (%d,%d): read failed, regenerating: %v", cx, cz, err)
 		} else if lvl != nil {
-			c, err := w.readChunkFromNBTLocked(lvl, cx, cz) // <-- locked variant, not the public one
+			c, err := w.readChunkFromNBT(lvl, cx, cz) // <-- locked variant, not the public one
 			if err != nil {
 				log.Printf("chunk (%d,%d): decode failed, regenerating: %v", cx, cz, err)
 			} else {

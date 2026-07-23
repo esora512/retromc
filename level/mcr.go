@@ -252,10 +252,10 @@ func saveLevelDat(worldDir string, tick int64) error {
 func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	return w.readChunkFromNBTLocked(lvl, cx, cz)
+	return w.readChunkFromNBT(lvl, cx, cz)
 }
 
-func (w *World) readChunkFromNBTLocked(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
+func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
 	blocks := lvl.Get("Blocks").ByteArr
 	data := lvl.Get("Data").ByteArr
 	skyLight := lvl.Get("SkyLight").ByteArr
