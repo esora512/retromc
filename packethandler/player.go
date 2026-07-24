@@ -329,18 +329,8 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 
 	air := level.NewAirBlock()
-	world.SetBlock(p.X, p.Y, p.Z, air)
+	SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
-
-	// Notify all players of the block change.
-	blockChange := packets.BlockChangeOutPacket{
-		X:         p.X,
-		Y:         p.Y,
-		Z:         p.Z,
-		BlockType: air.TypeId,
-		BlockMeta: air.Metadata,
-	}
-	world.BroadcastPacket(blockChange.Serialize())
 
 	// Add the mined block to the in-memory inventory.
 	// AddItem handles: stack-on-existing, first-empty-slot, and full-inventory cases.
@@ -403,15 +393,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 				break
 			}
 			air := level.NewAirBlock()
-			world.SetBlock(p.X, aboveY, p.Z, air)
-			blockChange := packets.BlockChangeOutPacket{
-				X:         p.X,
-				Y:         aboveY,
-				Z:         p.Z,
-				BlockType: air.TypeId,
-				BlockMeta: air.Metadata,
-			}
-			world.BroadcastPacket(blockChange.Serialize())
+			SetBlockAndNotify(world, p.X, int32(aboveY), p.Z, &air)
 			count++
 		}
 	}
@@ -527,15 +509,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if heldItem.TypeId == constants.FlintAndSteel.Value {
 		fire := level.NewFireBlock()
-		world.SetBlock(p.X, byte(p.Y-1), p.Z, fire)
-		blockChange := packets.BlockChangeOutPacket{
-			X:         p.X,
-			Y:         byte(p.Y - 1),
-			Z:         p.Z,
-			BlockType: fire.TypeId,
-			BlockMeta: fire.Metadata,
-		}
-		world.BroadcastPacket(blockChange.Serialize())
+		SetBlockAndNotify(world, p.X, int32(p.Y + 1), p.Z, &fire)
 		if crafting.HasDurability(heldItem.TypeId) {
 			heldItem.Metadata += 1
 			if heldItem.Metadata == crafting.Durability(heldItem.TypeId) {
@@ -552,15 +526,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	if (oldExisting.TypeId == byte(constants.Dirt.Value) || oldExisting.TypeId == byte(constants.Grass.Value)) && heldItem.IsHoe() {
 		tilled := level.NewBlockById(constants.Farmland.Value, 0)
-		world.SetBlock(p.X, byte(p.Y), p.Z, tilled)
-		blockChange := packets.BlockChangeOutPacket{
-			X:         p.X,
-			Y:         byte(p.Y),
-			Z:         p.Z,
-			BlockType: tilled.TypeId,
-			BlockMeta: tilled.Metadata,
-		}
-		world.BroadcastPacket(blockChange.Serialize())
+		SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &tilled)
 		return
 	}
 
@@ -699,23 +665,11 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 			}
 		}
 
-		broadcastBlock := func(x, y, z int32, typeId, meta byte) {
-			pkt := packets.BlockChangeOutPacket{
-				X:         x,
-				Y:         byte(y),
-				Z:         z,
-				BlockType: typeId,
-				BlockMeta: meta,
-			}
-			world.BroadcastPacket(pkt.Serialize())
-		}
-
 		x, y, z := int32(newX), int32(newY), int32(newZ)
 
 		// Place the new rail with computed metadata
 		block.Metadata = computeMeta(x, y, z)
-		world.SetBlock(x, byte(y), z, block)
-		broadcastBlock(x, y, z, block.TypeId, block.Metadata)
+		SetBlockAndNotify(world, x, y, z, &block)
 
 		// Recalc each flat neighbour now that the new rail exists in the world
 		recalcRail := func(nx, ny, nz int32) {
@@ -728,8 +682,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 				return
 			}
 			existing.Metadata = newMeta
-			world.SetBlock(nx, byte(ny), nz, existing)
-			broadcastBlock(nx, ny, nz, existing.TypeId, newMeta)
+			SetBlockAndNotify(world, nx, ny, nz, &existing)
 		}
 
 		recalcRail(x, y, z-1) // north

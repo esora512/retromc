@@ -272,17 +272,7 @@ func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
 		} else {
 			newBlock = level.NewFurnaceBlock(oldBlock.Metadata)
 		}
-
-		world.SetBlock(int32(x), byte(y), int32(z), newBlock)
-
-		blockChange := packets.BlockChangeOutPacket{
-			X:         int32(x),
-			Y:         byte(y),
-			Z:         int32(z),
-			BlockType: newBlock.TypeId,
-			BlockMeta: newBlock.Metadata,
-		}
-		world.BroadcastPacket(blockChange.Serialize())
+		packethandler.SetBlockAndNotify(world, int32(x), int32(y), int32(z), &newBlock)
 	}
 }
 
