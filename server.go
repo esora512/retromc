@@ -137,38 +137,37 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 func fallingBlocksPhysics(world *level.World) {
 	toRemove := []int32{}
 	allEntities := world.SnapshotEntities()
+
 	for _, e := range allEntities {
-		if falling, ok := e.(*entities.BlockEntity); ok {
-			if !world.IsLoaded(falling.X, falling.Z) {
-				print("Skipping...")
-				continue
-			}
+		falling, ok := e.(*entities.BlockEntity)
+		if !ok {
+			continue
+		}
+		if !world.IsLoaded(falling.X, falling.Z) {
+			print("Skipping...")
+			continue
+		}
 
-			prevX := float64(falling.X)
-			prevY := falling.Y
-			prevZ := float64(falling.Z)
+		if !falling.VelocitySent {
+			packethandler.BroadcastEntityVelocity(world, falling.EntityId, 0, falling.VelocityY, 0)
+			falling.VelocitySent = true
+		}
 
-			falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
-				b := world.GetBlock(x, y, z)
-				return entities.BlockInfo{
-					IsSolid:  !b.IsAir() && !b.IsLiquid(),
-					Metadata: int(b.Metadata),
-				}
-			})
+		falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
+			b := world.GetBlock(x, y, z)
+			return entities.BlockInfo{
+				IsSolid:  !b.IsAir() && !b.IsLiquid(),
+				Metadata: int(b.Metadata),
+			}
+		})
 
-			if falling.Landed {
-				if falling.Y >= 0 {
-					toRemove = append(toRemove, falling.EntityId)
-					block := level.NewBlockById(falling.TypeId, falling.Metadata)
-					packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
-				}
-				continue
-			}
-			if !falling.Landed {
-				packethandler.BroadcastRelativePosition(world, falling, prevX, prevY, prevZ, float64(falling.X), falling.Y, float64(falling.Z), 0)
-			}
+		if falling.Landed && falling.Y >= 0 {
+			toRemove = append(toRemove, falling.EntityId)
+			block := level.NewBlockById(falling.TypeId, falling.Metadata)
+			packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
 		}
 	}
+
 	for _, id := range toRemove {
 		world.RemoveEntity(id)
 		despawn := packets.EntityDespawnOutPacket{EntityId: id}

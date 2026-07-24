@@ -307,3 +307,13 @@ func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, pre
 	}
 	w.BroadcastPacket(p.Serialize())
 }
+
+func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64) {
+	packet := packets.EntityVelocity{
+		EntityId: entityId,
+		Vx:       vx,
+		Vy:       vy,
+		Vz:       vz,
+	}
+	w.BroadcastPacket(packet.Serialize())
+}

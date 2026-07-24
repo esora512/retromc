@@ -13,6 +13,7 @@ type BlockEntity struct {
 	EntityId  int32
 	VelocityY float64
 	Landed    bool
+	VelocitySent bool
 }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64) *BlockEntity {
@@ -24,6 +25,7 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		Y:         float64(y),
 		Z:         int32(z),
 		VelocityY: 0,
+		VelocitySent: false,
 	}
 }
 
