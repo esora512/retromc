@@ -55,8 +55,8 @@ func (boat *RideableEntity) TickBoat(
 	getBlock GetBlockFunc,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	const (
-		maxSpeed      = 0.4
-		maxSpeedWater = 0.65
+		maxSpeed      = 0.2
+		maxSpeedWater = 0.3
 		gravity       = 0.04
 		waterFriction = 0.97
 		landFriction  = 0.85
