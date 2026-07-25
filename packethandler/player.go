@@ -132,7 +132,7 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, ok := maybeRidable.(*entities.RideableEntity)
 		if ok && ridable.ObjectType == constants.ObjectBoat {
-			if p.Y <= ignoreY && ((p.X != pl.X || p.Z != pl.Z) && (p.X != 0 && p.Z != 0)) {
+			if p.Y <= ignoreY {
 				ridable.PassengerVelocityX = p.X
 				ridable.PassengerVelocityZ = p.Z
 			}
@@ -159,10 +159,6 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 		}
 	}
 
-	// if outOfBounds(x, z) {
-	//  rubberBand(connection, pl)
-	//  return
-	// }
 	if y < 0 {
 		pl.BelowZeroHeightCount++
 		if pl.BelowZeroHeightCount > 10 {

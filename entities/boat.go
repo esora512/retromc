@@ -4,13 +4,12 @@ import (
 	"math"
 )
 
-
 const (
-	RiderInputAcceleration = 0.5 // tune these to match BetaSharp constants
+	RiderInputAcceleration = 0.5
 	RiderTurnVelocityBlend = 0.5
 	YawSmoothing           = 0.5
-	BoatYOffset = 0.6
-	BoatYOffsetWater = 0.3
+	BoatYOffset            = 0.6
+	BoatYOffsetWater       = 0.3
 )
 
 func (boat *RideableEntity) applyRiderInput() {
@@ -37,19 +36,19 @@ func (boat *RideableEntity) applyRiderInput() {
 	boat.VelocityX += (targetVX - boat.VelocityX) * RiderTurnVelocityBlend
 	boat.VelocityZ += (targetVZ - boat.VelocityZ) * RiderTurnVelocityBlend
 
-	//desiredYaw := math.Atan2(-targetVZ, -targetVX) * 180.0 / math.Pi
-	//boat.Yaw += byte(wrapDegrees(desiredYaw-float64(boat.Yaw)) * YawSmoothing)
+	desiredYaw := math.Atan2(-targetVZ, -targetVX) * 180.0 / math.Pi
+	boat.YawDegrees += wrapDegrees(desiredYaw-boat.YawDegrees) * YawSmoothing
 }
 
-// func wrapDegrees(angle float64) float64 {
-//     for angle >= 180.0 {
-//         angle -= 360.0
-//     }
-//     for angle < -180.0 {
-//         angle += 360.0
-//     }
-//     return angle
-// }
+func wrapDegrees(angle float64) float64 {
+	for angle >= 180.0 {
+		angle -= 360.0
+	}
+	for angle < -180.0 {
+		angle += 360.0
+	}
+	return angle
+}
 
 func (boat *RideableEntity) TickBoat(
 	getBlock GetBlockFunc,
@@ -138,13 +137,15 @@ func (boat *RideableEntity) TickBoat(
 		boat.VelocityZ = 0
 	}
 
-	// Yaw
-	dx := newX - boat.X
-	dz := newZ - boat.Z
+	dx := boat.X - newX
+	dz := boat.Z - newZ
 	if dx*dx+dz*dz > 0.001 {
-		degrees := math.Atan2(dz, dx) * 180.0 / math.Pi
-		yaw = byte(int(degrees*256.0/360.0) & 0xFF)
+		desiredYaw := math.Atan2(dz, dx) * 180.0 / math.Pi
+		boat.YawDegrees += wrapDegrees(desiredYaw-boat.YawDegrees) * YawSmoothing
 	}
+	yaw = byte(int(math.Round(boat.YawDegrees*256.0/360.0)) & 0xFF)
 	boat.Yaw = yaw
+
 	return newX, newY, newZ, yaw, Moved
+
 }

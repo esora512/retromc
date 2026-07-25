@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"log"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -175,57 +176,57 @@ func fallingBlocksPhysics(world *level.World) {
 	}
 }
 
-func ridablePhysics(world *level.World) {
-	allEntities := world.SnapshotEntities()
-	var ridables []*entities.RideableEntity
-	var players []entities.PlayerPosition
+// func ridablePhysics(world *level.World) {
+// 	allEntities := world.SnapshotEntities()
+// 	var ridables []*entities.RideableEntity
+// 	var players []entities.PlayerPosition
 
-	for _, e := range allEntities {
-		if e.IsPlayer() {
-			x, y, z := e.GetPosition()
-			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
-		} else if ridable, ok := e.(*entities.RideableEntity); ok {
-			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
-				ridables = append(ridables, ridable)
-			}
-		}
-	}
+// 	for _, e := range allEntities {
+// 		if e.IsPlayer() {
+// 			x, y, z := e.GetPosition()
+// 			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
+// 		} else if ridable, ok := e.(*entities.RideableEntity); ok {
+// 			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
+// 				ridables = append(ridables, ridable)
+// 			}
+// 		}
+// 	}
 
-	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
-		b := world.GetBlock(x, y, z)
-		return entities.BlockInfo{
-			IsRail:        b.IsRail(),
-			IsPoweredRail: b.IsPoweredRail(),
-			IsSolid:       !b.IsAir() && !b.IsLiquid(),
-			Metadata:      int(b.Metadata),
-			IsWater:       b.IsWater(),
-		}
-	}
+// 	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
+// 		b := world.GetBlock(x, y, z)
+// 		return entities.BlockInfo{
+// 			IsRail:        b.IsRail(),
+// 			IsPoweredRail: b.IsPoweredRail(),
+// 			IsSolid:       !b.IsAir() && !b.IsLiquid(),
+// 			Metadata:      int(b.Metadata),
+// 			IsWater:       b.IsWater(),
+// 		}
+// 	}
 
-	var toRemove []int32
+// 	var toRemove []int32
 
-	for _, ridable := range ridables {
-		cx, cy, cz := ridable.GetPosition()
-		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
-		switch action {
-		case entities.Moved:
-			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
-			// log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
-			// 	nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
-			ridable.SetPosition(nx, ny, nz)
-		case entities.Stopped:
-			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
-		case entities.Despawned:
-			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
-			world.BroadcastPacket(despawn.Serialize())
-			toRemove = append(toRemove, ridable.EntityId)
-		}
-	}
+// 	for _, ridable := range ridables {
+// 		cx, cy, cz := ridable.GetPosition()
+// 		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
+// 		switch action {
+// 		case entities.Moved:
+// 			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
+// 			// log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
+// 			// 	nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
+// 			ridable.SetPosition(nx, ny, nz)
+// 		case entities.Stopped:
+// 			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
+// 		case entities.Despawned:
+// 			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
+// 			world.BroadcastPacket(despawn.Serialize())
+// 			toRemove = append(toRemove, ridable.EntityId)
+// 		}
+// 	}
 
-	for _, id := range toRemove {
-		world.RemoveEntity(id)
-	}
-}
+// 	for _, id := range toRemove {
+// 		world.RemoveEntity(id)
+// 	}
+// }
 
 func makeSendFurnaceProgress(world *level.World) func(progress, fuelMax, fuelRemain int) {
 	return func(progress, fuelDuration, fuelRemain int) {
@@ -278,4 +279,82 @@ func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
 func furnaceLogic(world *level.World) {
 	furnaces := world.GetAllFurnaces()
 	inventory.TickFurnaces(furnaces, makeSendFurnaceProgress(world), makeSendFurnaceSlot(world), makeSetFurnaceBlock(world))
+}
+
+func ridablePhysics(world *level.World) {
+	allEntities := world.SnapshotEntities()
+	var ridables []*entities.RideableEntity
+	var players []entities.PlayerPosition
+
+	for _, e := range allEntities {
+		if e.IsPlayer() {
+			x, y, z := e.GetPosition()
+			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
+		} else if ridable, ok := e.(*entities.RideableEntity); ok {
+			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
+				ridables = append(ridables, ridable)
+			}
+		}
+	}
+
+	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
+		b := world.GetBlock(x, y, z)
+		return entities.BlockInfo{
+			IsRail:        b.IsRail(),
+			IsPoweredRail: b.IsPoweredRail(),
+			IsSolid:       !b.IsAir() && !b.IsLiquid(),
+			Metadata:      int(b.Metadata),
+			IsWater:       b.IsWater(),
+		}
+	}
+
+	var toRemove []int32
+
+	for _, ridable := range ridables {
+		cx, cy, cz := ridable.GetPosition()
+		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
+
+		switch action {
+		case entities.Moved:
+			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
+			ridable.SetPosition(nx, ny, nz)
+
+			velX := nx - cx
+			velY := ny - cy
+			velZ := nz - cz
+			maybeBroadcastVelocity(world, ridable, velX, velY, velZ)
+
+		case entities.Stopped:
+			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
+			maybeBroadcastVelocity(world, ridable, 0, 0, 0)
+
+		case entities.Despawned:
+			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
+			world.BroadcastPacket(despawn.Serialize())
+			toRemove = append(toRemove, ridable.EntityId)
+		}
+	}
+
+	for _, id := range toRemove {
+		world.RemoveEntity(id)
+	}
+}
+
+func maybeBroadcastVelocity(world *level.World, ridable *entities.RideableEntity, vx, vy, vz float64) {
+	const epsilon = 0.02 
+
+	dx := vx - ridable.LastSentVelX
+	dy := vy - ridable.LastSentVelY
+	dz := vz - ridable.LastSentVelZ
+
+	if math.Abs(dx) < epsilon && math.Abs(dy) < epsilon && math.Abs(dz) < epsilon {
+		return
+	}
+
+	packethandler.BroadcastEntityVelocity(world, ridable.EntityId, vx, vy, vz)
+
+	ridable.LastSentVelX = vx
+	ridable.LastSentVelY = vy
+	ridable.LastSentVelZ = vz
+	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
 }

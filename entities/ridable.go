@@ -15,6 +15,9 @@ type RideableEntity struct {
 	VelocityX     float64
 	VelocityY     float64
 	VelocityZ     float64
+	LastSentVelX  float64
+	LastSentVelY  float64
+	LastSentVelZ  float64
 	OwnerEntityId int32
 	ObjectType    byte
 
@@ -22,6 +25,7 @@ type RideableEntity struct {
 	PassengerVelocityX float64
 	PassengerVelocityZ float64
 	Yaw                byte
+	YawDegrees float64
 
 	HP int16
 }
