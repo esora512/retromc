@@ -264,6 +264,8 @@ const (
 	Template WorldType = iota
 	Empty
 	SkyGrid
+	Default
+	Esorian
 )
 
 type DroppedItem struct {
@@ -304,14 +306,18 @@ type World struct {
 	ChestPlacements ChestPlacement
 	WorldDir        string
 	CommitHash      string
+	Seed            int64
+	noise           *PerlinNoise
 }
 
-func NewWorld(commitHash string) *World {
+func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	return &World{
 		//Mu:          *dlock.NewDebugRWMutex("World.Mu"),
+		Seed:        seed,
+		noise:       NewPerlinNoise(seed),
 		CommitHash:  commitHash,
 		WorldDir:    "saves",
-		WorldType:   Template,
+		WorldType:   worldType,
 		chunks:      make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
@@ -420,12 +426,12 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		}
 	}
 
-	c := NewChunk(worldType)
+	c := w.generateChunk(cx, cz, w.WorldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 
-	w.chunks[key] = &c
-	return &c
+	w.chunks[key] = c
+	return c
 }
 
 // SetBlock updates a single block in the world using world-space coordinates.

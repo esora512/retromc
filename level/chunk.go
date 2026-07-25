@@ -236,6 +236,54 @@ func NewChunk(worldType WorldType) Chunk {
 	return chunk
 }
 
+func chunkRand(worldSeed int64, cx, cz int32) *rand.Rand {
+	h := uint64(worldSeed)
+	h ^= uint64(uint32(cx)) * 0x9E3779B97F4A7C15
+	h ^= uint64(uint32(cz)) * 0xC2B2AE3D27D4EB4F
+	h ^= h >> 33
+	h *= 0xFF51AFD7ED558CCD
+	h ^= h >> 33
+	h *= 0xC4CEB9FE1A85EC53
+	h ^= h >> 33
+
+	return rand.New(rand.NewSource(int64(h)))
+}
+
+func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
+	worldX := cx * CHUNK_SIZE_X
+	worldZ := cz * CHUNK_SIZE_Z
+
+	chunk := &Chunk{
+		X:     worldX,
+		Y:     0,
+		Z:     worldZ,
+		SizeX: CHUNK_SIZE_X - 1,
+		SizeY: CHUNK_SIZE_Y - 1,
+		SizeZ: CHUNK_SIZE_Z - 1,
+		Logic: NewChunkLogic(),
+	}
+
+	switch worldType {
+	case SkyGrid:
+		chunk.GenerateSkyGrid()
+	case Template:
+		chunk.GenerateTemplate()
+	case Esorian:
+		r := chunkRand(w.Seed, cx, cz)
+		if r.Float64() < 0.95 {
+			chunk.GenerateTemplate()
+		} else if r.Float64() < 0.5 {
+			chunk.GenerateEmpty()
+		} else {
+			chunk.GenerateSkyGrid()
+		}
+	default:
+		chunk.GenerateTerrain(w.noise, worldX, worldZ)
+	}
+
+	return chunk
+}
+
 func mod(a, b int) int {
 	r := a % b
 	if r < 0 {

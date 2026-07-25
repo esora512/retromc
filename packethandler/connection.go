@@ -41,7 +41,7 @@ func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
 	pl.Username = p.Username
-	sendLoginResponse(connection, pl)
+	sendLoginResponse(connection, world, pl)
 
 	updateChunks(world, pl.X, pl.Y, pl)
 
@@ -86,10 +86,10 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	// }
 }
 
-func sendLoginResponse(connection net.Conn, pl *player.Player) {
+func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {
 	outPacket := packets.LoginResponseOutPacket{
 		EntityId:  pl.EntityId,
-		MapSeed:   0,
+		MapSeed:   w.Seed,
 		Dimension: 0,
 	}
 	outData := outPacket.Serialize()

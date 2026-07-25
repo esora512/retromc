@@ -40,7 +40,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit)
+	world := level.NewWorld(GitCommit, 0, level.Esorian)
 	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {
@@ -176,58 +176,6 @@ func fallingBlocksPhysics(world *level.World) {
 	}
 }
 
-// func ridablePhysics(world *level.World) {
-// 	allEntities := world.SnapshotEntities()
-// 	var ridables []*entities.RideableEntity
-// 	var players []entities.PlayerPosition
-
-// 	for _, e := range allEntities {
-// 		if e.IsPlayer() {
-// 			x, y, z := e.GetPosition()
-// 			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
-// 		} else if ridable, ok := e.(*entities.RideableEntity); ok {
-// 			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
-// 				ridables = append(ridables, ridable)
-// 			}
-// 		}
-// 	}
-
-// 	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
-// 		b := world.GetBlock(x, y, z)
-// 		return entities.BlockInfo{
-// 			IsRail:        b.IsRail(),
-// 			IsPoweredRail: b.IsPoweredRail(),
-// 			IsSolid:       !b.IsAir() && !b.IsLiquid(),
-// 			Metadata:      int(b.Metadata),
-// 			IsWater:       b.IsWater(),
-// 		}
-// 	}
-
-// 	var toRemove []int32
-
-// 	for _, ridable := range ridables {
-// 		cx, cy, cz := ridable.GetPosition()
-// 		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
-// 		switch action {
-// 		case entities.Moved:
-// 			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
-// 			// log.Printf("TickBoat: moved to X=%.6f Y=%.6f Z=%.6f (encoded X=%d Y=%d Z=%d) yaw=%.2f",
-// 			// 	nx, ny, nz, int32(nx), int32(ny), int32(nz), yaw)
-// 			ridable.SetPosition(nx, ny, nz)
-// 		case entities.Stopped:
-// 			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
-// 		case entities.Despawned:
-// 			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
-// 			world.BroadcastPacket(despawn.Serialize())
-// 			toRemove = append(toRemove, ridable.EntityId)
-// 		}
-// 	}
-
-// 	for _, id := range toRemove {
-// 		world.RemoveEntity(id)
-// 	}
-// }
-
 func makeSendFurnaceProgress(world *level.World) func(progress, fuelMax, fuelRemain int) {
 	return func(progress, fuelDuration, fuelRemain int) {
 		p1 := packets.ContainerDataOutPacket{
@@ -341,7 +289,7 @@ func ridablePhysics(world *level.World) {
 }
 
 func maybeBroadcastVelocity(world *level.World, ridable *entities.RideableEntity, vx, vy, vz float64) {
-	const epsilon = 0.02 
+	const epsilon = 0.02
 
 	dx := vx - ridable.LastSentVelX
 	dy := vy - ridable.LastSentVelY
