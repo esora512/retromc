@@ -50,6 +50,12 @@ func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContai
 			sourceContainer.SetEmpty(sourceSlot)
 			return true
 		}
+		if targetContainer.PeekItem(int16(i)).TypeId == source.TypeId {
+			targetContainer.AddCount(int16(i), source.Count)
+			sourceContainer.SetEmpty(sourceSlot)
+			return true
+
+		}
 		if i == regionEnd {
 			break
 		}
