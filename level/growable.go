@@ -64,6 +64,12 @@ func (w *World) SetGrowable(block Block, bk BlockKey) {
 	if chunk == nil {
 		return
 	}
+	if block.IsGrowable() {
+		return
+	}
+
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	logic := chunk.Logic
 	if block.TypeId == byte(constants.Wheat.Value) {
 		logic.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata}
@@ -83,7 +89,7 @@ func (w *World) SetGrowable(block Block, bk BlockKey) {
 }
 
 func (w *World) GrowPhysics() {
-	chunks := w.LoadChunks()
+	chunks := w.GetRenderedChunks()
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for key, growable := range logic.Growables {
@@ -205,7 +211,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }
@@ -213,7 +219,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 func (c *Wheat) Grow(w *World, bk *BlockKey) {
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	if c.State >= CROP_MAX_STATE {
 		delete(logic.Growables, *bk)
@@ -357,7 +363,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }

@@ -48,6 +48,10 @@ type BlockDirections struct {
 	West  byte
 }
 
+func (b *Block) IsGrowable() bool {
+	return b.TypeId == byte(constants.Wheat.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Cactus.Value) || b.TypeId == byte(constants.Sapling.Value) || b.TypeId == byte(constants.Dirt.Value)
+}
+
 func (b *Block) IsTransparent() bool {
 	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
 }

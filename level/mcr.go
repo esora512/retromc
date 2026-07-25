@@ -250,6 +250,7 @@ func saveLevelDat(worldDir string, tick int64) error {
 }
 
 func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
+	// Locking because of w.Containers
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
 	return w.readChunkFromNBT(lvl, cx, cz)

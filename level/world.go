@@ -5,7 +5,6 @@ import (
 	"log"
 	"math"
 	"path/filepath"
-
 	"sync"
 
 	"github.com/leNicDev/retromc/entities"
@@ -120,7 +119,7 @@ func (w *World) GetLoadedChunk(x, z int32) *Chunk {
 	return w.chunks[ChunkCoord{cx, cz}]
 }
 
-func (w *World) GetLoadedChunks() []*Chunk {
+func (w *World) GetRenderedChunks() []*Chunk {
 	wanted := w.wantedChunks()
 	chunks := make([]*Chunk, 0, len(wanted))
 	for wa := range wanted {
@@ -146,6 +145,7 @@ func (w *World) wantedChunks() map[ChunkCoord]struct{} {
 }
 
 func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
+	// Lock because w.Players and w.chunks
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
 
@@ -190,6 +190,7 @@ func (w *World) IsLoaded(x, z int32) bool {
 }
 
 func (w *World) UnloadPlayerChunks(pl *player.Player) {
+	// Locked because w.chunks
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
 
@@ -205,6 +206,7 @@ func (w *World) UnloadPlayerChunks(pl *player.Player) {
 }
 
 func (w *World) SnapshotEntities() []Entity {
+	// Lock because of w.Entities
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
 	snapshot := make([]Entity, 0, len(w.Entities))
@@ -215,6 +217,7 @@ func (w *World) SnapshotEntities() []Entity {
 }
 
 func (w *World) Size() int64 {
+	// Lock because of w.chunks
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
 
@@ -286,7 +289,8 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu          sync.RWMutex
+	Mu sync.RWMutex
+	//Mu          dlock.DebugRWMutex
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
@@ -304,6 +308,7 @@ type World struct {
 
 func NewWorld(commitHash string) *World {
 	return &World{
+		//Mu:          *dlock.NewDebugRWMutex("World.Mu"),
 		CommitHash:  commitHash,
 		WorldDir:    "saves",
 		WorldType:   Template,
@@ -342,12 +347,13 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 }
 
 func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
+	// Lock because of chunk.Logic.DroppedItems
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.getOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
 	logic := chunk.Logic
 	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
@@ -376,26 +382,25 @@ func (w *World) LoadChunks() []*Chunk {
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
 func (w *World) ChunkExists(cx, cz int32) bool {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	_, ok := w.chunks[ChunkCoord{cx, cz}]
 	return ok
 }
 
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-	return w.getOrCreateChunk(cx, cz, worldType)
-}
-
-func (w *World) getOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	key := ChunkCoord{cx, cz}
 
-	if c, ok := w.chunks[key]; ok {
-		return c
+	//w.Mu.RLock()
+	ch, ok := w.chunks[key]
+	//w.Mu.RUnlock()
+	if ok {
+		return ch
 	}
 
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	if w.WorldDir != "" {
 		rx, rz := cx>>5, cz>>5
 		lx, lz := cx&31, cz&31
@@ -432,11 +437,8 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
 
-	// in-memory persistence
-	w.Mu.Lock()
 	key := BlockKey{worldX, worldY, worldZ}
 	w.SetGrowable(block, key)
-	w.Mu.Unlock()
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
@@ -510,8 +512,8 @@ func (p *SetTimePacket) Serialize() []byte {
 }
 
 func (w *World) BroadcastTime() {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	packet := SetTimePacket{Time: w.Tick}
 	data := packet.Serialize()
 	for _, pl := range w.Players {
