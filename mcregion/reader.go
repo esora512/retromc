@@ -39,8 +39,6 @@ type Tag struct {
 	DoubleVal float64
 }
 
-// Get returns the named child of a compound tag, or nil if absent /
-// t isn't a compound. Safe to call on a nil receiver.
 func (t *Tag) Get(name string) *Tag {
 	if t == nil || t.Compound == nil {
 		return nil

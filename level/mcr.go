@@ -213,7 +213,14 @@ func SaveMcRegion(w *World, worldDir string) error {
 	regionDir := filepath.Join(worldDir, "region")
 	for rkey, chunks := range byRegion {
 		name := mcregion.RegionFileName(rkey[0]*32, rkey[1]*32)
-		if err := mcregion.WriteRegion(filepath.Join(regionDir, name), chunks); err != nil {
+		path := filepath.Join(regionDir, name)
+
+		rawChunks, err := mcregion.ReadRegionRaw(path)
+		if err != nil {
+			return fmt.Errorf("reading existing region %s: %w", path, err)
+		}
+
+		if err := mcregion.WriteRegion(path, chunks, rawChunks); err != nil {
 			return err
 		}
 	}

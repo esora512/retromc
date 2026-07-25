@@ -410,7 +410,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		if err != nil {
 			log.Printf("chunk (%d,%d): read failed, regenerating: %v", cx, cz, err)
 		} else if lvl != nil {
-			c, err := w.readChunkFromNBT(lvl, cx, cz) // <-- locked variant, not the public one
+			c, err := w.readChunkFromNBT(lvl, cx, cz)
 			if err != nil {
 				log.Printf("chunk (%d,%d): decode failed, regenerating: %v", cx, cz, err)
 			} else {
