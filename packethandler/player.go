@@ -153,6 +153,7 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, _ := maybeRidable.(*entities.RideableEntity)
 		x, y, z = ridable.X, ridable.Y, ridable.Z
+		updateChunks(world, x, z, pl)
 		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
 			return
 		}
@@ -200,6 +201,7 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 			pl.X = ridable.X
 			pl.Y = ridable.Y
 			pl.Z = ridable.Z
+			updateChunks(world, pl.X, pl.Z, pl)
 			return
 		}
 	}
