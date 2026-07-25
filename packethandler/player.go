@@ -448,6 +448,62 @@ func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockIt
 	world.TriggerFluidUpdate(dropX, dropY, dropZ, SetBlockAndNotify)
 }
 
+func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {
+	const step = 0.1
+	const eyeHeight = 1.62
+
+	yawRad := float64(pl.Yaw) * math.Pi / 180
+	pitchRad := float64(pl.Pitch) * math.Pi / 180
+
+	dx := -math.Sin(yawRad) * math.Cos(pitchRad)
+	dy := -math.Sin(pitchRad)
+	dz := math.Cos(yawRad) * math.Cos(pitchRad)
+
+	ox := float64(pl.X)
+	oy := float64(pl.Y) + eyeHeight
+	oz := float64(pl.Z)
+
+	lastX, lastY, lastZ := math.MinInt32, math.MinInt32, math.MinInt32
+
+	for d := 0.0; d <= maxDistance; d += step {
+		px := ox + dx*d
+		py := oy + dy*d
+		pz := oz + dz*d
+
+		bx := int(math.Floor(px))
+		by := int(math.Floor(py))
+		bz := int(math.Floor(pz))
+
+		if bx == lastX && by == lastY && bz == lastZ {
+			continue
+		}
+		lastX, lastY, lastZ = bx, by, bz
+
+		if by < 0 || by >= level.CHUNK_SIZE_Y {
+			continue
+		}
+
+		block := world.GetBlock(int32(bx), byte(by), int32(bz))
+
+		if block.IsWater() {
+			return bx, by, bz, true
+		}
+	}
+
+	return 0, 0, 0, false
+}
+
+func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Player) bool {
+	x, y, z, found := raycastForWater(world, pl, 8.0)
+	if !found {
+		return false
+	}
+
+	slot := pl.HotbarSlot
+	tryPlaceBoat(connection, world, pl, int32(x), y, int32(z), slot)
+	return true
+}
+
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	logPlacementDebug(pl, oldExisting)
@@ -457,6 +513,14 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
+	if p.X == -1 && p.Y == 255 && p.Z == -1 && heldItem.TypeId == constants.Boat.Value {
+		log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
+		if tryPlaceBoatNoTarget(connection, world, pl) {
+			return
+		}
+		return
+	}
+
 	if !canPlaceHeldItem(heldItem) {
 		// Only place blocks if block is in hotbar slot
 		log.Println("Early return....")

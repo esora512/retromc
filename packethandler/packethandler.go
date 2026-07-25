@@ -66,10 +66,10 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleHoldingChangeInPacket(p, pl, world)
 	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(packetReader)
+		log.Printf("PlaceBlock x=%d, y=%d, z=%d", p.X, p.Y, p.Z)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl)
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
-		//log.Printf("Buffer size before: %d", reader.Buffered())
 		before := pl.Inventory.PeekItem(pl.HotbarSlot)
 		handleWindowClickInPacket(connection, p, world, pl)
 		sendCurrentInventory(connection, pl)
