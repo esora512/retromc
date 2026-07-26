@@ -357,6 +357,12 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
+
+	if blockItem == constants.SnowLayer.Value {
+		blockItem = constants.Snowball.Value
+		count = 4
+	}
+
 	if blockItem == constants.Stone.Value || blockItem == constants.LavaStill.Value || blockItem == constants.LavaFlowing.Value {
 		blockItem = constants.Cobblestone.Value
 	}
@@ -536,7 +542,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
-	newX, newY, newZ := placementTargetCoords(p)
+	newX, newY, newZ := placementTargetCoords(p, world)
 
 	// Reject out-of-bounds Y.
 	if newY < 0 || newY >= level.CHUNK_SIZE_Y {
@@ -552,10 +558,9 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	// if !existing.IsAir() && !existing.IsLiquid() {
-	//  log.Println("Early return...")
-	//  return
-	// }
+	if !existing.IsAir() && !existing.IsLiquid() {
+		return
+	}
 
 	if tryPlacePlant(connection, world, pl, newX, newY, newZ, oldExisting, heldItem) {
 		return
@@ -710,7 +715,11 @@ func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, old
 }
 
 // Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
-func placementTargetCoords(p packets.PlayerBlockPlacementInPacket) (int32, int, int32) {
+func placementTargetCoords(p packets.PlayerBlockPlacementInPacket, w *level.World) (int32, int, int32) {
+	existing := w.GetBlock(p.X, byte(p.Y), p.Z)
+	if existing.TypeId == byte(constants.SnowLayer.Value) {
+		return p.X, int(p.Y), p.Z
+	}
 	newX, newY, newZ := p.X, int(p.Y), p.Z
 
 	switch p.Face {

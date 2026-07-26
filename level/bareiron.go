@@ -123,12 +123,6 @@ func betaIslandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
 	return uint32(splitmix64Beta(v))
 }
 
-// func betaIslandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
-// 	v := uint64(uint32(biomeX))<<32 | uint64(uint32(biomeZ))
-// 	v ^= uint64(seed) * 0x9E3779B97F4A7C15
-// 	return uint32(splitmix64Beta(v))
-// }
-
 // betaCornerHeight mirrors C's getCornerHeight. Deliberately uses byte
 // (uint8) arithmetic throughout so it wraps exactly like the original
 // uint8_t math (including the mangrove/swamp underflow-toward-water quirk).
