@@ -1,5 +1,7 @@
 package level
 
+// IMPORTANT: This is AI-generated code; should be used as working placeholder  unitl world gen is better understood
+
 import (
 	"math"
 	"math/rand"

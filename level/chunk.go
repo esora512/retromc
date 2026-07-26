@@ -268,7 +268,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	case Maze:
 		chunk.GenerateMaze(w.Seed, cx, cz)
 	default:
-		chunk.GenerateTerrain(w.noise, worldX, worldZ)
+		chunk.GenerateIslandBiomes(uint32(w.Seed), cx, cz)
 	}
 
 	return chunk
