@@ -292,7 +292,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
 
-	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock)
+	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
 	if blockItem == 0 {
 		return
 	}
@@ -314,6 +314,9 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 
 func shouldProcessDigging(p packets.PlayerDiggingInPacket, pl *player.Player, oldBlock level.Block) bool {
 	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
+	if pl.Inventory.Items[pl.HotbarSlot].IsShovel() && oldBlock.TypeId == byte(constants.SnowLayer.Value) {
+		return true
+	}
 	if finishedDigging {
 		return true
 	}
@@ -353,14 +356,22 @@ func removeMinedBlockEntity(world *level.World, p packets.PlayerDiggingInPacket,
 	}
 }
 
-func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBlock level.Block) (blockItem int16, blockMeta byte, count byte) {
+func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBlock level.Block, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
 
 	if blockItem == constants.SnowLayer.Value {
-		blockItem = constants.Snowball.Value
-		count = 4
+		if pl.Inventory.Items[pl.HotbarSlot].IsShovel() {
+			log.Printf("Mining Snow with Shovel...")
+			blockItem = constants.Snowball.Value
+			count = 4
+			return blockItem, 0, count
+		} else {
+			log.Printf("Mining Snow...")
+			blockItem = 0
+			return 0, 0, 0
+		}
 	}
 
 	if blockItem == constants.Stone.Value || blockItem == constants.LavaStill.Value || blockItem == constants.LavaFlowing.Value {

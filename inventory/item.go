@@ -19,6 +19,14 @@ func (item *Item) IsHoe() bool {
 		item.TypeId == constants.GoldHoe.Value
 }
 
+func (item *Item) IsShovel() bool {
+		return item.TypeId == constants.WoodenShovel.Value ||
+		item.TypeId == constants.StoneShovel.Value ||
+		item.TypeId == constants.IronShovel.Value ||
+		item.TypeId == constants.DiamondShovel.Value ||
+		item.TypeId == constants.GoldShovel.Value
+}
+
 func (item *Item) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 
