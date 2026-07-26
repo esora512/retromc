@@ -55,6 +55,7 @@ func (b *Block) IsGrowable() bool {
 func (b *Block) IsTransparent() bool {
 	return b.TypeId == byte(constants.Air.Value) ||
 		b.TypeId == byte(constants.Dandelion.Value) ||
+		b.TypeId == byte(constants.Tallgrass.Value) ||
 		b.TypeId == byte(constants.Deadbush.Value) ||
 		b.TypeId == byte(constants.Grass.Value) ||
 		b.TypeId == byte(constants.Glass.Value) ||
