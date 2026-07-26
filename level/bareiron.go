@@ -49,7 +49,6 @@ const (
 	idRedstoneOr = 73
 	idSnowLayer  = 78
 	idIce        = 79
-	idLilyPad    = 111
 )
 
 // splitmix64Beta mirrors the C helper `splitmix64` used by getChunkHash.
@@ -318,10 +317,7 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 				}
 			}
 
-		case biSwamp: // lily pads + ground cover (stand-in for moss carpet)
-			if x == feature.x && z == feature.z && y == 64 && int(height) < 63 {
-				return idLilyPad, 0
-			}
+		case biSwamp: 
 			if y == int(height)+1 {
 				dx := absIntBeta(x - feature.x)
 				dz := absIntBeta(z - feature.z)
