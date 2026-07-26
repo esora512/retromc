@@ -220,19 +220,7 @@ func NewChunk(worldType WorldType) Chunk {
 		SizeZ: CHUNK_SIZE_Z - 1,
 		Logic: NewChunkLogic(),
 	}
-	switch worldType {
-	case SkyGrid:
-		chunk.GenerateSkyGrid()
-	default:
-		r := rand.Float64()
-		if r < 0.95 {
-			chunk.GenerateTemplate()
-		} else if rand.Float64() < 0.5 {
-			chunk.GenerateEmpty()
-		} else {
-			chunk.GenerateSkyGrid()
-		}
-	}
+	chunk.GenerateEmpty()
 	return chunk
 }
 
@@ -277,6 +265,8 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		} else {
 			chunk.GenerateSkyGrid()
 		}
+	case Maze:
+		chunk.GenerateMaze(w.Seed, cx, cz)
 	default:
 		chunk.GenerateTerrain(w.noise, worldX, worldZ)
 	}

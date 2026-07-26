@@ -266,6 +266,7 @@ const (
 	SkyGrid
 	Default
 	Esorian
+	Maze
 )
 
 type DroppedItem struct {
