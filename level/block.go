@@ -53,7 +53,7 @@ func (b *Block) IsGrowable() bool {
 }
 
 func (b *Block) IsTransparent() bool {
-	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value)
+	return b.TypeId == 0x00 || b.TypeId == byte(constants.Glass.Value) || b.TypeId == byte(constants.Sugarcane.Value) || b.TypeId == byte(constants.Rail.Value) || b.TypeId == byte(constants.PoweredRail.Value) || b.TypeId == byte(constants.DetectorRail.Value) || b.TypeId == byte(constants.Leaves.Value)
 }
 
 func (b *Block) IsRail() bool {
