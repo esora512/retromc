@@ -3,6 +3,7 @@ package level
 // IMPORTANT: This is AI generated code, based on: https://github.com/p2r3/bareiron/blob/main/src/worldgen.c
 
 import "encoding/binary"
+
 // ---- Tunable generator constants (see header comment above) ----------------
 const (
 	biIslandsMiniSize    = 8  // ASSUMED: minichunk size (must divide 16)
@@ -99,20 +100,34 @@ func betaChunkBiome(mx, mz int32, seed uint32) betaIslandBiome {
 
 	dx := biIslandsBiomeRadius - modAbsBeta(x, biIslandsBiomeSize)
 	dz := biIslandsBiomeRadius - modAbsBeta(z, biIslandsBiomeSize)
+
 	if dx*dx+dz*dz > biIslandsBiomeRadius*biIslandsBiomeRadius {
 		return biBeach
 	}
 
-	biomeX := divFloorBeta(x, biIslandsBiomeSize)
-	biomeZ := divFloorBeta(z, biIslandsBiomeSize)
+	biomeX := int32(divFloorBeta(x, biIslandsBiomeSize))
+	biomeZ := int32(divFloorBeta(z, biIslandsBiomeSize))
 
-	index := (biomeX & 3) + ((biomeZ * 4) & 15)
-	if index < 0 {
-		index = -index
-	}
+	h := betaIslandBiomeHash(biomeX, biomeZ, seed)
 
-	return betaIslandBiome((seed >> uint(index*2)) & 3)
+	return betaIslandBiome(h % 4)
 }
+
+func betaIslandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
+	var buf [12]byte
+	binary.LittleEndian.PutUint32(buf[0:4], uint32(biomeX))
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(biomeZ))
+	binary.LittleEndian.PutUint32(buf[8:12], seed)
+	v := uint64(uint32(biomeX))<<32 | uint64(uint32(biomeZ))
+	v ^= uint64(seed) * 0x9E3779B97F4A7C15
+	return uint32(splitmix64Beta(v))
+}
+
+// func betaIslandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
+// 	v := uint64(uint32(biomeX))<<32 | uint64(uint32(biomeZ))
+// 	v ^= uint64(seed) * 0x9E3779B97F4A7C15
+// 	return uint32(splitmix64Beta(v))
+// }
 
 // betaCornerHeight mirrors C's getCornerHeight. Deliberately uses byte
 // (uint8) arithmetic throughout so it wraps exactly like the original
@@ -433,7 +448,6 @@ func absIntBeta(v int) int {
 	}
 	return v
 }
-
 
 func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
