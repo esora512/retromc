@@ -24,6 +24,7 @@ func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket,
 		Message: "\u00a7e" + pl.Username + " left the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
+	world.BroadcastPacket(packets.EntityDespawnPacket(pl.GetEntityId()))
 }
 
 func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {

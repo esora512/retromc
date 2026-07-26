@@ -183,7 +183,7 @@ func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
 }
 
 func sendPlayerPositionAndLook(connection net.Conn) {
-	const spawnY = 64.0
+	const spawnY = 80.0
 	packet := packets.PlayerPositionAndLookOutPacket{
 		X:        0,
 		Y:        spawnY,

@@ -234,7 +234,7 @@ func saveLevelDat(worldDir string, tick int64) error {
 	data.Long("LastPlayed", time.Now().UnixMilli())
 	data.Long("RandomSeed", 0)
 	data.Int("SpawnX", 0)
-	data.Int("SpawnY", 64)
+	data.Int("SpawnY", 100)
 	data.Int("SpawnZ", 0)
 	data.String("LevelName", "world")
 	data.Int("version", 19132) // Version introduced in Beta 1.3
