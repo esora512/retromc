@@ -396,60 +396,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	return false
 }
 
-func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string) {
-	if len(args) != 6 {
-		sendUsage(pl, "/place")
-		return
-	}
-
-	blockName := args[0]
-	b := constants.GetBlockByName(blockName)
-	if b.Value == -1 {
-		sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
-		return
-	}
-
-	var x1, z1, x2, z2, y int32
-	_, err := fmt.Sscanf(
-		strings.Join(args[1:], " "),
-		"%d %d %d %d %d",
-		&x1, &z1, &x2, &z2, &y,
-	)
-	if err != nil {
-		sendUsage(pl, "/place")
-		return
-	}
-
-	minX, maxX := x1, x2
-	if minX > maxX {
-		minX, maxX = maxX, minX
-	}
-
-	minZ, maxZ := z1, z2
-	if minZ > maxZ {
-		minZ, maxZ = maxZ, minZ
-	}
-
-	block := level.NewBlockById(b.Value, byte(b.Meta))
-
-	placed := 0
-	for x := minX; x <= maxX; x++ {
-		for z := minZ; z <= maxZ; z++ {
-			SetBlockAndNotify(world, x, y, z, &block)
-			placed++
-		}
-	}
-
-	sendDebugMessage(
-		pl,
-		fmt.Sprintf(
-			"Placed %d %s block(s) in filled area at y=%d",
-			placed,
-			blockName,
-			y,
-		),
-	)
-}
 
 func printGiveHelp(pl *player.Player, pattern string) {
 	var re *regexp.Regexp
@@ -506,4 +452,103 @@ func printGiveHelp(pl *player.Player, pattern string) {
 	}
 
 	sendDebugMessage(pl, lines...)
+}
+
+type chunkChanges struct {
+	coords []uint16
+	types  []byte
+	meta   []byte
+}
+
+func formatMultiBlock(localX, y, localZ int32) uint16 {
+	return uint16((localX&0xF)<<12 |
+		(localZ&0xF)<<8 |
+		(y & 0xFF))
+}
+
+func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string) {
+	if len(args) != 6 {
+		sendUsage(pl, "/place")
+		return
+	}
+
+	blockName := args[0]
+	b := constants.GetBlockByName(blockName)
+	if b.Value == -1 {
+		sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
+		return
+	}
+
+	var x1, z1, x2, z2, y int32
+	_, err := fmt.Sscanf(
+		strings.Join(args[1:], " "),
+		"%d %d %d %d %d",
+		&x1, &z1, &x2, &z2, &y,
+	)
+	if err != nil {
+		sendUsage(pl, "/place")
+		return
+	}
+
+	minX, maxX := x1, x2
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+
+	minZ, maxZ := z1, z2
+	if minZ > maxZ {
+		minZ, maxZ = maxZ, minZ
+	}
+
+	block := level.NewBlockById(b.Value, byte(b.Meta))
+
+	changes := make(map[[2]int32]*chunkChanges)
+
+	placed := 0
+
+	for x := minX; x <= maxX; x++ {
+		for z := minZ; z <= maxZ; z++ {
+
+			world.SetBlock(x, byte(y), z, block)
+
+			chunkX := level.WorldToChunkCoord(x)
+			chunkZ := level.WorldToChunkCoord(z)
+			key := [2]int32{chunkX, chunkZ}
+
+			change, ok := changes[key]
+			if !ok {
+				change = &chunkChanges{}
+				changes[key] = change
+			}
+
+			change.coords = append(change.coords,
+				formatMultiBlock(x&0xF, y, z&0xF))
+
+			change.types = append(change.types, byte(block.TypeId))
+			change.meta = append(change.meta, block.Metadata)
+
+			placed++
+		}
+	}
+
+	for key, change := range changes {
+		p := packets.MultiBlockChangeOutPacket{
+			ChunkX:      key[0],
+			ChunkZ:      key[1],
+			NumOfBlocks: uint16(len(change.coords)),
+			BlockCoords: change.coords,
+			BlockTypes:  change.types,
+			Metadata:    change.meta,
+		}
+		world.BroadcastPacket(p.Serialize())
+	}
+	sendDebugMessage(
+		pl,
+		fmt.Sprintf(
+			"Placed %d %s block(s) in filled area at y=%d",
+			placed,
+			blockName,
+			y,
+		),
+	)
 }

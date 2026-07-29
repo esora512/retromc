@@ -43,6 +43,16 @@ func (w *PacketWriter) WriteShort(value uint16) {
 	w.Write(data)
 }
 
+func (w *PacketWriter) WriteShortArray(values []uint16) {
+	data := make([]byte, len(values)*SHORT_SIZE)
+
+	for i, value := range values {
+		binary.BigEndian.PutUint16(data[i*SHORT_SIZE:], value)
+	}
+
+	w.Write(data)
+}
+
 func (w *PacketWriter) WriteInt16(value int16) {
 	data := make([]byte, SHORT_SIZE)
 	binary.BigEndian.PutUint16(data, uint16(value))

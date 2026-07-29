@@ -457,3 +457,24 @@ func ReadPlayerInputInPacket(reader *packet.PacketReader) PlayerInputInPacket {
 	packet.Sneaking = reader.ReadBool()
 	return packet
 }
+
+type MultiBlockChangeOutPacket struct {
+	ChunkX      int32
+	ChunkZ      int32
+	NumOfBlocks uint16
+	BlockCoords []uint16
+	BlockTypes  []byte
+	Metadata    []byte
+}
+
+func (p *MultiBlockChangeOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.MultiBlockChange)
+	writer.WriteInt32(p.ChunkX)
+	writer.WriteInt32(p.ChunkZ)
+	writer.WriteShort(p.NumOfBlocks)
+	writer.WriteShortArray(p.BlockCoords)
+	writer.Write(p.BlockTypes)
+	writer.Write(p.Metadata)
+	return writer.Bytes()
+}
