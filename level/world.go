@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 
+	"github.com/leNicDev/retromc/dlock"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
@@ -156,8 +156,8 @@ func (w *World) wantedChunks() map[ChunkCoord]struct{} {
 
 func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
 	// Lock because w.Players and w.chunks
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 
 	seen := make(map[ChunkCoord]struct{})
 	chunks := make([]*Chunk, 0, len(w.Players)*9)
@@ -217,8 +217,8 @@ func (w *World) UnloadPlayerChunks(pl *player.Player) {
 
 func (w *World) SnapshotEntities() []Entity {
 	// Lock because of w.Entities
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	snapshot := make([]Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
 		snapshot = append(snapshot, e)
@@ -302,9 +302,8 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu           sync.RWMutex
-	blockQueueMu sync.Mutex
-	blockQueue   map[[3]int32]QueueBlock
+	Mu         dlock.DebugRWMutex
+	blockQueue map[[3]int32]QueueBlock
 	//Mu          dlock.DebugRWMutex
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
@@ -325,7 +324,7 @@ type World struct {
 
 func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	return &World{
-		//Mu:          *dlock.NewDebugRWMutex("World.Mu"),
+		Mu:          *dlock.NewDebugRWMutex("World"),
 		Seed:        seed,
 		noise:       NewPerlinNoise(seed),
 		CommitHash:  commitHash,
@@ -368,8 +367,8 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 
 func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
 	// Lock because of chunk.Logic.DroppedItems
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
@@ -380,8 +379,8 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 }
 
 func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	chunk, ok := w.chunks[ChunkCoord{X: cx, Z: cz}]
@@ -527,14 +526,14 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		ObjectType:    objectType,
 		HP:            4,
 	}
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	w.Entities[int32(entityId)] = &r
 }
 
 func (w *World) AddEntity(e Entity) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	w.Entities[e.GetEntityId()] = e
 }
 
@@ -545,8 +544,8 @@ func (w *World) RemovePlayer(p *player.Player) {
 }
 
 func (w *World) RemoveEntity(entityId int32) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	delete(w.Entities, entityId)
 }
 
@@ -562,8 +561,8 @@ func (p *SetTimePacket) Serialize() []byte {
 }
 
 func (w *World) BroadcastTime() {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	packet := SetTimePacket{Time: w.Tick}
 	data := packet.Serialize()
 	for _, pl := range w.Players {
@@ -575,8 +574,8 @@ func (w *World) BroadcastTime() {
 
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
 func (w *World) BroadcastPacket(data []byte) {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			pl.Connection.Write(data)
@@ -585,8 +584,8 @@ func (w *World) BroadcastPacket(data []byte) {
 }
 
 func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
@@ -595,8 +594,8 @@ func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
 }
 
 func (w *World) ForEachPlayer(fn func(*player.Player)) {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
+	// w.Mu.RLock()
+	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			fn(pl)
@@ -615,8 +614,8 @@ type QueueBlock struct {
 func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
 	w.SetBlock(x, byte(y), z, block)
 
-	w.blockQueueMu.Lock()
-	defer w.blockQueueMu.Unlock()
+	// w.blockQueueMu.Lock()
+	// defer w.blockQueueMu.Unlock()
 
 	if w.blockQueue == nil {
 		w.blockQueue = make(map[[3]int32]QueueBlock)
@@ -632,17 +631,17 @@ func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
 }
 
 func (w *World) FlushBlockQueue() {
-	w.blockQueueMu.Lock()
+	// w.blockQueueMu.Lock()
 
-	if len(w.blockQueue) == 0 {
-		w.blockQueueMu.Unlock()
-		return
-	}
+	// if len(w.blockQueue) == 0 {
+	// 	w.blockQueueMu.Unlock()
+	// 	return
+	// }
 
 	blocks := w.blockQueue
 	w.blockQueue = nil
 
-	w.blockQueueMu.Unlock()
+	//w.blockQueueMu.Unlock()
 
 	if len(blocks) <= 10 {
 		for _, b := range blocks {

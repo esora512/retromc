@@ -68,8 +68,8 @@ func (w *World) SetGrowable(block Block, bk BlockKey) {
 		return
 	}
 
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+	// w.Mu.Lock()
+	// defer w.Mu.Unlock()
 	logic := chunk.Logic
 	if block.TypeId == byte(constants.Wheat.Value) {
 		logic.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata}
