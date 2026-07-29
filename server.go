@@ -130,7 +130,7 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 			if world.Tick%10 == 0 {
 				entityTracker.Manage(world)
 			}
-
+			world.FlushBlockQueue()
 		}
 	}()
 }
@@ -145,6 +145,7 @@ func fallingBlocksPhysics(world *level.World) {
 			continue
 		}
 		if !world.IsLoaded(falling.X, falling.Z) {
+			toRemove = append(toRemove, falling.EntityId)
 			print("Skipping...")
 			continue
 		}
@@ -165,7 +166,8 @@ func fallingBlocksPhysics(world *level.World) {
 		if falling.Landed && falling.Y >= 0 {
 			toRemove = append(toRemove, falling.EntityId)
 			block := level.NewBlockById(falling.TypeId, falling.Metadata)
-			packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
+			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block)
+			//packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
 		}
 	}
 
@@ -220,7 +222,8 @@ func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
 		} else {
 			newBlock = level.NewFurnaceBlock(oldBlock.Metadata)
 		}
-		packethandler.SetBlockAndNotify(world, int32(x), int32(y), int32(z), &newBlock)
+		world.SetBlockInQueue(int32(x), int32(y), int32(z), newBlock)
+		//packethandler.SetBlockAndNotify(world, int32(x), int32(y), int32(z), &newBlock)
 	}
 }
 

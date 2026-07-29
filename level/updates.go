@@ -69,7 +69,7 @@ func (p *SpawnObject) Serialize() []byte {
 }
 
 // Required because Update trigger is called in package packethandler; cannot import SetBlock due to cycle.
-type SetBlock func(world *World, x, y, z int32, block *Block)
+type SetBlock func(x, y, z int32, block Block)
 
 type BlockUpdate struct {
 	X, Y, Z  int32
@@ -177,7 +177,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 
 	air := NewAirBlock()
 	time.Sleep(0 * time.Millisecond)
-	u.SetBlock(w, u.X, u.Y, u.Z, &air)
+	u.SetBlock(u.X, u.Y, u.Z, air)
 
 	ObjectType := byte(0)
 	if b.TypeId == byte(constants.Sand.Value) {
@@ -231,7 +231,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 	if !isSource && b.IsWater() {
 		if hasSolidSupport(w, u.X, u.Y, u.Z) && countAdjacentWaterSources(w, u.X, u.Y, u.Z) >= 2 {
 			source := NewStillWaterBlock(0)
-			u.SetBlock(w, u.X, u.Y, u.Z, &source)
+			u.SetBlock(u.X, u.Y, u.Z, source)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 			return
 		}
@@ -241,7 +241,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 		newLevel, hasSupport := idealFluidLevel(w, u.X, u.Y, u.Z)
 		if !hasSupport {
 			air := NewAirBlock()
-			u.SetBlock(w, u.X, u.Y, u.Z, &air)
+			u.SetBlock(u.X, u.Y, u.Z, air)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 			return
 		}
@@ -253,7 +253,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 			if b.IsLava() {
 				updated = NewFlowingLavaBlock(byte(newLevel))
 			}
-			u.SetBlock(w, u.X, u.Y, u.Z, &updated)
+			u.SetBlock(u.X, u.Y, u.Z, updated)
 			b = updated
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 		}
@@ -441,7 +441,7 @@ func trySpreadInto(w *World, x, y, z int32, flowing Block, setBlock SetBlock) bo
 		return false
 	}
 
-	setBlock(w, x, y, z, &flowing)
+	setBlock(x, y, z, flowing)
 	delay := fluidDelay(&flowing, false)
 	w.Scheduler.scheduleFluidUpdate(w.Tick+delay, x, y, z, setBlock)
 	return true
@@ -479,13 +479,13 @@ func tryHardenLava(w *World, x, y, z int32, b Block, setBlock SetBlock) bool {
 
 	if b.IsStillLava() {
 		obsidian := NewObsidianBlock()
-		setBlock(w, x, y, z, &obsidian)
+		setBlock(x, y, z, obsidian)
 	} else {
 		if b.Metadata > 4 {
 			return false
 		}
 		cobble := NewCobblestoneBlock()
-		setBlock(w, x, y, z, &cobble)
+		setBlock(x, y, z, cobble)
 	}
 
 	notifyFluidNeighbors(w, x, y, z, setBlock)

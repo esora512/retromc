@@ -169,7 +169,8 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			block := level.NewBlockById(b.Value, byte(b.Meta))
 
-			SetBlockAndNotify(world, x, y, z, &block)
+			//SetBlockAndNotify(world, x, y, z, &block)
+			world.SetBlockInQueue(x, y, z, block)
 			sendDebugMessage(pl, fmt.Sprintf("Placed %s at x=%d, y=%d, z=%d", blockName, x, y, z))
 			return false
 		}

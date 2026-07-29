@@ -5,6 +5,8 @@ import (
 	"log"
 	"math"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/leNicDev/retromc/entities"
@@ -300,7 +302,9 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu sync.RWMutex
+	Mu           sync.RWMutex
+	blockQueueMu sync.Mutex
+	blockQueue   map[[3]int32]QueueBlock
 	//Mu          dlock.DebugRWMutex
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
@@ -341,7 +345,8 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 			AdjacentSlots:  make(map[BlockKey]BlockKey),
 			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
-		Scheduler: NewBlockUpdateScheduler(),
+		Scheduler:  NewBlockUpdateScheduler(),
+		blockQueue: make(map[[3]int32]QueueBlock),
 	}
 }
 
@@ -403,9 +408,39 @@ func (w *World) ChunkExists(cx, cz int32) bool {
 	return ok
 }
 
+func printCallStack() {
+	const depth = 32
+
+	pcs := make([]uintptr, depth)
+	n := runtime.Callers(2, pcs)
+
+	frames := runtime.CallersFrames(pcs[:n])
+
+	var callers []string
+
+	for {
+		frame, more := frames.Next()
+
+		name := frame.Function
+
+		if idx := strings.LastIndex(name, "."); idx != -1 {
+			name = name[idx+1:]
+		}
+
+		callers = append(callers, name)
+
+		if !more {
+			break
+		}
+	}
+
+	log.Printf("%s", strings.Join(callers, " <-- "))
+}
+
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	key := ChunkCoord{cx, cz}
+	//printCallStack()
 
 	//w.Mu.RLock()
 	ch, ok := w.chunks[key]
@@ -567,4 +602,124 @@ func (w *World) ForEachPlayer(fn func(*player.Player)) {
 			fn(pl)
 		}
 	}
+}
+
+type QueueBlock struct {
+	X        int32
+	Y        byte
+	Z        int32
+	TypeID   byte
+	Metadata byte
+}
+
+func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
+	w.SetBlock(x, byte(y), z, block)
+
+	w.blockQueueMu.Lock()
+	defer w.blockQueueMu.Unlock()
+
+	if w.blockQueue == nil {
+		w.blockQueue = make(map[[3]int32]QueueBlock)
+	}
+
+	w.blockQueue[[3]int32{x, y, z}] = QueueBlock{
+		X:        x,
+		Y:        byte(y),
+		Z:        z,
+		TypeID:   block.TypeId,
+		Metadata: block.Metadata,
+	}
+}
+
+func (w *World) FlushBlockQueue() {
+	w.blockQueueMu.Lock()
+
+	if len(w.blockQueue) == 0 {
+		w.blockQueueMu.Unlock()
+		return
+	}
+
+	blocks := w.blockQueue
+	w.blockQueue = nil
+
+	w.blockQueueMu.Unlock()
+
+	if len(blocks) <= 10 {
+		for _, b := range blocks {
+			packet := BlockChangeOutPacket{
+				X:         b.X,
+				Y:         b.Y,
+				Z:         b.Z,
+				BlockType: b.TypeID,
+				BlockMeta: b.Metadata,
+			}
+
+			w.BroadcastPacket(packet.Serialize())
+		}
+
+		return
+	}
+
+	type chunkChange struct {
+		coords []uint16
+		types  []byte
+		meta   []byte
+	}
+
+	changes := make(map[[2]int32]*chunkChange)
+
+	for _, b := range blocks {
+		chunkX := WorldToChunkCoord(b.X)
+		chunkZ := WorldToChunkCoord(b.Z)
+
+		key := [2]int32{chunkX, chunkZ}
+
+		change, ok := changes[key]
+		if !ok {
+			change = &chunkChange{}
+			changes[key] = change
+		}
+
+		coord := uint16((b.X&15)<<12 |
+			(b.Z&15)<<8 |
+			int32(b.Y))
+
+		change.coords = append(change.coords, coord)
+		change.types = append(change.types, b.TypeID)
+		change.meta = append(change.meta, b.Metadata)
+	}
+
+	for chunk, change := range changes {
+		packet := MultiBlockChangeOutPacket{
+			ChunkX:      chunk[0],
+			ChunkZ:      chunk[1],
+			NumOfBlocks: uint16(len(change.coords)),
+			BlockCoords: change.coords,
+			BlockTypes:  change.types,
+			Metadata:    change.meta,
+		}
+
+		w.BroadcastPacket(packet.Serialize())
+	}
+}
+
+type MultiBlockChangeOutPacket struct {
+	ChunkX      int32
+	ChunkZ      int32
+	NumOfBlocks uint16
+	BlockCoords []uint16
+	BlockTypes  []byte
+	Metadata    []byte
+}
+
+func (p *MultiBlockChangeOutPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.MultiBlockChange)
+	writer.WriteInt32(p.ChunkX)
+	writer.WriteInt32(p.ChunkZ)
+	writer.WriteShort(p.NumOfBlocks)
+	writer.WriteShortArray(p.BlockCoords)
+	writer.Write(p.BlockTypes)
+	writer.Write(p.Metadata)
+	return writer.Bytes()
 }

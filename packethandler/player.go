@@ -289,8 +289,9 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	removeMinedBlockEntity(world, p, oldBlock)
 
 	air := level.NewAirBlock()
-	SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
-	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
+	//SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
+	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air)
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
 	if blockItem == 0 {
@@ -431,7 +432,8 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 				break
 			}
 			air := level.NewAirBlock()
-			SetBlockAndNotify(world, p.X, int32(aboveY), p.Z, &air)
+			world.SetBlockInQueue(p.X, int32(aboveY), p.Z, air)
+			//SetBlockAndNotify(world, p.X, int32(aboveY), p.Z, &air)
 			count++
 		}
 	}
@@ -458,7 +460,7 @@ func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockIt
 	dropZ := int32(p.Z)
 	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0)
 	world.BroadcastPacket(spawnPacket)
-	world.TriggerFluidUpdate(dropX, dropY, dropZ, SetBlockAndNotify)
+	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {
@@ -701,7 +703,8 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlacementInPacket, pl *player.Player, heldItem inventory.Item) {
 	fire := level.NewFireBlock()
-	SetBlockAndNotify(world, p.X, int32(p.Y+1), p.Z, &fire)
+	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire)
+	//SetBlockAndNotify(world, p.X, int32(p.Y+1), p.Z, &fire)
 	if !crafting.HasDurability(heldItem.TypeId) {
 		return
 	}
@@ -721,7 +724,8 @@ func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, old
 		return false
 	}
 	tilled := level.NewBlockById(constants.Farmland.Value, 0)
-	SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &tilled)
+	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled)
+	//SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &tilled)
 	return true
 }
 
@@ -782,8 +786,9 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 		return false
 	}
 	air := level.NewAirBlock()
-	SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
-	world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
+	//SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
+	world.SetBlockInQueue(newX, int32(newY), newZ, air)
+	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 	var bucketItem inventory.Item
 	if existing.IsWater() {
 		bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
@@ -847,7 +852,8 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 
 	// Place the new rail with computed metadata
 	block.Metadata = computeMeta(x, y, z)
-	SetBlockAndNotify(world, x, y, z, block)
+	world.SetBlockInQueue(x, y, z, *block)
+	//SetBlockAndNotify(world, x, y, z, block)
 
 	// Recalc each flat neighbour now that the new rail exists in the world
 	recalcRail := func(nx, ny, nz int32) {
@@ -860,7 +866,8 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 			return
 		}
 		existing.Metadata = newMeta
-		SetBlockAndNotify(world, nx, ny, nz, &existing)
+		world.SetBlockInQueue(nx, ny, nz, existing)
+		//SetBlockAndNotify(world, nx, ny, nz, &existing)
 	}
 
 	recalcRail(x, y, z-1) // north
@@ -981,7 +988,8 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 			continue
 		}
 		b := fp.newBlock
-		SetBlockAndNotify(world, newX, int32(newY), newZ, &b)
+		//SetBlockAndNotify(world, newX, int32(newY), newZ, &b)
+		world.SetBlockInQueue(newX, int32(newY), newZ, b)
 		if heldItem.TypeId == fp.bucketId {
 			bucket := inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
 			pl.Inventory.Items[slot] = bucket
@@ -990,16 +998,17 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 			pl.Inventory.RemoveOne(slot)
 			sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		}
-		world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
+		world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 		return true
 	}
 	return false
 }
 
 func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlayerBlockPlacementInPacket, slot int16) {
-	SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
-	world.TriggerFluidUpdate(newX, int32(newY), newZ, SetBlockAndNotify)
-	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, SetBlockAndNotify)
+	//SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
+	world.SetBlockInQueue(newX, int32(newY), newZ, block)
+	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
