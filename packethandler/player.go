@@ -48,7 +48,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 
 	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
-	sendPlayerPositionAndLook(connection)
+	sendPlayerPositionAndLook(connection, 0, 0)
 	world.MulticastPacket(packets.SpawnPlayerEntityPacket(pl), pl)
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
 	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)

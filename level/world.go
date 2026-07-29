@@ -77,6 +77,10 @@ func NewEntityTracker(
 	}
 }
 
+func (et *EntityTracker) Remove(id int32) {
+	delete(et.visible, id)
+}
+
 func (et *EntityTracker) Manage(w *World) {
 	const distance = VIEW_DISTANCE * 8
 
@@ -107,6 +111,11 @@ func (et *EntityTracker) Manage(w *World) {
 
 			if !isVisible && inRange && alive {
 				if target.IsPlayer() {
+					// TODO: This is ass but works, so I'll keep it for now
+					// Correct solution would be proper clean up for entities...
+					if target.GetName() == viewer.Username {
+						return
+					}
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)

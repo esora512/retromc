@@ -55,7 +55,7 @@ func main() {
 			continue
 		}
 		// handle connection
-		go handleConnection(connection, world)
+		go handleConnection(connection, world, entityTracker)
 	}
 
 }
@@ -80,7 +80,7 @@ func handleKeepAlive(connection net.Conn, stop chan struct{}) {
 	}()
 }
 
-func handleConnection(connection net.Conn, world *level.World) {
+func handleConnection(connection net.Conn, world *level.World, tracker *level.EntityTracker) {
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
@@ -99,9 +99,13 @@ func handleConnection(connection net.Conn, world *level.World) {
 				if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
 					log.Println("Failed to save inventory:", saveErr)
 				}
+				if saveErr := level.SaveMcRegion(world, world.WorldDir); saveErr != nil {
+					log.Println("Failed to save the world:", saveErr)
+				}
 			}
 			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
 			world.RemovePlayer(pl)
+			tracker.Remove(pl.GetEntityId())
 			world.UnloadPlayerChunks(pl)
 			close(done)
 			connection.Close()
@@ -145,8 +149,8 @@ func fallingBlocksPhysics(world *level.World) {
 			continue
 		}
 		if !world.IsLoaded(falling.X, falling.Z) {
-			toRemove = append(toRemove, falling.EntityId)
-			print("Skipping...")
+			//toRemove = append(toRemove, falling.EntityId)
+			//print("Skipping...")
 			continue
 		}
 

@@ -47,7 +47,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	updateChunks(world, pl.X, pl.Y, pl)
 
 	sendInventory(connection, pl, world)
-	sendPlayerPositionAndLook(connection)
+	sendPlayerPositionAndLook(connection, pl.X, pl.Z)
 	// spawnPacket := packets.SpawnPlayerEntityPacket(pl)
 	// // Inform other players of the new player
 	// world.MulticastPacket(spawnPacket, pl)
