@@ -128,6 +128,10 @@ func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player,
 // }
 
 func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
+	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
+		return
+	}
+
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, ok := maybeRidable.(*entities.RideableEntity)
@@ -183,6 +187,9 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 }
 
 func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
+	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
+		return
+	}
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, ok := maybeRidable.(*entities.RideableEntity)

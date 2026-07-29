@@ -84,29 +84,27 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
-	if old, ok := world.GetPlayerByUsername(pl.Username); ok {
-		old.Connection.Close()
-		world.RemovePlayer(old)
-	}
-	world.AddPlayer(pl)
+
 	reader := bufio.NewReader(connection)
 	for {
-		err := packethandler.HandlePacket(connection, reader, world, pl)
+		err := packethandler.HandlePacket(connection, reader, world, pl, tracker)
 		if err != nil {
 			log.Println("Connection closed:", err.Error())
 			if pl.Username != "" {
-				pData := level.ToPlayerData(pl)
-				if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
-					log.Println("Failed to save inventory:", saveErr)
-				}
-				if saveErr := level.SaveMcRegion(world, world.WorldDir); saveErr != nil {
-					log.Println("Failed to save the world:", saveErr)
+				if cur, ok := world.GetPlayerByUsername(pl.Username); !ok || cur == pl {
+					pData := level.ToPlayerData(pl)
+					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
+						log.Println("Failed to save inventory:", saveErr)
+					}
+					if saveErr := level.SaveMcRegion(world, world.WorldDir); saveErr != nil {
+						log.Println("Failed to save the world:", saveErr)
+					}
+					world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
+					world.RemovePlayer(pl)
+					tracker.Remove(pl.GetEntityId())
+					world.UnloadPlayerChunks(pl)
 				}
 			}
-			world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
-			world.RemovePlayer(pl)
-			tracker.Remove(pl.GetEntityId())
-			world.UnloadPlayerChunks(pl)
 			close(done)
 			connection.Close()
 			return

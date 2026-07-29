@@ -40,17 +40,29 @@ func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
 	}
 }
 
-func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player) {
+func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.Username = p.Username
+
+	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
+		world.BroadcastPacket(packets.PlayerEntityDespawnPacket(old))
+		world.RemovePlayer(old)
+		tracker.Remove(old.GetEntityId())
+		world.UnloadPlayerChunks(old)
+		old.Connection.Close()
+	}
+
+	data, err := level.LoadPlayerData(world.WorldDir, pl.Username)
+	if err != nil {
+		log.Printf("Failed to load player inventory for %s : %v", pl.Username, err)
+	}
+	level.ApplyPlayerData(pl, data)
+	world.AddPlayer(pl)
+
 	sendLoginResponse(connection, world, pl)
-
-	updateChunks(world, pl.X, pl.Y, pl)
-
+	updateChunks(world, pl.X, pl.Z, pl)
 	sendInventory(connection, pl, world)
 	sendPlayerPositionAndLook(connection, pl.X, pl.Z)
-	// spawnPacket := packets.SpawnPlayerEntityPacket(pl)
-	// // Inform other players of the new player
-	// world.MulticastPacket(spawnPacket, pl)
+
 	serverPacket1 := packets.ChatMessagePacket{
 		Message: "\u00a7e" + fmt.Sprintf("Server runs on retromc (dev/%s)", world.CommitHash),
 	}
@@ -60,31 +72,8 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		Message: "\u00a7e" + pl.Username + " joined the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
-	// world.ForEachPlayer(func(other *player.Player) {
-	// 	if other == pl {
-	// 		return
-	// 	}
-	// 	packets.SetEquipment(pl, func(b []byte) {
-	// 		other.Connection.Write(b)
-	// 	})
-	// })
-
-	// // Inform the new player of other players
-	// world.ForEachPlayer(func(other *player.Player) {
-	// 	if other == pl {
-	// 		return
-	// 	}
-	// 	pl.Connection.Write(packets.SpawnPlayerEntityPacket(other))
-	// 	packets.SetEquipment(other, func(b []byte) {
-	// 		pl.Connection.Write(b)
-	// 	})
-	// })
-
-	// for _, e := range world.Entities {
-	// 	if !e.IsPlayer() {
-	// 		pl.Connection.Write(packets.SpawnObjectPacket(e))
-	// 	}
-	// }
+	pl.LoggedIn = true
+	log.Printf("Login %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {
@@ -94,7 +83,5 @@ func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {
 		Dimension: 0,
 	}
 	outData := outPacket.Serialize()
-
 	connection.Write(outData)
-	pl.LoggedIn = true
 }

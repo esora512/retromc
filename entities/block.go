@@ -5,28 +5,32 @@ import (
 )
 
 type BlockEntity struct {
-	X         int32
-	Y         float64
-	Z         int32
-	TypeId    int16
-	Metadata  byte
-	EntityId  int32
-	VelocityY float64
-	Landed    bool
+	X            int32
+	Y            float64
+	Z            int32
+	TypeId       int16
+	Metadata     byte
+	EntityId     int32
+	VelocityY    float64
+	Landed       bool
 	VelocitySent bool
 }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64) *BlockEntity {
 	return &BlockEntity{
-		EntityId:  entityId,
-		TypeId:    typeId,
-		Metadata:  metadata,
-		X:         int32(x),
-		Y:         float64(y),
-		Z:         int32(z),
-		VelocityY: 0,
+		EntityId:     entityId,
+		TypeId:       typeId,
+		Metadata:     metadata,
+		X:            int32(x),
+		Y:            float64(y),
+		Z:            int32(z),
+		VelocityY:    0,
 		VelocitySent: false,
 	}
+}
+
+func (b *BlockEntity) GetLoggedIn() bool {
+	return true
 }
 
 func (b *BlockEntity) GetName() string {

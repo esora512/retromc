@@ -21,7 +21,7 @@ func sendCurrentInventory(connection net.Conn, pl *player.Player) {
 	connection.Write(windowItemsPacket.Serialize())
 }
 
-func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player) error {
+func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player, tracker *level.EntityTracker) error {
 	packetId, err := reader.ReadByte()
 	if err != nil {
 		log.Println("Failed to read packet id:", err.Error())
@@ -38,7 +38,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleHandshakeInPacket(connection, packet)
 	case packet.LoginRequest:
 		packet := packets.ReadLoginRequestInPacket(packetReader)
-		handleLoginRequestInPacket(connection, packet, world, pl)
+		handleLoginRequestInPacket(connection, packet, world, pl, tracker)
 	case packet.PlayerPositionAndLook:
 		p := packets.ReadPlayerPositionAndLookInPacket(packetReader)
 		handlePlayerPositionAndLookInPacket(connection, p, pl, world)

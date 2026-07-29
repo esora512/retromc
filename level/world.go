@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
-	"github.com/leNicDev/retromc/dlock"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
@@ -43,6 +43,7 @@ type Entity interface {
 	IsPlayer() bool
 	SetHP(hp int16)
 	GetHP() int16
+	GetLoggedIn() bool
 }
 
 func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
@@ -79,9 +80,14 @@ func NewEntityTracker(
 
 func (et *EntityTracker) Remove(id int32) {
 	delete(et.visible, id)
+	for _, seen := range et.visible {
+		delete(seen, id)
+	}
 }
 
 func (et *EntityTracker) Manage(w *World) {
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	const distance = VIEW_DISTANCE * 8
 
 	for _, viewer := range w.Players {
@@ -91,12 +97,20 @@ func (et *EntityTracker) Manage(w *World) {
 			et.visible[viewerID] = make(map[int32]bool)
 		}
 
+		if !viewer.LoggedIn {
+			continue
+		}
+
 		x1, _, z1 := viewer.GetPosition()
 
 		for _, target := range w.Entities {
 			targetID := target.GetEntityId()
 
 			if viewerID == targetID {
+				continue
+			}
+
+			if !target.GetLoggedIn() {
 				continue
 			}
 
@@ -111,10 +125,8 @@ func (et *EntityTracker) Manage(w *World) {
 
 			if !isVisible && inRange && alive {
 				if target.IsPlayer() {
-					// TODO: This is ass but works, so I'll keep it for now
-					// Correct solution would be proper clean up for entities...
 					if target.GetName() == viewer.Username {
-						return
+						continue
 					}
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
@@ -123,7 +135,6 @@ func (et *EntityTracker) Manage(w *World) {
 					viewer.Connection.Write(et.SpawnObject(target))
 				}
 				et.visible[viewerID][targetID] = true
-
 			} else if isVisible && (!inRange || !alive) {
 				viewer.Connection.Write(et.DespawnEntity(targetID))
 				delete(et.visible[viewerID], targetID)
@@ -311,9 +322,9 @@ func NewChunkLogic() *ChunkLogic {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	Mu         dlock.DebugRWMutex
-	blockQueue map[[3]int32]QueueBlock
-	//Mu          dlock.DebugRWMutex
+	//Mu         dlock.DebugRWMutex
+	Mu          sync.RWMutex
+	blockQueue  map[[3]int32]QueueBlock
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
@@ -333,7 +344,7 @@ type World struct {
 
 func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	return &World{
-		Mu:          *dlock.NewDebugRWMutex("World"),
+		//Mu:          *dlock.NewDebugRWMutex("World"),
 		Seed:        seed,
 		noise:       NewPerlinNoise(seed),
 		CommitHash:  commitHash,
@@ -550,6 +561,7 @@ func (w *World) RemovePlayer(p *player.Player) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
 	delete(w.Players, int32(p.EntityId))
+	delete(w.Entities, int32(p.EntityId))
 }
 
 func (w *World) RemoveEntity(entityId int32) {

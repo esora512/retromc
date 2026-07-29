@@ -2,7 +2,6 @@ package packethandler
 
 import (
 	"fmt"
-	"log"
 	"net"
 
 	"math"
@@ -168,12 +167,6 @@ func decodeChunkCoord(key string) (level.ChunkCoord, bool) {
 // }
 
 func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
-	data, err := level.LoadPlayerData(w.WorldDir, pl.Username)
-	if err != nil {
-		log.Printf("Failed to load player inventory for %s : %v", pl.Username, err)
-	}
-	level.ApplyPlayerData(pl, data)
-
 	windowItemsPacket := packets.WindowItemsOutPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),

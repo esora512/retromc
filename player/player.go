@@ -86,6 +86,10 @@ func (s ChunkSet) Set(key string, x, z int32) {
 	s[key] = &ChunkCoord{X: x, Z: z}
 }
 
+func (pl *Player) GetLoggedIn() bool {
+	return pl.LoggedIn
+}
+
 type Player struct {
 	Username     string
 	EntityId     int

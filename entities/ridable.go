@@ -25,9 +25,13 @@ type RideableEntity struct {
 	PassengerVelocityX float64
 	PassengerVelocityZ float64
 	Yaw                byte
-	YawDegrees float64
+	YawDegrees         float64
 
 	HP int16
+}
+
+func (r *RideableEntity) GetLoggedIn() bool {
+	return true
 }
 
 func (r *RideableEntity) SetPosition(x, y, z float64) {

@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"log"
+
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
@@ -129,6 +131,7 @@ func ArmSwing(pl *player.Player) []byte {
 
 func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 	// The protocol encodes positions in entity space: 1 block = 32 units.
+	log.Printf("Spawn %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)
 	p := SpawnPlayerEntityOutPacket{
 		EntityId: int32(pl.EntityId),
 		Username: pl.Username,
