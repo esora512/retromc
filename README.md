@@ -27,3 +27,11 @@ A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDe
 
 ## Golang
 * https://github.com/sasha-s/go-deadlock (Helps to debug deadlocks; became more relevant in this codebase)
+
+## Deployment
+Get a vm and run:
+```
+curl -fsSL https://go.dev/dl/go1.24.0.linux-amd64.tar.gz | sudo tar -C /usr/local -xz && echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && source ~/.bashrc
+```
+Then just clone the repo and run `bash build.sh`
+Finally, run the server with `./retromc --host 0.0.0.0`
