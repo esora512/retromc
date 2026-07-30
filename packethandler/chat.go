@@ -397,7 +397,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	return false
 }
 
-
 func printGiveHelp(pl *player.Player, pattern string) {
 	var re *regexp.Regexp
 	if pattern != "" {

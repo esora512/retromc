@@ -49,7 +49,6 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		world.BroadcastPacket(packets.PlayerEntityDespawnPacket(old))
 		world.RemovePlayer(old)
 		tracker.Remove(old.GetEntityId())
-		world.UnloadPlayerChunks(old)
 		old.Connection.Close()
 	}
 

@@ -91,7 +91,6 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 		if err != nil {
 			//log.Println("Connection closed:", err.Error())
 			log.Println("Connection closed...")
-
 			if pl.Username != "" {
 				unlock := world.LockSession(pl.Username)
 				defer unlock()
@@ -100,13 +99,9 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
 						log.Println("Failed to save inventory:", saveErr)
 					}
-					if saveErr := level.SaveMcRegion(world, world.WorldDir); saveErr != nil {
-						log.Println("Failed to save the world:", saveErr)
-					}
 					world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
 					world.RemovePlayer(pl)
 					tracker.Remove(pl.GetEntityId())
-					world.UnloadPlayerChunks(pl)
 				}
 			}
 			close(done)
@@ -132,7 +127,15 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 			packethandler.CollectNearbyItems(world)
 			packethandler.ApplyGravityOnDroppedItems(world)
 			furnaceLogic(world)
-			world.UnloadUnusedChunks()
+
+			if world.Tick%300 == 0 {
+				if removed := world.PopUnusedChunks(); len(removed) > 0 {
+					if err := level.SaveChunks(world, world.WorldDir, removed); err != nil {
+						log.Println("Failed to save the world:", err)
+					}
+				}
+			}
+
 			if world.Tick%10 == 0 {
 				entityTracker.Manage(world)
 			}

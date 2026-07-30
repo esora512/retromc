@@ -205,13 +205,26 @@ func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
 	return chunks
 }
 
-func (w *World) UnloadUnusedChunks() {
+func (w *World) PopUnusedChunks() map[ChunkCoord]*Chunk {
 	wanted := w.wantedChunks()
-	for coord := range w.chunks {
+
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+
+	var removed map[ChunkCoord]*Chunk
+	for coord, ch := range w.chunks {
 		if _, ok := wanted[coord]; !ok {
+			if removed == nil {
+				removed = make(map[ChunkCoord]*Chunk, 4)
+			}
+			removed[coord] = ch
 			delete(w.chunks, coord)
 		}
 	}
+	if len(removed) > 0 {
+		log.Printf("Popping %d chunks", len(removed))
+	}
+	return removed
 }
 
 func (w *World) IsLoaded(x, z int32) bool {
@@ -222,22 +235,6 @@ func (w *World) IsLoaded(x, z int32) bool {
 		return true
 	}
 	return false
-}
-
-func (w *World) UnloadPlayerChunks(pl *player.Player) {
-	// Locked because w.chunks
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-
-	cx := WorldToChunkCoord(int32(pl.X))
-	cz := WorldToChunkCoord(int32(pl.Z))
-
-	for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
-		for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
-			coord := ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}
-			delete(w.chunks, coord)
-		}
-	}
 }
 
 func (w *World) SnapshotEntities() []Entity {
@@ -478,6 +475,7 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	ch, ok := w.chunks[key]
 	//w.Mu.RUnlock()
 	if ok {
+		log.Printf("Loading chunk from memory...")
 		return ch
 	}
 
