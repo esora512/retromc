@@ -42,6 +42,8 @@ func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.Username = p.Username
+	unlock := world.LockSession(p.Username)
+	defer unlock()
 
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
 		world.BroadcastPacket(packets.PlayerEntityDespawnPacket(old))
@@ -73,7 +75,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
 	pl.LoggedIn = true
-	log.Printf("Login %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)
+	//log.Printf("Login %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {

@@ -89,8 +89,12 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl, tracker)
 		if err != nil {
-			log.Println("Connection closed:", err.Error())
+			//log.Println("Connection closed:", err.Error())
+			log.Println("Connection closed...")
+
 			if pl.Username != "" {
+				unlock := world.LockSession(pl.Username)
+				defer unlock()
 				if cur, ok := world.GetPlayerByUsername(pl.Username); !ok || cur == pl {
 					pData := level.ToPlayerData(pl)
 					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {

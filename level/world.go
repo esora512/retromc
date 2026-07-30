@@ -61,6 +61,7 @@ type EntityTracker struct {
 	DespawnEntity func(id int32) []byte
 	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
 	visible       map[int32]map[int32]bool
+	Mu            sync.Mutex
 }
 
 func NewEntityTracker(
@@ -79,6 +80,8 @@ func NewEntityTracker(
 }
 
 func (et *EntityTracker) Remove(id int32) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
 	delete(et.visible, id)
 	for _, seen := range et.visible {
 		delete(seen, id)
@@ -88,6 +91,8 @@ func (et *EntityTracker) Remove(id int32) {
 func (et *EntityTracker) Manage(w *World) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
 	const distance = VIEW_DISTANCE * 8
 
 	for _, viewer := range w.Players {
@@ -324,6 +329,7 @@ func NewChunkLogic() *ChunkLogic {
 type World struct {
 	//Mu         dlock.DebugRWMutex
 	Mu          sync.RWMutex
+	sessionMu   sync.Map
 	blockQueue  map[[3]int32]QueueBlock
 	chunks      map[ChunkCoord]*Chunk
 	Tick        int64
@@ -340,6 +346,13 @@ type World struct {
 	CommitHash      string
 	Seed            int64
 	noise           *PerlinNoise
+}
+
+func (w *World) LockSession(username string) func() {
+	muIface, _ := w.sessionMu.LoadOrStore(username, &sync.Mutex{})
+	mu := muIface.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
