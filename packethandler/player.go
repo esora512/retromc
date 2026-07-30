@@ -35,7 +35,7 @@ func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl
 	world.BroadcastPacket(p.Serialize())
 }
 
-func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
+func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
 	pl.Z = player.SpawnZ
@@ -49,9 +49,9 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0)
-	world.MulticastPacket(packets.SpawnPlayerEntityPacket(pl), pl)
+	//world.MulticastPacket(packets.SpawnPlayerEntityPacket(pl), pl)
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
-	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
+	//world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -377,12 +377,10 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 
 	if blockItem == constants.SnowLayer.Value {
 		if pl.Inventory.Items[pl.HotbarSlot].IsShovel() {
-			log.Printf("Mining Snow with Shovel...")
 			blockItem = constants.Snowball.Value
 			count = 4
 			return blockItem, 0, count
 		} else {
-			log.Printf("Mining Snow...")
 			blockItem = 0
 			return 0, 0, 0
 		}

@@ -79,13 +79,13 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		}
 	case packet.Respawn:
 		p := packets.ReadRespawnInPacket(packetReader)
-		handleRespawnInPacket(connection, p, world, pl)
+		handleRespawnInPacket(connection, p, world, pl, tracker)
 	case packet.CloseWindow:
 		p := packets.ReadCloseWindowInPacket(packetReader, pl)
 		handleCloseWindowInPacket(p, pl)
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityInPacket(packetReader)
-		handleInteractWithEntityInPacket(p, pl, world)
+		handleInteractWithEntityInPacket(p, pl, world, tracker)
 	case packet.Disconnect:
 		p := packets.ReadDisconnectInPacket(packetReader)
 		handleDisconnectInPacket(connection, p, world, pl)

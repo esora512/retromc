@@ -88,6 +88,8 @@ func (et *EntityTracker) Remove(id int32) {
 	}
 }
 
+
+
 func (et *EntityTracker) Manage(w *World) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
@@ -475,7 +477,6 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	ch, ok := w.chunks[key]
 	//w.Mu.RUnlock()
 	if ok {
-		log.Printf("Loading chunk from memory...")
 		return ch
 	}
 
