@@ -41,6 +41,8 @@ func main() {
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
 	world := level.NewWorld(GitCommit, 0, level.Default)
+	world.SetBroadcastRelativePosition(packethandler.BroadcastRelativePosition)
+	
 	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.SpawnObjectPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {

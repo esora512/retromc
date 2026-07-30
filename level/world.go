@@ -88,8 +88,6 @@ func (et *EntityTracker) Remove(id int32) {
 	}
 }
 
-
-
 func (et *EntityTracker) Manage(w *World) {
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
@@ -345,6 +343,16 @@ type World struct {
 	CommitHash      string
 	Seed            int64
 	noise           *PerlinNoise
+
+	broadcastRelativePosition func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
+}
+
+func (w *World) BroadcastRelativePosition(c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+	w.broadcastRelativePosition(w, c, prevX, prevY, prevZ, nextX, nextY, nextZ, yaw)
+}
+
+func (w *World) SetBroadcastRelativePosition(f func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
+	w.broadcastRelativePosition = f
 }
 
 func (w *World) LockSession(username string) func() {
