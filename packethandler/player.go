@@ -297,6 +297,12 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 
 	air := level.NewAirBlock()
 	//SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
+
+	above := world.GetBlock(p.X, p.Y+1, p.Z)
+	if above.IsSnowLayer() {
+		world.SetBlockInQueue(p.X, int32(p.Y)+1, p.Z, air)
+	}
+
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
@@ -578,7 +584,8 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ)
-	if !existing.IsAir() && !existing.IsLiquid() {
+	//log.Printf("Existing id %d", existing.TypeId)
+	if !existing.IsAir() && !existing.IsLiquid() && !existing.IsSnowLayer() {
 		return
 	}
 
@@ -1013,6 +1020,11 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 
 func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlayerBlockPlacementInPacket, slot int16) {
 	//SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
+	// below := world.GetBlock(newX, byte(newY-1), newZ)
+	// if below.TypeId == byte(constants.SnowLayer.Value) {
+	// 	newY = newY - 1
+	// }
+
 	world.SetBlockInQueue(newX, int32(newY), newZ, block)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
