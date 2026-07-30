@@ -151,9 +151,17 @@ func fallingBlocksPhysics(world *level.World) {
 			continue
 		}
 		if !world.IsLoaded(falling.X, falling.Z) {
-			//toRemove = append(toRemove, falling.EntityId)
-			//print("Skipping...")
 			continue
+		}
+
+		if !falling.IsFalling {
+			if areaLoaded(world, falling.X, falling.Z, 32) {
+				falling.IsFalling = true
+			} else {
+				instaFall(world, falling)
+				toRemove = append(toRemove, falling.EntityId)
+				continue
+			}
 		}
 
 		if !falling.VelocitySent {
@@ -164,7 +172,7 @@ func fallingBlocksPhysics(world *level.World) {
 		falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
 			b := world.GetBlock(x, y, z)
 			return entities.BlockInfo{
-				IsSolid:  !b.IsAir() && !b.IsLiquid(),
+				IsSolid:  !b.IsAir() && !b.IsLiquid() && !b.IsSnowLayer(),
 				Metadata: int(b.Metadata),
 			}
 		})
@@ -314,4 +322,36 @@ func maybeBroadcastVelocity(world *level.World, ridable *entities.RideableEntity
 	ridable.LastSentVelY = vy
 	ridable.LastSentVelZ = vz
 	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
+}
+
+func areaLoaded(world *level.World, x, z, radius int32) bool {
+	offsets := []int32{-radius, 0, radius}
+	for _, dx := range offsets {
+		for _, dz := range offsets {
+			if !world.IsLoaded(x+dx, z+dz) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func instaFall(world *level.World, falling *entities.BlockEntity) {
+	x, z := falling.X, falling.Z
+	y := int32(falling.Y)
+
+	for y > 0 {
+		below := world.GetBlock(x, byte(y-1), z)
+		if below.IsSnowLayer() {
+			y--
+			break
+		}
+		if !below.IsAir() && !below.IsLiquid() {
+			break
+		}
+		y--
+	}
+
+	block := level.NewBlockById(falling.TypeId, falling.Metadata)
+	world.SetBlockInQueue(x, y, z, block)
 }
