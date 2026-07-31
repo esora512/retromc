@@ -185,7 +185,6 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 			cMsgPkt := packets.ChatMessagePacket{
 				Message: other.GetName() + " was killed by " + player.Username,
 			}
-			tracker.Remove(other.GetEntityId())
 			world.BroadcastPacket(cMsgPkt.Serialize())
 			p := packets.EntityEventOutPacket{
 				EntityId: other.GetEntityId(),
@@ -207,6 +206,7 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 					world.BroadcastPacket(spawnPacket)
 				}
 			}
+			tracker.Remove(other.GetEntityId())
 		}
 		return
 	}

@@ -629,6 +629,7 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 			Count:    saved.Count,
 		}
 	}
+	//log.Printf("Stored Coords x=%f, y=%f, z=%f", data.X, data.Y, data.Z)
 	p.X, p.Y, p.Z = data.X, data.Y, data.Z
 	p.Yaw, p.Pitch = data.Yaw, data.Pitch
 	p.HP = data.Health

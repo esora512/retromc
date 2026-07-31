@@ -519,18 +519,18 @@ func raycastForWater(world *level.World, pl *player.Player, maxDistance float64)
 	return 0, 0, 0, false
 }
 
-func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Player) bool {
+func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker) bool {
 	x, y, z, found := raycastForWater(world, pl, 8.0)
 	if !found {
 		return false
 	}
 
 	slot := pl.HotbarSlot
-	tryPlaceBoat(connection, world, pl, int32(x), y, int32(z), slot)
+	tryPlaceBoat(connection, world, pl, tracker, int32(x), y, int32(z), slot)
 	return true
 }
 
-func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player) {
+func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
 	logPlacementDebug(pl, oldExisting)
 
@@ -541,7 +541,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if p.X == -1 && p.Y == 255 && p.Z == -1 && heldItem.TypeId == constants.Boat.Value {
 		log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
-		if tryPlaceBoatNoTarget(connection, world, pl) {
+		if tryPlaceBoatNoTarget(connection, world, pl, tracker) {
 			return
 		}
 		return
@@ -624,7 +624,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if heldItem.TypeId == constants.Boat.Value {
-		tryPlaceBoat(connection, world, pl, newX, newY, newZ, slot)
+		tryPlaceBoat(connection, world, pl, tracker, newX, newY, newZ, slot)
 		return
 	}
 
@@ -965,7 +965,7 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 	}
 }
 
-func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, slot int16) {
+func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker, newX int32, newY int, newZ int32, slot int16) {
 	entityId := world.NextEntityId()
 	// Lift posY by BoatYOffset so the hitbox bottom sits on the block top
 	// instead of half-burying the model in the block below.
@@ -983,6 +983,7 @@ func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, ne
 	}
 	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), spawnY, float64(newZ), 0, 0, 0, 1)
 	world.BroadcastPacket(spawnPacket.Serialize())
+	tracker.Add(pl.GetEntityId(), entityId)
 
 	pl.Inventory.RemoveOne(slot)
 	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])

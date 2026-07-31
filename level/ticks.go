@@ -166,7 +166,7 @@ func (world *World) maybeBroadcastVelocity(ridable *entities.RideableEntity, vx,
 	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
 }
 
-func (world *World) RidablePhysics() {
+func (world *World) RidablePhysics(tacker *EntityTracker) {
 	allEntities := world.SnapshotEntities()
 	var ridables []*entities.RideableEntity
 	var players []entities.PlayerPosition
@@ -221,6 +221,7 @@ func (world *World) RidablePhysics() {
 
 	for _, id := range toRemove {
 		world.RemoveEntity(id)
+		tacker.Remove(id)
 	}
 }
 
@@ -257,13 +258,13 @@ func (w *World) TickFurnaces() {
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
-func (w *World) AdvanceTick(nextTick int64) {
+func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.Tick = nextTick
 	w.AdvanceTime()
 	w.TickFluids()
 	w.TickFallables()
 	w.FallingBlocksPhysics()
-	w.RidablePhysics()
+	w.RidablePhysics(tracker)
 	w.GrowPhysics()
 	w.DroppedItemPhysics()
 	w.TickFurnaces()

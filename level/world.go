@@ -88,9 +88,16 @@ func (et *EntityTracker) Remove(id int32) {
 	}
 }
 
+func (et *EntityTracker) Add(playerId int32, otherId int32) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	if et.visible[playerId] == nil {
+		et.visible[playerId] = make(map[int32]bool)
+	}
+	et.visible[playerId][otherId] = true
+}
+
 func (et *EntityTracker) Manage(w *World) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	const distance = VIEW_DISTANCE * 8
@@ -344,8 +351,8 @@ type World struct {
 	broadcastSetSlot          func(w *World, windowId byte, slot int16, item inventory.Item)
 	broadcastMultiBlockChange func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
 	broadcastBlockChange      func(w *World, x, y, z int32, blockType, blockMeta byte)
-	broadcastTime func(w *World, tick int64)
-	broadcastSpawnObject func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
+	broadcastTime             func(w *World, tick int64)
+	broadcastSpawnObject      func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
 }
 
 func (w *World) BroadcastTime(tick int64) {
@@ -655,9 +662,10 @@ func (w *World) RemovePlayer(p *player.Player) {
 }
 
 func (w *World) RemoveEntity(entityId int32) {
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	delete(w.Entities, entityId)
 }
-
 
 func (w *World) AdvanceTime() {
 	w.BroadcastTime(w.Tick)

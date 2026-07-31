@@ -128,7 +128,7 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 		for range ticker.C {
 			// For fast time, set it to TickSpeed to 20
 			nextTick := (world.Tick + world.TickSpeed) % 24000
-			world.AdvanceTick(nextTick)
+			world.AdvanceTick(nextTick, entityTracker)
 			if world.Tick%300 == 0 {
 				if removed := world.PopUnusedChunks(); len(removed) > 0 {
 					if err := level.SaveChunks(world, world.WorldDir, removed); err != nil {
@@ -136,10 +136,7 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 					}
 				}
 			}
-
-			if world.Tick%10 == 0 {
-				entityTracker.Manage(world)
-			}
+			entityTracker.Manage(world)
 			world.FlushBlockQueue()
 		}
 	}()
