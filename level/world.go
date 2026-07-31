@@ -13,7 +13,6 @@ import (
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
-	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -181,10 +180,6 @@ func (w *World) wantedChunks() map[ChunkCoord]struct{} {
 }
 
 func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
-	// Lock because w.Players and w.chunks
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
-
 	seen := make(map[ChunkCoord]struct{})
 	chunks := make([]*Chunk, 0, len(w.Players)*9)
 	for _, pl := range w.Players {
@@ -239,9 +234,6 @@ func (w *World) IsLoaded(x, z int32) bool {
 }
 
 func (w *World) SnapshotEntities() []Entity {
-	// Lock because of w.Entities
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	snapshot := make([]Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
 		snapshot = append(snapshot, e)
@@ -250,10 +242,8 @@ func (w *World) SnapshotEntities() []Entity {
 }
 
 func (w *World) Size() int64 {
-	// Lock because of w.chunks
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
-
 	var total int64
 	for _, c := range w.chunks {
 		if c == nil {
@@ -278,7 +268,6 @@ func formatBytes(b int64) string {
 		MB = KB * 1024
 		GB = MB * 1024
 	)
-
 	switch {
 	case b >= GB:
 		return fmt.Sprintf("%.2f GB", float64(b)/float64(GB))
@@ -350,10 +339,29 @@ type World struct {
 	sendSetSlot               func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
 	broadcastEntityVelocity   func(w *World, entityId int32, vx, vy, vz float64)
 	broascastDespawn          func(w *World, id int32)
-	broadcastTeleport func(w *World, c Entity, cx, cy, cz float64, yaw byte)
-	broadcastContainerData func(w *World, windowId byte, itemType, itemValue int16)
-	broadcastSetSlot func(w *World, windowId byte, slot int16, item inventory.Item)
+	broadcastTeleport         func(w *World, c Entity, cx, cy, cz float64, yaw byte)
+	broadcastContainerData    func(w *World, windowId byte, itemType, itemValue int16)
+	broadcastSetSlot          func(w *World, windowId byte, slot int16, item inventory.Item)
+	broadcastMultiBlockChange func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
+	broadcastBlockChange      func(w *World, x, y, z int32, blockType, blockMeta byte)
+	broadcastTime func(w *World, tick int64)
+	broadcastSpawnObject func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
+}
 
+func (w *World) BroadcastTime(tick int64) {
+	w.broadcastTime(w, tick)
+}
+
+func (w *World) BroadcastSpawnObject(eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16) {
+	w.broadcastSpawnObject(w, eId, oType, x, y, z, oeId, velX, velY, velZ)
+}
+
+func (w *World) BroadcastBlockChange(x, y, z int32, blockType, blockMeta byte) {
+	w.broadcastBlockChange(w, x, y, z, blockType, blockMeta)
+}
+
+func (w *World) BroadcastMultiBlockChange(chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
+	w.broadcastMultiBlockChange(w, chunkX, chunkZ, numOfBlocks, blockCoords, blockTypes, metadata)
 }
 
 func (w *World) BroadcastContainerData(windowId byte, itemType, itemValue int16) {
@@ -420,6 +428,22 @@ func (w *World) SetBroadcastSetSlot(f func(w *World, windowId byte, slot int16, 
 	w.broadcastSetSlot = f
 }
 
+func (w *World) SetBroadcastBlockChange(f func(w *World, x, y, z int32, blockType, blockMeta byte)) {
+	w.broadcastBlockChange = f
+}
+
+func (w *World) SetBroadcastMultiBlockChange(f func(world *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)) {
+	w.broadcastMultiBlockChange = f
+}
+
+func (w *World) SetBroadcastTime(f func(w *World, tick int64)) {
+	w.broadcastTime = f
+}
+
+func (w *World) SetBroadcastSpawnObject(f func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)) {
+	w.broadcastSpawnObject = f
+}
+
 func (w *World) LockSession(username string) func() {
 	muIface, _ := w.sessionMu.LoadOrStore(username, &sync.Mutex{})
 	mu := muIface.(*sync.Mutex)
@@ -471,9 +495,6 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 }
 
 func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
-	// Lock because of chunk.Logic.DroppedItems
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
@@ -484,8 +505,6 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 }
 
 func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	chunk, ok := w.chunks[ChunkCoord{X: cx, Z: cz}]
@@ -506,8 +525,6 @@ func (w *World) LoadChunks() []*Chunk {
 
 // ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
 func (w *World) ChunkExists(cx, cz int32) bool {
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	_, ok := w.chunks[ChunkCoord{cx, cz}]
 	return ok
 }
@@ -641,25 +658,9 @@ func (w *World) RemoveEntity(entityId int32) {
 	delete(w.Entities, entityId)
 }
 
-type SetTimePacket struct {
-	Time int64
-}
 
-func (p *SetTimePacket) Serialize() []byte {
-	w := packet.NewPacketWriter()
-	w.WriteByte(packet.TimeUpdate)
-	w.WriteInt64(p.Time)
-	return w.Bytes()
-}
-
-func (w *World) BroadcastTime() {
-	packet := SetTimePacket{Time: w.Tick}
-	data := packet.Serialize()
-	for _, pl := range w.Players {
-		if pl.LoggedIn {
-			pl.Connection.Write(data)
-		}
-	}
+func (w *World) AdvanceTime() {
+	w.BroadcastTime(w.Tick)
 }
 
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
@@ -716,15 +717,7 @@ func (w *World) FlushBlockQueue() {
 	w.blockQueue = nil
 	if len(blocks) <= 10 {
 		for _, b := range blocks {
-			packet := BlockChangeOutPacket{
-				X:         b.X,
-				Y:         b.Y,
-				Z:         b.Z,
-				BlockType: b.TypeID,
-				BlockMeta: b.Metadata,
-			}
-
-			w.BroadcastPacket(packet.Serialize())
+			w.BroadcastBlockChange(b.X, int32(b.Y), b.Z, b.TypeID, b.Metadata)
 		}
 		return
 	}
@@ -759,36 +752,6 @@ func (w *World) FlushBlockQueue() {
 	}
 
 	for chunk, change := range changes {
-		packet := MultiBlockChangeOutPacket{
-			ChunkX:      chunk[0],
-			ChunkZ:      chunk[1],
-			NumOfBlocks: uint16(len(change.coords)),
-			BlockCoords: change.coords,
-			BlockTypes:  change.types,
-			Metadata:    change.meta,
-		}
-
-		w.BroadcastPacket(packet.Serialize())
+		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta)
 	}
-}
-
-type MultiBlockChangeOutPacket struct {
-	ChunkX      int32
-	ChunkZ      int32
-	NumOfBlocks uint16
-	BlockCoords []uint16
-	BlockTypes  []byte
-	Metadata    []byte
-}
-
-func (p *MultiBlockChangeOutPacket) Serialize() []byte {
-	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.MultiBlockChange)
-	writer.WriteInt32(p.ChunkX)
-	writer.WriteInt32(p.ChunkZ)
-	writer.WriteShort(p.NumOfBlocks)
-	writer.WriteShortArray(p.BlockCoords)
-	writer.Write(p.BlockTypes)
-	writer.Write(p.Metadata)
-	return writer.Bytes()
 }

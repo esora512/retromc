@@ -259,7 +259,7 @@ func (w *World) TickFurnaces() {
 
 func (w *World) AdvanceTick(nextTick int64) {
 	w.Tick = nextTick
-	w.BroadcastTime()
+	w.AdvanceTime()
 	w.TickFluids()
 	w.TickFallables()
 	w.FallingBlocksPhysics()

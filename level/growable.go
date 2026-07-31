@@ -2,7 +2,6 @@ package level
 
 import (
 	"github.com/leNicDev/retromc/constants"
-	"github.com/leNicDev/retromc/packet"
 )
 
 const (
@@ -50,15 +49,6 @@ var PlantRules = map[int16]PlantRule{
 	constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
 }
 
-// TODO: Remove duplicate somehow later -_-
-type BlockChangeOutPacket struct {
-	X         int32
-	Y         byte
-	Z         int32
-	BlockType byte
-	BlockMeta byte
-}
-
 func (w *World) SetGrowable(block Block, bk BlockKey) {
 	chunk := w.GetLoadedChunk(bk.X, bk.Z)
 	if chunk == nil {
@@ -98,17 +88,6 @@ func (w *World) GrowPhysics() {
 			}
 		}
 	}
-}
-
-func (p *BlockChangeOutPacket) Serialize() []byte {
-	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.BlockChange)
-	writer.WriteInt32(p.X)
-	writer.WriteByte(p.Y)
-	writer.WriteInt32(p.Z)
-	writer.WriteByte(p.BlockType)
-	writer.WriteByte(p.BlockMeta)
-	return writer.Bytes()
 }
 
 func (c *Wheat) GrowNow(w *World) bool {
@@ -199,15 +178,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 	if connectedToGrass {
 		grass := NewBlockById(constants.Grass.Value, 0)
 		w.SetBlock(bk.X, bk.Y, bk.Z, grass)
-
-		blockChange := BlockChangeOutPacket{
-			X:         bk.X,
-			Y:         bk.Y,
-			Z:         bk.Z,
-			BlockType: grass.TypeId,
-			BlockMeta: grass.Metadata,
-		}
-		w.BroadcastPacket(blockChange.Serialize())
+		w.BroadcastBlockChange(bk.X, int32(bk.Y), bk.Z, grass.TypeId, grass.Metadata)
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
@@ -231,14 +202,7 @@ func (c *Wheat) Grow(w *World, bk *BlockKey) {
 	}
 	crop := NewBlockById(constants.Wheat.Value, c.State)
 	w.SetBlock(bk.X, bk.Y, bk.Z, crop)
-	blockChange := BlockChangeOutPacket{
-		X:         bk.X,
-		Y:         bk.Y,
-		Z:         bk.Z,
-		BlockType: crop.TypeId,
-		BlockMeta: crop.Metadata,
-	}
-	w.BroadcastPacket(blockChange.Serialize())
+	w.BroadcastBlockChange(bk.X, int32(bk.Y), bk.Z, crop.TypeId, crop.Metadata)
 }
 
 func (c *Sugarcane) Grow(w *World, bk *BlockKey) {
@@ -258,15 +222,7 @@ func (c *Sugarcane) Grow(w *World, bk *BlockKey) {
 
 	cane := NewBlockById(constants.Sugarcane.Value, 1)
 	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cane)
-
-	blockChange := BlockChangeOutPacket{
-		X:         bk.X,
-		Y:         byte(baseY + height),
-		Z:         bk.Z,
-		BlockType: cane.TypeId,
-		BlockMeta: cane.Metadata,
-	}
-	w.BroadcastPacket(blockChange.Serialize())
+	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cane.TypeId, cane.Metadata)
 }
 
 func (c *Cactus) Grow(w *World, bk *BlockKey) {
@@ -286,15 +242,7 @@ func (c *Cactus) Grow(w *World, bk *BlockKey) {
 
 	cactus := NewBlockById(constants.Cactus.Value, 1)
 	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cactus)
-
-	blockChange := BlockChangeOutPacket{
-		X:         bk.X,
-		Y:         byte(baseY + height),
-		Z:         bk.Z,
-		BlockType: cactus.TypeId,
-		BlockMeta: cactus.Metadata,
-	}
-	w.BroadcastPacket(blockChange.Serialize())
+	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cactus.TypeId, cactus.Metadata)
 }
 
 func (s *Sapling) Grow(w *World, bk *BlockKey) {
@@ -302,14 +250,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {
 		w.SetBlock(bk.X, bk.Y+byte(i), bk.Z, log)
-		blockChange := BlockChangeOutPacket{
-			X:         bk.X,
-			Y:         bk.Y + byte(i),
-			Z:         bk.Z,
-			BlockType: log.TypeId,
-			BlockMeta: log.Metadata,
-		}
-		w.BroadcastPacket(blockChange.Serialize())
+		w.BroadcastBlockChange(bk.X, int32(bk.Y)+int32(i), bk.Z, log.TypeId, log.Metadata)
 	}
 
 	leaves := NewBlockById(constants.Leaves.Value, s.WoodType)
@@ -351,14 +292,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 		for _, off := range offsets {
 			dx, dz := off[0], off[1]
 			w.SetBlock(bk.X+int32(dx), topY+byte(dy), bk.Z+int32(dz), leaves)
-			blockChange := BlockChangeOutPacket{
-				X:         bk.X + int32(dx),
-				Y:         topY + byte(dy),
-				Z:         bk.Z + int32(dz),
-				BlockType: leaves.TypeId,
-				BlockMeta: leaves.Metadata,
-			}
-			w.BroadcastPacket(blockChange.Serialize())
+			w.BroadcastBlockChange(bk.X + int32(dx), int32(topY)+int32(dy), bk.Z+int32(dz), leaves.TypeId, leaves.Metadata)
 		}
 	}
 	cx := WorldToChunkCoord(bk.X)

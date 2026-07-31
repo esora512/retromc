@@ -8,6 +8,7 @@ import (
 
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
+	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
@@ -314,8 +315,8 @@ func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64)
 func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue int16) {
 	p := packets.ContainerDataOutPacket{
 		WindowID: windowId,
-		Type: itemType,
-		Value: itemValue,
+		Type:     itemType,
+		Value:    itemValue,
 	}
 	w.BroadcastPacket(p.Serialize())
 }
@@ -323,8 +324,67 @@ func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue i
 func BroadcastSetSlot(w *level.World, windowId byte, slot int16, item inventory.Item) {
 	p := packets.SetSlotOutPacket{
 		WindowId: windowId,
-		Slot: slot,
-		Item: item,
+		Slot:     slot,
+		Item:     item,
+	}
+	w.BroadcastPacket(p.Serialize())
+}
+
+type SetTimePacket struct {
+	Time int64
+}
+
+func (p *SetTimePacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.TimeUpdate)
+	w.WriteInt64(p.Time)
+	return w.Bytes()
+}
+
+func BroadcastTime(w *level.World, tick int64) {
+	p := SetTimePacket{Time: tick}
+	w.BroadcastPacket(p.Serialize())
+}
+
+
+type SpawnObject struct {
+	EntityId      int32
+	ObjectType    byte
+	X             int32
+	Y             int32
+	Z             int32
+	OwnerEntityId int32
+	VelocityX     int16
+	VelocityY     int16
+	VelocityZ     int16
+}
+
+func (p *SpawnObject) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.SpawnObject)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.ObjectType)
+	writer.WriteInt32(p.X)
+	writer.WriteInt32(p.Y)
+	writer.WriteInt32(p.Z)
+	writer.WriteInt32(p.OwnerEntityId)
+	writer.WriteInt16(p.VelocityX)
+	writer.WriteInt16(p.VelocityY)
+	writer.WriteInt16(p.VelocityZ)
+	return writer.Bytes()
+}
+
+func BroadcastSpawnObject(w *level.World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16) {
+	p := SpawnObject{
+		EntityId: eId,
+		ObjectType: oType,
+		X: x,
+		Y:y,
+		Z:z,
+		OwnerEntityId: oeId,
+		VelocityX: velX,
+		VelocityY: velY,
+		VelocityZ: velZ,
 	}
 	w.BroadcastPacket(p.Serialize())
 }

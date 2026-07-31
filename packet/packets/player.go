@@ -437,6 +437,17 @@ func (p *BlockChangeOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
+func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta byte) {
+	p := BlockChangeOutPacket{
+		X: x,
+		Y: byte(y),
+		Z: z,
+		BlockType: blockType,
+		BlockMeta: blockMeta,
+	}
+	w.BroadcastPacket(p.Serialize())
+}
+
 type PlayerInputInPacket struct {
 	packet.Packet
 	StrafeDirection  float64
@@ -478,4 +489,17 @@ func (p *MultiBlockChangeOutPacket) Serialize() []byte {
 	writer.Write(p.BlockTypes)
 	writer.Write(p.Metadata)
 	return writer.Bytes()
+}
+
+
+func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
+	p := MultiBlockChangeOutPacket{
+		ChunkX: chunkX,
+		ChunkZ: chunkZ,
+		NumOfBlocks: numOfBlocks,
+		BlockCoords: blockCoords,
+		BlockTypes: blockTypes,
+		Metadata: metadata,
+	}
+	world.BroadcastPacket(p.Serialize())
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
-	"github.com/leNicDev/retromc/packet"
 )
 
 const (
@@ -40,33 +39,6 @@ var neighbours = []struct{ dx, dy, dz int32 }{
 
 var lateralNeighbors = []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 var oppositeLateralNeighbour = []int{1, 0, 3, 2}
-
-type SpawnObject struct {
-	EntityId      int32
-	ObjectType    byte
-	X             int32
-	Y             int32
-	Z             int32
-	OwnerEntityId int32
-	VelocityX     int16
-	VelocityY     int16
-	VelocityZ     int16
-}
-
-func (p *SpawnObject) Serialize() []byte {
-	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.SpawnObject)
-	writer.WriteInt32(p.EntityId)
-	writer.WriteByte(p.ObjectType)
-	writer.WriteInt32(p.X)
-	writer.WriteInt32(p.Y)
-	writer.WriteInt32(p.Z)
-	writer.WriteInt32(p.OwnerEntityId)
-	writer.WriteInt16(p.VelocityX)
-	writer.WriteInt16(p.VelocityY)
-	writer.WriteInt16(p.VelocityZ)
-	return writer.Bytes()
-}
 
 // Required because Update trigger is called in package packethandler; cannot import SetBlock due to cycle.
 type SetBlock func(x, y, z int32, block Block)
@@ -179,24 +151,16 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	time.Sleep(0 * time.Millisecond)
 	u.SetBlock(u.X, u.Y, u.Z, air)
 
-	ObjectType := byte(0)
+	objectType := byte(0)
 	if b.TypeId == byte(constants.Sand.Value) {
-		ObjectType = 70
+		objectType = 70
 	} else if b.TypeId == byte(constants.Gravel.Value) {
-		ObjectType = 71
+		objectType = 71
 	}
 
 	entityId := w.NextEntityId()
-	spawnPacket := SpawnObject{
-		EntityId:   entityId,
-		ObjectType: ObjectType,
-		X:          int32(math.Floor((float64(u.X) + 0.5) * 32)),
-		Y:          int32(math.Floor(float64(u.Y) * 32)),
-		Z:          int32(math.Floor((float64(u.Z) + 0.5) * 32)),
-	}
-
 	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z))
-	w.BroadcastPacket(spawnPacket.Serialize())
+	w.BroadcastSpawnObject(entityId, objectType, int32(math.Floor((float64(u.X)+0.5)*32)), int32(math.Floor(float64(u.Y)*32)), int32(math.Floor((float64(u.Z)+0.5)*32)), 0, 0, 0, 0)
 	w.AddEntity(falling)
 	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock)
 }

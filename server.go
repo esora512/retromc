@@ -48,6 +48,10 @@ func main() {
 	world.SetBroadcastTeleport(packethandler.BroadcastTeleport)
 	world.SetBroadcastSetSlot(packethandler.BroadcastSetSlot)
 	world.SetBroadcastContainerData(packethandler.BroadcastContainerData)
+	world.SetBroadcastBlockChange(packets.BroadcastBlockChange)
+	world.SetBroadcastMultiBlockChange(packets.BroadcastMultiBlockChange)
+	world.SetBroadcastSpawnObject(packethandler.BroadcastSpawnObject)
+	world.SetBroadcastTime(packethandler.BroadcastTime)
 
 	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.SpawnObjectPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
