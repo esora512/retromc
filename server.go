@@ -4,13 +4,10 @@ import (
 	"bufio"
 	"flag"
 	"log"
-	"math"
 	"net"
 	"os"
 	"time"
 
-	"github.com/leNicDev/retromc/entities"
-	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
@@ -41,8 +38,17 @@ func main() {
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
 	world := level.NewWorld(GitCommit, 0, level.Default)
+
+	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetBroadcastRelativePosition(packethandler.BroadcastRelativePosition)
-	
+	world.SetBroadcastEntityVelocity(packethandler.BroadcastEntityVelocity)
+	world.SetCollectItem(packets.CollectItem)
+	world.SetSendSetSlot(packethandler.SendSetSlot)
+	world.SetBroadcastDespawn(packethandler.BroadcastDespawn)
+	world.SetBroadcastTeleport(packethandler.BroadcastTeleport)
+	world.SetBroadcastSetSlot(packethandler.BroadcastSetSlot)
+	world.SetBroadcastContainerData(packethandler.BroadcastContainerData)
+
 	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.SpawnObjectPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {
@@ -50,13 +56,11 @@ func main() {
 	// }()
 
 	for {
-		// listen for incoming connections
 		connection, err := l.Accept()
 		if err != nil {
 			log.Fatalln("Failed to accept connection: ", err.Error())
 			continue
 		}
-		// handle connection
 		go handleConnection(connection, world, entityTracker)
 	}
 
@@ -119,17 +123,8 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 		defer ticker.Stop()
 		for range ticker.C {
 			// For fast time, set it to TickSpeed to 20
-			world.Tick = (world.Tick + world.TickSpeed) % 24000
-			world.BroadcastTime()
-			world.TickFluids(world.Tick)
-			world.TickFallables(world.Tick)
-			fallingBlocksPhysics(world)
-			ridablePhysics(world)
-			world.GrowPhysics()
-			packethandler.CollectNearbyItems(world)
-			packethandler.ApplyGravityOnDroppedItems(world)
-			furnaceLogic(world)
-
+			nextTick := (world.Tick + world.TickSpeed) % 24000
+			world.AdvanceTick(nextTick)
 			if world.Tick%300 == 0 {
 				if removed := world.PopUnusedChunks(); len(removed) > 0 {
 					if err := level.SaveChunks(world, world.WorldDir, removed); err != nil {
@@ -144,219 +139,4 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 			world.FlushBlockQueue()
 		}
 	}()
-}
-
-func fallingBlocksPhysics(world *level.World) {
-	toRemove := []int32{}
-	allEntities := world.SnapshotEntities()
-
-	for _, e := range allEntities {
-		falling, ok := e.(*entities.BlockEntity)
-		if !ok {
-			continue
-		}
-		if !world.IsLoaded(falling.X, falling.Z) {
-			continue
-		}
-
-		if !falling.IsFalling {
-			if areaLoaded(world, falling.X, falling.Z, 32) {
-				falling.IsFalling = true
-			} else {
-				instaFall(world, falling)
-				toRemove = append(toRemove, falling.EntityId)
-				continue
-			}
-		}
-
-		if !falling.VelocitySent {
-			packethandler.BroadcastEntityVelocity(world, falling.EntityId, 0, falling.VelocityY, 0)
-			falling.VelocitySent = true
-		}
-
-		falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
-			b := world.GetBlock(x, y, z)
-			return entities.BlockInfo{
-				IsSolid:  !b.IsAir() && !b.IsLiquid() && !b.IsSnowLayer(),
-				Metadata: int(b.Metadata),
-			}
-		})
-
-		if falling.Landed && falling.Y >= 0 {
-			toRemove = append(toRemove, falling.EntityId)
-			block := level.NewBlockById(falling.TypeId, falling.Metadata)
-			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block)
-			//packethandler.SetBlockAndNotify(world, falling.X, int32(falling.Y), falling.Z, &block)
-		}
-	}
-
-	for _, id := range toRemove {
-		world.RemoveEntity(id)
-		despawn := packets.EntityDespawnOutPacket{EntityId: id}
-		world.BroadcastPacket(despawn.Serialize())
-	}
-}
-
-func makeSendFurnaceProgress(world *level.World) func(progress, fuelMax, fuelRemain int) {
-	return func(progress, fuelDuration, fuelRemain int) {
-		p1 := packets.ContainerDataOutPacket{
-			WindowID: 1,
-			Type:     0,
-			Value:    int16(progress),
-		}
-		p2 := packets.ContainerDataOutPacket{
-			WindowID: 1,
-			Type:     1,
-			Value:    int16(fuelRemain),
-		}
-		p3 := packets.ContainerDataOutPacket{
-			WindowID: 1,
-			Type:     2,
-			Value:    int16(fuelDuration),
-		}
-		world.BroadcastPacket(p1.Serialize())
-		world.BroadcastPacket(p2.Serialize())
-		world.BroadcastPacket(p3.Serialize())
-	}
-}
-
-func makeSendFurnaceSlot(world *level.World) func(item inventory.Item, slot int16) {
-	return func(item inventory.Item, slot int16) {
-		p := packets.SetSlotOutPacket{
-			WindowId: 1,
-			Slot:     slot,
-			Item:     item,
-		}
-		world.BroadcastPacket(p.Serialize())
-	}
-}
-
-func makeSetFurnaceBlock(world *level.World) func(x, y, z int16, lit bool) {
-	return func(x, y, z int16, lit bool) {
-		oldBlock := world.GetBlock(int32(x), byte(y), int32(z))
-
-		var newBlock level.Block
-		if lit {
-			newBlock = level.NewLitFurnaceBlock(oldBlock.Metadata)
-		} else {
-			newBlock = level.NewFurnaceBlock(oldBlock.Metadata)
-		}
-		world.SetBlockInQueue(int32(x), int32(y), int32(z), newBlock)
-		//packethandler.SetBlockAndNotify(world, int32(x), int32(y), int32(z), &newBlock)
-	}
-}
-
-func furnaceLogic(world *level.World) {
-	furnaces := world.GetAllFurnaces()
-	inventory.TickFurnaces(furnaces, makeSendFurnaceProgress(world), makeSendFurnaceSlot(world), makeSetFurnaceBlock(world))
-}
-
-func ridablePhysics(world *level.World) {
-	allEntities := world.SnapshotEntities()
-	var ridables []*entities.RideableEntity
-	var players []entities.PlayerPosition
-
-	for _, e := range allEntities {
-		if e.IsPlayer() {
-			x, y, z := e.GetPosition()
-			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
-		} else if ridable, ok := e.(*entities.RideableEntity); ok {
-			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
-				ridables = append(ridables, ridable)
-			}
-		}
-	}
-
-	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
-		b := world.GetBlock(x, y, z)
-		return entities.BlockInfo{
-			IsRail:        b.IsRail(),
-			IsPoweredRail: b.IsPoweredRail(),
-			IsSolid:       !b.IsAir() && !b.IsLiquid(),
-			Metadata:      int(b.Metadata),
-			IsWater:       b.IsWater(),
-		}
-	}
-
-	var toRemove []int32
-
-	for _, ridable := range ridables {
-		cx, cy, cz := ridable.GetPosition()
-		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
-
-		switch action {
-		case entities.Moved:
-			packethandler.BroadcastRelativePosition(world, ridable, cx, cy, cz, nx, ny, nz, yaw)
-			ridable.SetPosition(nx, ny, nz)
-
-			velX := nx - cx
-			velY := ny - cy
-			velZ := nz - cz
-			maybeBroadcastVelocity(world, ridable, velX, velY, velZ)
-
-		case entities.Stopped:
-			packethandler.BroadcastTeleport(world, ridable, cx, cy, cz, yaw)
-			maybeBroadcastVelocity(world, ridable, 0, 0, 0)
-
-		case entities.Despawned:
-			despawn := packets.EntityDespawnOutPacket{EntityId: ridable.EntityId}
-			world.BroadcastPacket(despawn.Serialize())
-			toRemove = append(toRemove, ridable.EntityId)
-		}
-	}
-
-	for _, id := range toRemove {
-		world.RemoveEntity(id)
-	}
-}
-
-func maybeBroadcastVelocity(world *level.World, ridable *entities.RideableEntity, vx, vy, vz float64) {
-	const epsilon = 0.02
-
-	dx := vx - ridable.LastSentVelX
-	dy := vy - ridable.LastSentVelY
-	dz := vz - ridable.LastSentVelZ
-
-	if math.Abs(dx) < epsilon && math.Abs(dy) < epsilon && math.Abs(dz) < epsilon {
-		return
-	}
-
-	packethandler.BroadcastEntityVelocity(world, ridable.EntityId, vx, vy, vz)
-
-	ridable.LastSentVelX = vx
-	ridable.LastSentVelY = vy
-	ridable.LastSentVelZ = vz
-	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
-}
-
-func areaLoaded(world *level.World, x, z, radius int32) bool {
-	offsets := []int32{-radius, 0, radius}
-	for _, dx := range offsets {
-		for _, dz := range offsets {
-			if !world.IsLoaded(x+dx, z+dz) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func instaFall(world *level.World, falling *entities.BlockEntity) {
-	x, z := falling.X, falling.Z
-	y := int32(falling.Y)
-
-	for y > 0 {
-		below := world.GetBlock(x, byte(y-1), z)
-		if below.IsSnowLayer() {
-			y--
-			break
-		}
-		if !below.IsAir() && !below.IsLiquid() {
-			break
-		}
-		y--
-	}
-
-	block := level.NewBlockById(falling.TypeId, falling.Metadata)
-	world.SetBlockInQueue(x, y, z, block)
 }

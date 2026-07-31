@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -345,14 +346,78 @@ type World struct {
 	noise           *PerlinNoise
 
 	broadcastRelativePosition func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
+	collectItem               func(itemId, collectorId int32) []byte
+	sendSetSlot               func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
+	broadcastEntityVelocity   func(w *World, entityId int32, vx, vy, vz float64)
+	broascastDespawn          func(w *World, id int32)
+	broadcastTeleport func(w *World, c Entity, cx, cy, cz float64, yaw byte)
+	broadcastContainerData func(w *World, windowId byte, itemType, itemValue int16)
+	broadcastSetSlot func(w *World, windowId byte, slot int16, item inventory.Item)
+
+}
+
+func (w *World) BroadcastContainerData(windowId byte, itemType, itemValue int16) {
+	w.broadcastContainerData(w, windowId, itemType, itemValue)
+}
+
+func (w *World) BroadcastSetSlot(windowId byte, slot int16, item inventory.Item) {
+	w.broadcastSetSlot(w, windowId, slot, item)
+}
+
+func (w *World) BroadcastTeleport(c Entity, cx, cy, cz float64, yaw byte) {
+	w.broadcastTeleport(w, c, cx, cy, cz, yaw)
+}
+
+func (w *World) BroadcastDespawn(id int32) {
+	w.broascastDespawn(w, id)
 }
 
 func (w *World) BroadcastRelativePosition(c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	w.broadcastRelativePosition(w, c, prevX, prevY, prevZ, nextX, nextY, nextZ, yaw)
 }
 
+func (w *World) BroadcastEntityVelocity(entityId int32, vx, vy, vz float64) {
+	w.broadcastEntityVelocity(w, entityId, vx, vy, vz)
+}
+
+func (w *World) CollectItem(itemId, collectorId int32) []byte {
+	return w.collectItem(itemId, collectorId)
+}
+
+func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
+	w.sendSetSlot(connection, windowId, slot, item)
+}
+
 func (w *World) SetBroadcastRelativePosition(f func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
 	w.broadcastRelativePosition = f
+}
+
+func (w *World) SetCollectItem(f func(itemId, collectorId int32) []byte) {
+	w.collectItem = f
+}
+
+func (w *World) SetSendSetSlot(f func(connection net.Conn, windowId byte, slot int16, item inventory.Item)) {
+	w.sendSetSlot = f
+}
+
+func (w *World) SetBroadcastEntityVelocity(f func(w *World, entityId int32, vx, vy, vz float64)) {
+	w.broadcastEntityVelocity = f
+}
+
+func (w *World) SetBroadcastDespawn(f func(world *World, id int32)) {
+	w.broascastDespawn = f
+}
+
+func (w *World) SetBroadcastTeleport(f func(w *World, c Entity, cx, cy, cz float64, yaw byte)) {
+	w.broadcastTeleport = f
+}
+
+func (w *World) SetBroadcastContainerData(f func(w *World, windowId byte, itemType, itemValue int16)) {
+	w.broadcastContainerData = f
+}
+
+func (w *World) SetBroadcastSetSlot(f func(w *World, windowId byte, slot int16, item inventory.Item)) {
+	w.broadcastSetSlot = f
 }
 
 func (w *World) LockSession(username string) func() {
@@ -479,17 +544,10 @@ func printCallStack() {
 // GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
 func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	key := ChunkCoord{cx, cz}
-	//printCallStack()
-
-	//w.Mu.RLock()
 	ch, ok := w.chunks[key]
-	//w.Mu.RUnlock()
 	if ok {
 		return ch
 	}
-
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	if w.WorldDir != "" {
 		rx, rz := cx>>5, cz>>5
 		lx, lz := cx&31, cz&31
@@ -508,7 +566,6 @@ func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
 			}
 		}
 	}
-
 	c := w.generateChunk(cx, cz, w.WorldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
@@ -566,14 +623,10 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		ObjectType:    objectType,
 		HP:            4,
 	}
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	w.Entities[int32(entityId)] = &r
 }
 
 func (w *World) AddEntity(e Entity) {
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	w.Entities[e.GetEntityId()] = e
 }
 
@@ -585,8 +638,6 @@ func (w *World) RemovePlayer(p *player.Player) {
 }
 
 func (w *World) RemoveEntity(entityId int32) {
-	// w.Mu.Lock()
-	// defer w.Mu.Unlock()
 	delete(w.Entities, entityId)
 }
 
@@ -602,8 +653,6 @@ func (p *SetTimePacket) Serialize() []byte {
 }
 
 func (w *World) BroadcastTime() {
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	packet := SetTimePacket{Time: w.Tick}
 	data := packet.Serialize()
 	for _, pl := range w.Players {
@@ -615,8 +664,6 @@ func (w *World) BroadcastTime() {
 
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
 func (w *World) BroadcastPacket(data []byte) {
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			pl.Connection.Write(data)
@@ -625,8 +672,6 @@ func (w *World) BroadcastPacket(data []byte) {
 }
 
 func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
@@ -635,8 +680,6 @@ func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
 }
 
 func (w *World) ForEachPlayer(fn func(*player.Player)) {
-	// w.Mu.RLock()
-	// defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
 			fn(pl)
@@ -655,9 +698,6 @@ type QueueBlock struct {
 func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
 	w.SetBlock(x, byte(y), z, block)
 
-	// w.blockQueueMu.Lock()
-	// defer w.blockQueueMu.Unlock()
-
 	if w.blockQueue == nil {
 		w.blockQueue = make(map[[3]int32]QueueBlock)
 	}
@@ -672,18 +712,8 @@ func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
 }
 
 func (w *World) FlushBlockQueue() {
-	// w.blockQueueMu.Lock()
-
-	// if len(w.blockQueue) == 0 {
-	// 	w.blockQueueMu.Unlock()
-	// 	return
-	// }
-
 	blocks := w.blockQueue
 	w.blockQueue = nil
-
-	//w.blockQueueMu.Unlock()
-
 	if len(blocks) <= 10 {
 		for _, b := range blocks {
 			packet := BlockChangeOutPacket{
@@ -696,7 +726,6 @@ func (w *World) FlushBlockQueue() {
 
 			w.BroadcastPacket(packet.Serialize())
 		}
-
 		return
 	}
 

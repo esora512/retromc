@@ -12,8 +12,8 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-// sendSetSlot tells the client to update a single inventory slot.
-func sendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
+// SendSetSlot tells the client to update a single inventory slot.
+func SendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
 	setSlotPacket := packets.SetSlotOutPacket{
 		WindowId: windowId,
 		Slot:     slot,
@@ -26,7 +26,7 @@ func sendChestContents(connection net.Conn, chest *inventory.Chest) {
 	for i := int16(0); i < int16(chest.Size); i++ {
 		item := chest.PeekItem(i)
 		if item.TypeId != -1 {
-			sendSetSlot(connection, 1, i, item)
+			SendSetSlot(connection, 1, i, item)
 		}
 	}
 }
@@ -35,7 +35,7 @@ func sendDispenserContents(connection net.Conn, dispenser *inventory.Dispenser) 
 	for i := int16(0); i < int16(dispenser.Size); i++ {
 		item := dispenser.PeekItem(i)
 		if item.TypeId != -1 {
-			sendSetSlot(connection, 1, i, item)
+			SendSetSlot(connection, 1, i, item)
 		}
 	}
 }
@@ -44,7 +44,7 @@ func sendFurnaceContents(connection net.Conn, furnace *inventory.Furnace) {
 	for i := int16(0); i < int16(furnace.Size); i++ {
 		item := furnace.PeekItem(i)
 		if item.TypeId != -1 {
-			sendSetSlot(connection, 1, i, item)
+			SendSetSlot(connection, 1, i, item)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func broadcastChestContents(world *level.World, source *player.Player, chest *in
 		}
 		if world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z) == chest {
 			for i := int16(0); i < int16(chest.Size); i++ {
-				sendSetSlot(pl.Connection, 1, i, chest.PeekItem(i))
+				SendSetSlot(pl.Connection, 1, i, chest.PeekItem(i))
 			}
 		}
 	})
@@ -69,7 +69,7 @@ func broadcastDispenserContents(world *level.World, source *player.Player, dispe
 		}
 		if world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z) == dispenser {
 			for i := int16(0); i < int16(dispenser.Size); i++ {
-				sendSetSlot(pl.Connection, 1, i, dispenser.PeekItem(i))
+				SendSetSlot(pl.Connection, 1, i, dispenser.PeekItem(i))
 			}
 		}
 	})
@@ -82,7 +82,7 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 		}
 		if world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z) == furnace {
 			for i := int16(0); i < int16(furnace.Size); i++ {
-				sendSetSlot(pl.Connection, 1, i, furnace.PeekItem(i))
+				SendSetSlot(pl.Connection, 1, i, furnace.PeekItem(i))
 			}
 		}
 	})
@@ -309,4 +309,22 @@ func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64)
 		Vz:       vz,
 	}
 	w.BroadcastPacket(packet.Serialize())
+}
+
+func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue int16) {
+	p := packets.ContainerDataOutPacket{
+		WindowID: windowId,
+		Type: itemType,
+		Value: itemValue,
+	}
+	w.BroadcastPacket(p.Serialize())
+}
+
+func BroadcastSetSlot(w *level.World, windowId byte, slot int16, item inventory.Item) {
+	p := packets.SetSlotOutPacket{
+		WindowId: windowId,
+		Slot: slot,
+		Item: item,
+	}
+	w.BroadcastPacket(p.Serialize())
 }

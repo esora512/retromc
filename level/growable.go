@@ -64,7 +64,7 @@ func (w *World) SetGrowable(block Block, bk BlockKey) {
 	if chunk == nil {
 		return
 	}
-	if block.IsGrowable() {
+	if !block.IsGrowable() {
 		return
 	}
 

@@ -322,7 +322,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	typeId := item.TypeId
 	metadata := item.Metadata
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
-	sendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	dropItemFromPlayer(world, pl, typeId, metadata, 1)
 }
 
@@ -348,11 +348,11 @@ func damageHeldItemOnDig(pl *player.Player) {
 	hotBarItem.Metadata += 1
 	if hotBarItem.Metadata == crafting.Durability(hotBarItem.TypeId) {
 		pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
-		sendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+		SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
 
 	} else {
 		pl.Inventory.Items[pl.HotbarSlot].Metadata += 1
-		sendSetSlot(pl.Connection, 0, pl.HotbarSlot, hotBarItem)
+		SendSetSlot(pl.Connection, 0, pl.HotbarSlot, hotBarItem)
 	}
 }
 
@@ -723,11 +723,11 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlace
 	heldItem.Metadata += 1
 	if heldItem.Metadata == crafting.Durability(heldItem.TypeId) {
 		pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
-		sendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+		SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
 
 	} else {
 		pl.Inventory.Items[pl.HotbarSlot].Metadata += 1
-		sendSetSlot(pl.Connection, 0, pl.HotbarSlot, heldItem)
+		SendSetSlot(pl.Connection, 0, pl.HotbarSlot, heldItem)
 	}
 }
 
@@ -789,7 +789,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 	}
 	world.BroadcastPacket(blockChange.Serialize())
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
-	sendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	return true
 }
 
@@ -808,7 +808,7 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 		bucketItem = inventory.Item{TypeId: constants.LavaBucket.Value, Count: 1}
 	}
 	pl.Inventory.Items[pl.HotbarSlot] = bucketItem
-	sendSetSlot(connection, 0, pl.HotbarSlot, bucketItem)
+	SendSetSlot(connection, 0, pl.HotbarSlot, bucketItem)
 	return true
 }
 
@@ -959,7 +959,7 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 	world.BroadcastPacket(spawnPacket.Serialize())
 
 	pl.Inventory.RemoveOne(slot)
-	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
 	}
@@ -985,7 +985,7 @@ func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, ne
 	world.BroadcastPacket(spawnPacket.Serialize())
 
 	pl.Inventory.RemoveOne(slot)
-	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
 	}
@@ -1005,10 +1005,10 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 		if heldItem.TypeId == fp.bucketId {
 			bucket := inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
 			pl.Inventory.Items[slot] = bucket
-			sendSetSlot(connection, 0, slot, bucket)
+			SendSetSlot(connection, 0, slot, bucket)
 		} else {
 			pl.Inventory.RemoveOne(slot)
-			sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+			SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		}
 		world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 		return true
@@ -1029,7 +1029,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)
-	sendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
 	}
@@ -1069,55 +1069,4 @@ func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Pla
 	}
 	pl.HotbarSlot = p.Slot + 36
 	sendEquipmentChangeForHotbarSlot(world, pl)
-}
-
-const pickupRangeSq = 1.5 * 1.5
-
-func CollectNearbyItems(world *level.World) {
-	chunks := world.PlayerActiveChunks(1) // 3x3 chunks around each player
-	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for entityId, dropped := range logic.DroppedItems {
-			if dropped.PickupDelay > 0 {
-				dropped.PickupDelay--
-				continue
-			}
-			itemX := float64(dropped.X)
-			itemY := float64(dropped.Y)
-			itemZ := float64(dropped.Z)
-
-			for _, pl := range world.Players {
-				dx := pl.X - itemX
-				dy := pl.Y - itemY
-				dz := pl.Z - itemZ
-				if dx*dx+dy*dy+dz*dz > pickupRangeSq {
-					continue
-				}
-
-				slot := pl.Inventory.AddItem(int16(dropped.ItemId), uint16(dropped.Metadata), dropped.Amount)
-				if slot < 0 {
-					continue
-				}
-				sendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
-
-				collect := packets.CollectItem(entityId, int32(pl.GetEntityId()))
-				world.BroadcastPacket(collect)
-				world.RemoveDroppedItem(entityId, dropped.X, dropped.Z)
-				break
-			}
-		}
-	}
-}
-
-func ApplyGravityOnDroppedItems(world *level.World) {
-	chunks := world.PlayerActiveChunks(1)
-	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for _, dropped := range logic.DroppedItems {
-			below := world.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
-			if below.IsAir() || below.IsLiquid() {
-				dropped.Y--
-			}
-		}
-	}
 }

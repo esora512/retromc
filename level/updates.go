@@ -201,15 +201,15 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock)
 }
 
-func (w *World) TickFluids(tick int64) {
-	updates := w.Scheduler.applyFluidUpdates(tick)
+func (w *World) TickFluids() {
+	updates := w.Scheduler.applyFluidUpdates(w.Tick)
 	for _, update := range updates {
 		processFluidUpdate(w, &update)
 	}
 }
 
-func (w *World) TickFallables(tick int64) {
-	updates := w.Scheduler.applyFallableUpdates(tick)
+func (w *World) TickFallables() {
+	updates := w.Scheduler.applyFallableUpdates(w.Tick)
 	for _, update := range updates {
 		processFallableUpdateJob(w, &update)
 	}

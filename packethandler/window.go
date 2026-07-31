@@ -451,7 +451,7 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
 	guiClick(pl, &pl.Workbench, slot, rightClick)
 	result := crafting.Craft3x3(pl.Workbench.GetGrid())
 	if result.TypeId != -1 {
-		sendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+		SendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
 	}
 }
 
@@ -464,7 +464,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool, world *level.Wo
 	}
 	result := crafting.Craft2x2(pl.Inventory.GetCrafting2x2())
 	if result.TypeId != -1 {
-		sendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
+		SendSetSlot(pl.Connection, 0, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
 	}
 }
 

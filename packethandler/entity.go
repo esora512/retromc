@@ -84,10 +84,10 @@ func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, d
 		if items[slot].TypeId != -1 {
 			newDmg := dmg
 			items[slot].Metadata++
-			sendSetSlot(pl.Connection, 0, int16(slot), items[slot])
+			SendSetSlot(pl.Connection, 0, int16(slot), items[slot])
 			if crafting.Durability(items[slot].TypeId) <= items[slot].Metadata {
 				items[slot] = inventory.EmptyItem()
-				sendSetSlot(pl.Connection, 0, int16(slot), inventory.EmptyItem())
+				SendSetSlot(pl.Connection, 0, int16(slot), inventory.EmptyItem())
 				sendSetEquipment(world, int16(slot), -1, pl.GetEntityId())
 			}
 			if reduction > newDmg {
@@ -238,4 +238,9 @@ func handleEntityActionInPacket(p packets.EntityActionInPacket, pl *player.Playe
 	if p.ActionId == 2 {
 		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, false), pl)
 	}
+}
+
+func BroadcastDespawn(world *level.World, id int32) {
+	despawn := packets.EntityDespawnOutPacket{EntityId: id}
+	world.BroadcastPacket(despawn.Serialize())
 }
