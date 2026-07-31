@@ -248,15 +248,39 @@ func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world 
 	return p.Serialize()
 }
 
+
+const maxRelDelta = 127 
+
 func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
+
 	dX := encX - int32(math.Floor(pl.X*32))
 	dY := encY - int32(math.Floor(pl.Y*32))
 	dZ := encZ - int32(math.Floor(pl.Z*32))
 	dYaw := int32(math.Floor(yaw * 256 / 360))
 	dPitch := int32(math.Floor(pitch * 256 / 360))
+
+	if dX < -maxRelDelta || dX > maxRelDelta ||
+		dY < -maxRelDelta || dY > maxRelDelta ||
+		dZ < -maxRelDelta || dZ > maxRelDelta {
+
+		// log.Printf(
+		// 	"[PosLook] entity=%d delta too large (dX=%d dY=%d dZ=%d), sending Teleport",
+		// 	pl.EntityId, dX, dY, dZ,
+		// )
+
+		p := TeleportEntity{
+			EntityId: int32(pl.EntityId),
+			X:        encX,
+			Y:        encY,
+			Z:        encZ,
+			Yaw:      byte(dYaw),
+			Pitch:    byte(dPitch),
+		}
+		return p.Serialize()
+	}
 
 	p := EntityPositionAndLookOutPacket{
 		EntityId: int32(pl.EntityId),
@@ -269,13 +293,31 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 	return p.Serialize()
 }
 
+
+
 func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
+
 	dX := encX - int32(math.Floor(pl.X*32))
 	dY := encY - int32(math.Floor(pl.Y*32))
 	dZ := encZ - int32(math.Floor(pl.Z*32))
+
+	if dX < -maxRelDelta || dX > maxRelDelta ||
+		dY < -maxRelDelta || dY > maxRelDelta ||
+		dZ < -maxRelDelta || dZ > maxRelDelta {
+
+		p := TeleportEntity{
+			EntityId: int32(pl.EntityId),
+			X:        encX,
+			Y:        encY,
+			Z:        encZ,
+			Yaw:      byte(0),
+			Pitch:    byte(0),
+		}
+		return p.Serialize()
+	}
 
 	p := EntityPositionOutPacket{
 		EntityId: int32(pl.EntityId),

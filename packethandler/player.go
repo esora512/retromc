@@ -51,7 +51,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	sendPlayerPositionAndLook(connection, 0, 0)
 	//world.MulticastPacket(packets.SpawnPlayerEntityPacket(pl), pl)
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
-	//world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
+	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -1049,18 +1049,18 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	}
 }
 
-func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
-	world.SetBlock(x, byte(y), z, *block)
-	//log.Printf("SetBlockAndNotify: X=%d Y=%d Z=%d Type=%d Meta=%d", x, y, z, block.TypeId, block.Metadata)
-	blockChange := packets.BlockChangeOutPacket{
-		X:         x,
-		Y:         byte(y),
-		Z:         z,
-		BlockType: block.TypeId,
-		BlockMeta: block.Metadata,
-	}
-	world.BroadcastPacket(blockChange.Serialize())
-}
+// func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
+// 	world.SetBlock(x, byte(y), z, *block)
+// 	//log.Printf("SetBlockAndNotify: X=%d Y=%d Z=%d Type=%d Meta=%d", x, y, z, block.TypeId, block.Metadata)
+// 	blockChange := packets.BlockChangeOutPacket{
+// 		X:         x,
+// 		Y:         byte(y),
+// 		Z:         z,
+// 		BlockType: block.TypeId,
+// 		BlockMeta: block.Metadata,
+// 	}
+// 	world.BroadcastPacket(blockChange.Serialize())
+// }
 
 func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
 	// Drop the update while a BlockPlacement is in progress to avoid a race

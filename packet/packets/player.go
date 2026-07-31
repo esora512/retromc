@@ -1,6 +1,8 @@
 package packets
 
 import (
+	"math"
+
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
@@ -136,8 +138,8 @@ func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 		X:        int32(pl.X * 32),
 		Y:        int32(pl.Y * 32),
 		Z:        int32(pl.Z * 32),
-		Yaw:      byte(pl.Yaw),
-		Pitch:    byte(pl.Pitch),
+		Yaw:      byte(math.Round(float64(pl.Yaw) / 360.0 * 255.0)),
+		Pitch:    byte(math.Round(float64(pl.Pitch) / 360 * 255)),
 		HeldItem: 0,
 	}
 	return p.Serialize()
@@ -439,9 +441,9 @@ func (p *BlockChangeOutPacket) Serialize() []byte {
 
 func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta byte) {
 	p := BlockChangeOutPacket{
-		X: x,
-		Y: byte(y),
-		Z: z,
+		X:         x,
+		Y:         byte(y),
+		Z:         z,
 		BlockType: blockType,
 		BlockMeta: blockMeta,
 	}
@@ -491,15 +493,14 @@ func (p *MultiBlockChangeOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-
 func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
 	p := MultiBlockChangeOutPacket{
-		ChunkX: chunkX,
-		ChunkZ: chunkZ,
+		ChunkX:      chunkX,
+		ChunkZ:      chunkZ,
 		NumOfBlocks: numOfBlocks,
 		BlockCoords: blockCoords,
-		BlockTypes: blockTypes,
-		Metadata: metadata,
+		BlockTypes:  blockTypes,
+		Metadata:    metadata,
 	}
 	world.BroadcastPacket(p.Serialize())
 }

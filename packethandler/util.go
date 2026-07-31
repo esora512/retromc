@@ -346,7 +346,6 @@ func BroadcastTime(w *level.World, tick int64) {
 	w.BroadcastPacket(p.Serialize())
 }
 
-
 type SpawnObject struct {
 	EntityId      int32
 	ObjectType    byte
@@ -376,15 +375,15 @@ func (p *SpawnObject) Serialize() []byte {
 
 func BroadcastSpawnObject(w *level.World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16) {
 	p := SpawnObject{
-		EntityId: eId,
-		ObjectType: oType,
-		X: x,
-		Y:y,
-		Z:z,
+		EntityId:      eId,
+		ObjectType:    oType,
+		X:             x,
+		Y:             y,
+		Z:             z,
 		OwnerEntityId: oeId,
-		VelocityX: velX,
-		VelocityY: velY,
-		VelocityZ: velZ,
+		VelocityX:     velX,
+		VelocityY:     velY,
+		VelocityZ:     velZ,
 	}
 	w.BroadcastPacket(p.Serialize())
 }
