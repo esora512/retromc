@@ -386,7 +386,7 @@ func isBlockedForFlow(w *World, x, y, z int32) bool {
 		return true
 	}
 	b := w.GetBlock(x, byte(y), z, 0)
-	if b.IsAir() || b.IsFluid() {
+	if isFluidReplaceable(b)  || b.IsFluid() {
 		return false
 	}
 	return true
@@ -405,7 +405,7 @@ func trySpreadInto(w *World, x, y, z int32, flowing Block, setBlock SetBlock) bo
 		return false
 	}
 	b := w.GetBlock(x, byte(y), z, 0)
-	if !b.IsAir() {
+	if !isFluidReplaceable(b)  {
 		return false
 	}
 
@@ -481,4 +481,8 @@ func hasSolidSupport(w *World, x, y, z int32) bool {
 	}
 	below := w.GetBlock(x, byte(y-1), z, 0)
 	return !below.IsAir() && !below.IsFluid()
+}
+
+func isFluidReplaceable(b Block) bool {
+	return b.IsAir() || b.IsSnowLayer()
 }

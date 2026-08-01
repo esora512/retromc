@@ -66,7 +66,6 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleHoldingChangeInPacket(p, pl, world)
 	case packet.PlayerBlockPlacement:
 		p := packets.ReadPlaceInPacket(packetReader)
-		log.Printf("PlaceBlock x=%d, y=%d, z=%d", p.X, p.Y, p.Z)
 		handlePlayerBlockPlacementInPacket(connection, p, world, pl, tracker)
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
