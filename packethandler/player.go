@@ -60,7 +60,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 
 	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
-	sendPlayerPositionAndLook(connection, 0, 0)
+	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
 	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
@@ -349,7 +349,8 @@ func shouldProcessDigging(p packets.PlayerDiggingInPacket, pl *player.Player, ol
 	return oldBlock.TypeId == byte(constants.Wheat.Value) ||
 		oldBlock.TypeId == byte(constants.Sugarcane.Value) ||
 		oldBlock.TypeId == byte(constants.Cactus.Value) ||
-		oldBlock.TypeId == byte(constants.Sapling.Value)
+		oldBlock.TypeId == byte(constants.Sapling.Value) ||
+		oldBlock.TypeId == byte(constants.Torch.Value)
 }
 
 func damageHeldItemOnDig(pl *player.Player) {
@@ -386,6 +387,22 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
+
+	if blockItem == constants.CoalOre.Value {
+		return constants.Coal.Value, 0, 1
+	}
+
+	if blockItem == constants.RedstoneOreOff.Value {
+		return constants.Redstone.Value, 0, 1
+	}
+
+	if blockItem == constants.LapisLazuliOre.Value {
+		return constants.Dye.Value, 4, 1
+	}
+
+	if blockItem == constants.DiamondOre.Value {
+		return constants.Diamond.Value, 0, 1
+	}
 
 	if blockItem == constants.SnowLayer.Value {
 		if pl.Inventory.Items[pl.HotbarSlot].IsShovel() {

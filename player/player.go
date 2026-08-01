@@ -142,7 +142,7 @@ func (pl *Player) GetHP() int16 {
 
 const (
 	SpawnX      = 0.0
-	SpawnY      = 64.0
+	SpawnY      = 80.0
 	SpawnZ      = 0.0
 	SpawnStance = SpawnY + 2
 )

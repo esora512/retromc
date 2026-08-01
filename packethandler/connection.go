@@ -62,7 +62,10 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 	sendLoginResponse(connection, world, pl)
 	updateChunks(world, pl.X, pl.Z, pl)
 	sendInventory(connection, pl, world)
-	sendPlayerPositionAndLook(connection, pl.X, pl.Z)
+	if pl.Y <= -1000000 {
+		pl.Y = 80
+	}
+	sendPlayerPositionAndLook(connection, pl.X, pl.Z, pl.Y)
 
 	serverPacket1 := packets.ChatMessagePacket{
 		Message: "\u00a7e" + fmt.Sprintf("Server runs on retromc (dev/%s)", world.CommitHash),

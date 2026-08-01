@@ -176,12 +176,11 @@ func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
 	connection.Write(windowItemsPacket.Serialize())
 }
 
-func sendPlayerPositionAndLook(connection net.Conn, x, z float64) {
-	const spawnY = 80.0
+func sendPlayerPositionAndLook(connection net.Conn, x, z float64, y float64) {
 	packet := packets.PlayerPositionAndLookOutPacket{
 		X:        x,
-		Y:        spawnY,
-		Stance:   spawnY + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
+		Y:        y,
+		Stance:   y + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
 		Z:        z,
 		Yaw:      0,
 		Pitch:    0,
