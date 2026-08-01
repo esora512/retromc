@@ -56,12 +56,12 @@ func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
 }
 
 type EntityTracker struct {
-	SpawnPlayer      func(pl *player.Player) []byte
-	SpawnObject      func(e Entity) []byte
-	DespawnEntity    func(id int32) []byte
-	SetEquipment     func(pl *player.Player, send func([]byte) (int, error))
-	visible          map[int32]map[int32]bool
-	Mu               sync.Mutex
+	SpawnPlayer   func(pl *player.Player) []byte
+	SpawnObject   func(e Entity) []byte
+	DespawnEntity func(id int32) []byte
+	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
+	visible       map[int32]map[int32]bool
+	Mu            sync.Mutex
 }
 
 func NewEntityTracker(
@@ -71,11 +71,11 @@ func NewEntityTracker(
 	setEquipment func(pl *player.Player, send func([]byte) (int, error)),
 ) *EntityTracker {
 	return &EntityTracker{
-		SpawnPlayer:      spawnPlayer,
-		SpawnObject:      spawnObject,
-		DespawnEntity:    despawnEntity,
-		SetEquipment:     setEquipment,
-		visible:          make(map[int32]map[int32]bool),
+		SpawnPlayer:   spawnPlayer,
+		SpawnObject:   spawnObject,
+		DespawnEntity: despawnEntity,
+		SetEquipment:  setEquipment,
+		visible:       make(map[int32]map[int32]bool),
 	}
 }
 
@@ -144,10 +144,12 @@ func (et *EntityTracker) Manage(w *World) {
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
 				} else {
+					//log.Printf("Spawning %d", targetID)
 					viewer.Connection.Write(et.SpawnObject(target))
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
+				//log.Printf("Despawning %d", targetID)
 				viewer.Connection.Write(et.DespawnEntity(targetID))
 				delete(et.visible[viewerID], targetID)
 			}

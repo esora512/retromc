@@ -94,7 +94,7 @@ func (world *World) FallingBlocksPhysics() {
 			falling.VelocitySent = true
 		}
 
-		falling.TickBlock(func(x int32, y byte, z int32) entities.BlockInfo {
+		falling.Tick(func(x int32, y byte, z int32) entities.BlockInfo {
 			b := world.GetBlock(x, y, z)
 			return entities.BlockInfo{
 				IsSolid:  !b.IsAir() && !b.IsLiquid() && !b.IsSnowLayer(),
@@ -127,10 +127,8 @@ func (world *World) areaLoaded(x, z, radius int32) bool {
 	return true
 }
 
-func (world *World) instaFall(falling *entities.BlockEntity) {
-	x, z := falling.X, falling.Z
-	y := int32(falling.Y)
-
+func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte) {
+	y := startY
 	for y > 0 {
 		below := world.GetBlock(x, byte(y-1), z)
 		if below.IsSnowLayer() {
@@ -143,8 +141,12 @@ func (world *World) instaFall(falling *entities.BlockEntity) {
 		y--
 	}
 
-	block := NewBlockById(falling.TypeId, falling.Metadata)
+	block := NewBlockById(typeId, metadata)
 	world.SetBlockInQueue(x, y, z, block)
+}
+
+func (world *World) instaFall(falling *entities.BlockEntity) {
+	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata)
 }
 
 func (world *World) maybeBroadcastVelocity(ridable *entities.RideableEntity, vx, vy, vz float64) {
@@ -197,7 +199,7 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 
 	for _, ridable := range ridables {
 		cx, cy, cz := ridable.GetPosition()
-		nx, ny, nz, yaw, action := ridable.TickPhysics(getBlock, players)
+		nx, ny, nz, yaw, action := ridable.Tick(getBlock, players)
 
 		switch action {
 		case entities.Moved:

@@ -14,7 +14,7 @@ type BlockEntity struct {
 	VelocityY    float64
 	Landed       bool
 	VelocitySent bool
-	IsFalling bool
+	IsFalling    bool
 }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64) *BlockEntity {
@@ -27,7 +27,7 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		Z:            int32(z),
 		VelocityY:    0,
 		VelocitySent: false,
-		IsFalling: false,
+		IsFalling:    false,
 	}
 }
 
@@ -69,7 +69,7 @@ func (b *BlockEntity) GetHP() int16 {
 	return 0
 }
 
-func (e *BlockEntity) TickBlock(getBlock func(x int32, y byte, z int32) BlockInfo) {
+func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) BlockInfo) {
 	if e.Landed {
 		return
 	}

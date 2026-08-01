@@ -74,7 +74,7 @@ const (
 	Despawned
 )
 
-func (e *RideableEntity) TickPhysics(
+func (e *RideableEntity) Tick(
 	getBlock GetBlockFunc,
 	players []PlayerPosition,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {

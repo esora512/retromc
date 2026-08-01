@@ -3,7 +3,6 @@ package level
 import (
 	"log"
 	"math"
-	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -148,8 +147,13 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	}
 
 	air := NewAirBlock()
-	time.Sleep(0 * time.Millisecond)
 	u.SetBlock(u.X, u.Y, u.Z, air)
+
+	if !w.areaLoaded(u.X, u.Z, 32) {
+		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata))
+		notifyFallableNeighbours(w, u.X, u.Y, u.Z, u.SetBlock)
+		return
+	}
 
 	objectType := byte(0)
 	if b.TypeId == byte(constants.Sand.Value) {
