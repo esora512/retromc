@@ -15,6 +15,7 @@ type BlockEntity struct {
 	Landed       bool
 	VelocitySent bool
 	IsFalling    bool
+	Dimension int32
 }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64) *BlockEntity {
@@ -28,7 +29,12 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		VelocityY:    0,
 		VelocitySent: false,
 		IsFalling:    false,
+		Dimension: 0,
 	}
+}
+
+func (b *BlockEntity) GetDim() int32 {
+	return b.Dimension
 }
 
 func (b *BlockEntity) GetLoggedIn() bool {

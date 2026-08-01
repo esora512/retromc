@@ -75,6 +75,7 @@ type Furnace struct {
 	MaxFuel    int
 	IsSmelting bool
 	IsBurning  bool
+	Dim int32
 }
 
 func (f *Furnace) Smelt(setSlot func(item Item, slot int16)) (int, int, int) {
@@ -121,14 +122,17 @@ func (f *Furnace) Output() (bool, Item) {
 	return false, Item{}
 }
 
-func TickFurnaces(furnaces []*Furnace, sendProgress func(progress, fuelMax, fuelRemain int), setSlot func(item Item, slot int16), setBlock func(x, y, z int16, lit bool)) {
+func TickFurnaces(furnaces []*Furnace, 
+	sendProgress func(progress, fuelMax, fuelRemain int), 
+	setSlot func(item Item, slot int16), 
+	setBlock func(x, y, z int16, lit bool, dim int32)) {
 	for _, furnace := range furnaces {
 		prog, fMax, remain := furnace.Smelt(setSlot)
 		sendProgress(prog, fMax, remain)
 		if furnace.IsBurning {
-			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), true)
+			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), true, furnace.Dim)
 		} else {
-			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), false)
+			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), false, furnace.Dim)
 		}
 		exists, outItem := furnace.Output()
 		if exists {

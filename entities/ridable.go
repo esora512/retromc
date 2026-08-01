@@ -28,6 +28,11 @@ type RideableEntity struct {
 	YawDegrees         float64
 
 	HP int16
+	Dimension int32
+}
+
+func (r *RideableEntity) GetDim() int32 {
+	return r.Dimension
 }
 
 func (r *RideableEntity) GetLoggedIn() bool {

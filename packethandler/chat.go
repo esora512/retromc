@@ -169,15 +169,16 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			block := level.NewBlockById(b.Value, byte(b.Meta))
 
-			//SetBlockAndNotify(world, x, y, z, &block)
-			world.SetBlockInQueue(x, y, z, block)
+			world.SetBlockInQueue(x, y, z, block, pl.Dimension)
 			sendDebugMessage(pl, fmt.Sprintf("Placed %s at x=%d, y=%d, z=%d", blockName, x, y, z))
 			return false
 		}
 
 		if strings.HasPrefix(message, "/size") {
 			sendDebugMessage(pl, fmt.Sprintf("World size = %s", world.SizeString()))
-			sendDebugMessage(pl, fmt.Sprintf("Chunks = %d", len(world.LoadChunks())))
+			sendDebugMessage(pl, fmt.Sprintf("OChunks = %d", len(world.LoadChunks(0))))
+			sendDebugMessage(pl, fmt.Sprintf("OChunks = %d", len(world.LoadChunks(-1))))
+
 			alloc, sys, totalAlloc, numGC := LogMemStats()
 			sendDebugMessage(pl, alloc)
 			sendDebugMessage(pl, sys)
@@ -236,7 +237,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				return false
 			}
 			air := level.NewAirBlock()
-			world.SetBlock(x, byte(y), z, air)
+			world.SetBlock(x, byte(y), z, air, pl.Dimension)
 			blockChange := packets.BlockChangeOutPacket{
 				X:         x,
 				Y:         byte(y),
@@ -348,7 +349,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendDebugMessage(pl, lines...)
 			case "growables":
 				loadedGrowables := make(map[level.BlockKey]level.Growable)
-				chunks := world.LoadChunks()
+				chunks := world.LoadChunks(0)
 				for _, chunk := range chunks {
 					logic := chunk.Logic
 					for key, growable := range logic.Growables {
@@ -509,7 +510,7 @@ func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string
 	for x := minX; x <= maxX; x++ {
 		for z := minZ; z <= maxZ; z++ {
 
-			world.SetBlock(x, byte(y), z, block)
+			world.SetBlock(x, byte(y), z, block, pl.Dimension)
 
 			chunkX := level.WorldToChunkCoord(x)
 			chunkZ := level.WorldToChunkCoord(z)

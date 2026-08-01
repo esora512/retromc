@@ -25,7 +25,7 @@ type BlockInfo struct {
 	IsWater       bool
 }
 
-type GetBlockFunc func(x int32, y byte, z int32) BlockInfo
+type GetBlockFunc func(x int32, y byte, z int32, dim int32) BlockInfo
 
 type PlayerPosition struct{ X, Y, Z float64; EntityId int32 }
 
@@ -41,12 +41,12 @@ func (cart *RideableEntity) TickMinecart(
 	bz := int32(math.Floor(cz))
 
 	// check one below, like the original
-	block := getBlock(bx, byte(by-1), bz)
+	block := getBlock(bx, byte(by-1), bz, cart.Dimension)
 	if block.IsRail {
 		by--
 	}
 
-	block = getBlock(bx, byte(by), bz)
+	block = getBlock(bx, byte(by), bz, cart.Dimension)
 	if !block.IsRail {
 		return 0, 0, 0, 0, Despawned
 	}
@@ -153,8 +153,8 @@ func (cart *RideableEntity) TickMinecart(
 	nextZ = cz + cart.VelocityZ
 
 	// get Y before and after for hill momentum transfer
-	_, prevY, _, hasPrev := getRailPos(getBlock, cx, cy, cz)
-	_, nextY, _, hasNext := getRailPos(getBlock, nextX, cy, nextZ)
+	_, prevY, _, hasPrev := getRailPos(getBlock, cx, cy, cz, cart.Dimension)
+	_, nextY, _, hasNext := getRailPos(getBlock, nextX, cy, nextZ, cart.Dimension)
 
 	if hasNext && hasPrev {
 		slope := (prevY - nextY) * 0.05
@@ -202,16 +202,16 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
-func getRailPos(bInfo GetBlockFunc, px, py, pz float64) (float64, float64, float64, bool) {
+func getRailPos(bInfo GetBlockFunc, px, py, pz float64, dim int32) (float64, float64, float64, bool) {
 	bx := int32(math.Floor(px))
 	by := int32(math.Floor(py))
 	bz := int32(math.Floor(pz))
 
-	block := bInfo(bx, byte(by-1), bz)
+	block := bInfo(bx, byte(by-1), bz, dim)
 	if block.IsRail {
 		by--
 	} else {
-		block = bInfo(bx, byte(by), bz)
+		block = bInfo(bx, byte(by), bz, dim)
 		if !block.IsRail {
 			return 0, 0, 0, false
 		}

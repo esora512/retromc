@@ -3,8 +3,13 @@ package level
 import (
 	"bytes"
 	"compress/zlib"
+	"fmt"
+	"log"
 	"math/rand"
+	"path/filepath"
 	"unsafe"
+
+	"github.com/leNicDev/retromc/mcregion"
 )
 
 const (
@@ -210,7 +215,7 @@ func (c *Chunk) GetBlock(lx, ly, lz int) Block {
 	return Block{TypeId: c.Data[i], Metadata: metadata}
 }
 
-func NewChunk(worldType WorldType) Chunk {
+func NewChunk() Chunk {
 	chunk := Chunk{
 		X:     0,
 		Y:     0,
@@ -332,4 +337,248 @@ func (c *Chunk) GenerateSkyGrid() {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
+}
+
+// Global Chunk Operations
+type WorldType int
+
+const (
+	Template WorldType = iota
+	Empty
+	SkyGrid
+	Default
+	Esorian
+	Maze
+)
+
+type DroppedItem struct {
+	EntityId    int32
+	ItemId      int32
+	Amount      byte
+	Metadata    byte
+	X, Y, Z     int32
+	PickupDelay int32
+}
+
+type ChunkLogic struct {
+	Growables    map[BlockKey]Growable
+	DroppedItems map[int32]*DroppedItem
+}
+
+func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
+	if dim == -1 {
+		return w.nChunks
+	}
+	return w.oChunks
+}
+
+func NewChunkLogic() *ChunkLogic {
+	return &ChunkLogic{
+		Growables:    make(map[BlockKey]Growable),
+		DroppedItems: make(map[int32]*DroppedItem),
+	}
+}
+
+func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	return w.chunksFor(dim)[ChunkCoord{cx, cz}]
+}
+
+func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {
+	wanted := make(map[ChunkCoord]struct{})
+	for _, pl := range w.Players {
+		if pl.Dimension != dim {
+			continue
+		}
+		cx := WorldToChunkCoord(int32(pl.X))
+		cz := WorldToChunkCoord(int32(pl.Z))
+		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
+			}
+		}
+	}
+	return wanted
+}
+
+func (w *World) GetRenderedChunks(dim int32) []*Chunk {
+	wanted := w.wantedChunks(dim)
+	src := w.chunksFor(dim)
+	chunks := make([]*Chunk, 0, len(wanted))
+	for wa := range wanted {
+		if c, ok := src[wa]; ok {
+			chunks = append(chunks, c)
+		}
+	}
+	return chunks
+}
+
+
+
+func (w *World) PlayerActiveChunks(radius, dim int32) []*Chunk {
+	seen := make(map[ChunkCoord]struct{})
+	chunks := make([]*Chunk, 0, len(w.Players)*9)
+	for _, pl := range w.Players {
+		if pl.Dimension != dim {
+			continue
+		}
+		cx := WorldToChunkCoord(int32(pl.X))
+		cz := WorldToChunkCoord(int32(pl.Z))
+		for dx := -radius; dx <= radius; dx++ {
+			for dz := -radius; dz <= radius; dz++ {
+				coord := ChunkCoord{X: cx + dx, Z: cz + dz}
+				if _, dup := seen[coord]; dup {
+					continue
+				}
+				seen[coord] = struct{}{}
+				src := w.chunksFor(dim)
+				if c, ok := src[coord]; ok {
+					chunks = append(chunks, c)
+				}
+			}
+		}
+	}
+	return chunks
+}
+
+func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
+	wanted := w.wantedChunks(dim)
+
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+
+	src := w.chunksFor(dim)
+	var removed map[ChunkCoord]*Chunk
+	for coord, ch := range src {
+		if _, ok := wanted[coord]; !ok {
+			if removed == nil {
+				removed = make(map[ChunkCoord]*Chunk, 4)
+			}
+			removed[coord] = ch
+			delete(src, coord)
+		}
+	}
+	if len(removed) > 0 {
+		log.Printf("Popping %d chunks (dim %d)", len(removed), dim)
+	}
+	return removed
+}
+
+func (w *World) IsLoaded(x, z, dim int32) bool {
+	cx := WorldToChunkCoord(x)
+	cz := WorldToChunkCoord(z)
+	_, ok := w.chunksFor(dim)[ChunkCoord{cx, cz}]
+	return ok
+}
+
+
+func (w *World) Size() int64 {
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	var total int64
+	for _, c := range w.oChunks {
+		if c == nil {
+			continue
+		}
+		total += c.Size()
+	}
+	for _, c := range w.nChunks {
+		if c == nil {
+			continue
+		}
+		total += c.Size()
+	}
+	return total
+}
+
+func (c *Chunk) SizeString() string {
+	return formatBytes(c.Size())
+}
+
+func (w *World) SizeString() string {
+	return formatBytes(w.Size())
+}
+
+func formatBytes(b int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case b >= GB:
+		return fmt.Sprintf("%.2f GB", float64(b)/float64(GB))
+	case b >= MB:
+		return fmt.Sprintf("%.2f MB", float64(b)/float64(MB))
+	case b >= KB:
+		return fmt.Sprintf("%.2f KB", float64(b)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
+}
+
+func (w *World) LoadChunks(dim int32) []*Chunk {
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	src := w.chunksFor(dim)
+	chunks := make([]*Chunk, 0, len(src))
+	for _, c := range src {
+		chunks = append(chunks, c)
+	}
+	return chunks
+}
+
+func (w *World) ChunkExists(cx, cz, dim int32) bool {
+	_, ok := w.chunksFor(dim)[ChunkCoord{cx, cz}]
+	return ok
+}
+
+func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
+	key := ChunkCoord{cx, cz}
+	chunks := w.chunksFor(dim)
+	ch, ok := chunks[key]
+	if ok {
+		return ch
+	}
+	if w.WorldDir != "" {
+		dir := w.WorldDir
+		if dim == -1 {
+			dir = filepath.Join(w.WorldDir, "DIM-1")
+		}
+		rx, rz := cx>>5, cz>>5
+		lx, lz := cx&31, cz&31
+		regionPath := filepath.Join(dir, "region", mcregion.RegionFileName(rx*32, rz*32))
+
+		lvl, err := mcregion.ReadChunk(regionPath, lx, lz)
+		if err != nil {
+			log.Printf("chunk (%d,%d) dim %d: read failed, regenerating: %v", cx, cz, dim, err)
+		} else if lvl != nil {
+			c, err := w.readChunkFromNBT(lvl, cx, cz)
+			if err != nil {
+				log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
+			} else {
+				chunks[key] = c
+				return c
+			}
+		}
+	}
+	worldType := w.WorldType
+	if dim == -1 {
+		log.Printf("Generating Maze")
+		worldType = Maze
+	}
+	c := w.generateChunk(cx, cz, worldType)
+	c.X = cx * CHUNK_SIZE_X
+	c.Z = cz * CHUNK_SIZE_Z
+
+	chunks[key] = c
+	return c
+}
+
+func (w *World) NewEmptyChunk(cx, cz int32) *Chunk {
+	c := w.generateChunk(cx, cz, Empty)
+	c.X = cx * CHUNK_SIZE_X
+	c.Z = cz * CHUNK_SIZE_Z
+	return c
 }

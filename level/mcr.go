@@ -187,55 +187,34 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 	return root
 }
 
+
 func SaveMcRegion(w *World, worldDir string) error {
 	w.Mu.RLock()
-	chunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.chunks))
-	for coord, ch := range w.chunks {
-		chunksSnapshot[coord] = ch
+	oChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.oChunks))
+	for coord, ch := range w.oChunks {
+		oChunksSnapshot[coord] = ch
+	}
+	nChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.nChunks))
+	for coord, ch := range w.nChunks {
+		nChunksSnapshot[coord] = ch
 	}
 	tick := w.Tick
 	w.Mu.RUnlock()
 
-	byRegion := make(map[[2]int32]map[[2]int32]*mcregion.Compound)
-	for coord, ch := range chunksSnapshot {
-		if ch == nil {
-			continue
-		}
-		rx, rz := coord.X>>5, coord.Z>>5
-		lx, lz := coord.X&31, coord.Z&31
-		rkey := [2]int32{rx, rz}
-		if byRegion[rkey] == nil {
-			byRegion[rkey] = make(map[[2]int32]*mcregion.Compound)
-		}
-		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, tick)
+	if err := saveChunksToRegion(w, worldDir, oChunksSnapshot, tick); err != nil {
+		return err
 	}
-
-	regionDir := filepath.Join(worldDir, "region")
-	for rkey, chunks := range byRegion {
-		name := mcregion.RegionFileName(rkey[0]*32, rkey[1]*32)
-		path := filepath.Join(regionDir, name)
-
-		rawChunks, err := mcregion.ReadRegionRaw(path)
-		if err != nil {
-			return fmt.Errorf("reading existing region %s: %w", path, err)
-		}
-
-		if err := mcregion.WriteRegion(path, chunks, rawChunks); err != nil {
-			return err
-		}
+	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunksSnapshot, tick); err != nil {
+		return err
 	}
 
 	return saveLevelDat(worldDir, tick)
 }
 
-func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk) error {
+func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick int64) error {
 	if len(chunks) == 0 {
 		return nil
 	}
-
-	w.Mu.RLock()
-	tick := w.Tick
-	w.Mu.RUnlock()
 
 	byRegion := make(map[[2]int32]map[[2]int32]*mcregion.Compound)
 	for coord, ch := range chunks {
@@ -251,7 +230,10 @@ func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk) error {
 		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, tick)
 	}
 
-	regionDir := filepath.Join(worldDir, "region")
+	regionDir := filepath.Join(dir, "region")
+	if err := os.MkdirAll(regionDir, 0o755); err != nil {
+		return err
+	}
 	for rkey, chunks := range byRegion {
 		name := mcregion.RegionFileName(rkey[0]*32, rkey[1]*32)
 		path := filepath.Join(regionDir, name)
@@ -263,6 +245,26 @@ func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk) error {
 		if err := mcregion.WriteRegion(path, chunks, rawChunks); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, dimension int32) error {
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	w.Mu.RLock()
+	tick := w.Tick
+	w.Mu.RUnlock()
+
+	dir := worldDir
+	if dimension == -1 {
+		dir = filepath.Join(worldDir, "DIM-1")
+	}
+
+	if err := saveChunksToRegion(w, dir, chunks, tick); err != nil {
+		return err
 	}
 	return saveLevelDat(worldDir, tick)
 }
@@ -319,7 +321,7 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 		return (arr[index/2] >> 4) & 0x0F
 	}
 
-	c := NewChunk(w.WorldType)
+	c := NewChunk()
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 

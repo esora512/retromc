@@ -121,7 +121,7 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	// Send any chunk in range that hasn't been sent yet
 	for key, coord := range wanted {
 		if !pl.SentChunks.Has(key) {
-			chunk := world.GetOrCreateChunk(coord.X, coord.Z, level.Template)
+			chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
 
 			pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
 			pl.Connection.Write(pre.Serialize())

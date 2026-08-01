@@ -130,8 +130,13 @@ func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
 			nextTick := (world.Tick + world.TickSpeed) % 24000
 			world.AdvanceTick(nextTick, entityTracker)
 			if world.Tick%300 == 0 {
-				if removed := world.PopUnusedChunks(); len(removed) > 0 {
-					if err := level.SaveChunks(world, world.WorldDir, removed); err != nil {
+				if removed := world.PopUnusedChunks(0); len(removed) > 0 {
+					if err := level.SaveChunks(world, world.WorldDir, removed, 0); err != nil {
+						log.Println("Failed to save the world:", err)
+					}
+				}
+				if removed := world.PopUnusedChunks(-1); len(removed) > 0 {
+					if err := level.SaveChunks(world, world.WorldDir, removed, -1); err != nil {
 						log.Println("Failed to save the world:", err)
 					}
 				}

@@ -40,7 +40,7 @@ var lateralNeighbors = []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}
 var oppositeLateralNeighbour = []int{1, 0, 3, 2}
 
 // Required because Update trigger is called in package packethandler; cannot import SetBlock due to cycle.
-type SetBlock func(x, y, z int32, block Block)
+type SetBlock func(x, y, z int32, block Block, dim int32)
 
 type BlockUpdate struct {
 	X, Y, Z  int32
@@ -85,10 +85,10 @@ func (s *BlockUpdateScheduler) scheduleFallableUpdate(tick int64, x, y, z int32,
 }
 
 func notifyFluid(w *World, x, y, z int32, setBlock SetBlock) {
-	if y < 0 || y > 255 || !w.IsLoaded(x, z) {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, 0) {
 		return
 	}
-	b := w.GetBlock(x, byte(y), z)
+	b := w.GetBlock(x, byte(y), z, 0)
 	if !b.IsFluid() {
 		return
 	}
@@ -97,10 +97,10 @@ func notifyFluid(w *World, x, y, z int32, setBlock SetBlock) {
 }
 
 func notifyFallable(w *World, x, y, z int32, setBlock SetBlock) {
-	if y < 0 || y > 255 || !w.IsLoaded(x, z) {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, 0) {
 		return
 	}
-	b := w.GetBlock(x, byte(y), z)
+	b := w.GetBlock(x, byte(y), z, 0)
 	if b.TypeId != byte(constants.Sand.Value) && b.TypeId != byte(constants.Gravel.Value) {
 		return
 	}
@@ -121,7 +121,7 @@ func notifyFluidNeighbors(w *World, x, y, z int32, setBlock SetBlock) {
 }
 
 func processFluidUpdate(w *World, u *BlockUpdate) {
-	b := w.GetBlock(u.X, byte(u.Y), u.Z)
+	b := w.GetBlock(u.X, byte(u.Y), u.Z, 0)
 	if !b.IsFluid() {
 		return
 	}
@@ -137,20 +137,20 @@ func processFluidUpdate(w *World, u *BlockUpdate) {
 }
 
 func processFallableUpdateJob(w *World, u *BlockUpdate) {
-	b := w.GetBlock(u.X, byte(u.Y), u.Z)
+	b := w.GetBlock(u.X, byte(u.Y), u.Z, 0)
 	if b.TypeId != byte(constants.Sand.Value) && b.TypeId != byte(constants.Gravel.Value) {
 		return
 	}
-	beneath := w.GetBlock(u.X, byte(u.Y)-1, u.Z)
+	beneath := w.GetBlock(u.X, byte(u.Y)-1, u.Z, 0)
 	if !beneath.IsAir() && !beneath.IsLiquid() {
 		return
 	}
 
 	air := NewAirBlock()
-	u.SetBlock(u.X, u.Y, u.Z, air)
+	u.SetBlock(u.X, u.Y, u.Z, air, 0)
 
-	if !w.areaLoaded(u.X, u.Z, 32) {
-		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata))
+	if !w.areaLoaded(u.X, u.Z, 32, 0) {
+		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata), 0)
 		notifyFallableNeighbours(w, u.X, u.Y, u.Z, u.SetBlock)
 		return
 	}
@@ -199,7 +199,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 	if !isSource && b.IsWater() {
 		if hasSolidSupport(w, u.X, u.Y, u.Z) && countAdjacentWaterSources(w, u.X, u.Y, u.Z) >= 2 {
 			source := NewStillWaterBlock(0)
-			u.SetBlock(u.X, u.Y, u.Z, source)
+			u.SetBlock(u.X, u.Y, u.Z, source, 0)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 			return
 		}
@@ -209,7 +209,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 		newLevel, hasSupport := idealFluidLevel(w, u.X, u.Y, u.Z)
 		if !hasSupport {
 			air := NewAirBlock()
-			u.SetBlock(u.X, u.Y, u.Z, air)
+			u.SetBlock(u.X, u.Y, u.Z, air, 0)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 			return
 		}
@@ -221,7 +221,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 			if b.IsLava() {
 				updated = NewFlowingLavaBlock(byte(newLevel))
 			}
-			u.SetBlock(u.X, u.Y, u.Z, updated)
+			u.SetBlock(u.X, u.Y, u.Z, updated, 0)
 			b = updated
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock)
 		}
@@ -232,7 +232,7 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 func idealFluidLevel(w *World, x, y, z int32) (int, bool) {
 	// Determines fluid height of next fluid block
 	if y < 255 {
-		above := w.GetBlock(x, byte(y+1), z)
+		above := w.GetBlock(x, byte(y+1), z, 0)
 		if above.IsFluid() {
 			return 0, true
 		}
@@ -240,10 +240,10 @@ func idealFluidLevel(w *World, x, y, z int32) (int, bool) {
 	best := -1
 	for _, n := range lateralNeighbors {
 		nx, nz := x+n.dx, z+n.dz
-		if !w.IsLoaded(nx, nz) {
+		if !w.IsLoaded(nx, nz, 0) {
 			continue
 		}
-		nb := w.GetBlock(nx, byte(y), nz)
+		nb := w.GetBlock(nx, byte(y), nz, 0)
 		if !nb.IsFluid() {
 			continue
 		}
@@ -286,7 +286,7 @@ func trySpread(w *World, x, y, z int32, b Block, setBlock SetBlock) {
 
 	belowSolid := true
 	if y > 0 {
-		below := w.GetBlock(x, byte(y-1), z)
+		below := w.GetBlock(x, byte(y-1), z, 0)
 		belowSolid = !below.IsAir() && !below.IsFluid()
 	}
 
@@ -382,10 +382,10 @@ func distanceToGap(w *World, x, y, z int32, dist, fromDir int, maxDepth int) int
 }
 
 func isBlockedForFlow(w *World, x, y, z int32) bool {
-	if !w.IsLoaded(x, z) {
+	if !w.IsLoaded(x, z, 0) {
 		return true
 	}
-	b := w.GetBlock(x, byte(y), z)
+	b := w.GetBlock(x, byte(y), z, 0)
 	if b.IsAir() || b.IsFluid() {
 		return false
 	}
@@ -396,20 +396,20 @@ func isOpenBelow(w *World, x, y, z int32) bool {
 	if y <= 0 {
 		return false
 	}
-	b := w.GetBlock(x, byte(y-1), z)
+	b := w.GetBlock(x, byte(y-1), z, 0)
 	return b.IsAir()
 }
 
 func trySpreadInto(w *World, x, y, z int32, flowing Block, setBlock SetBlock) bool {
-	if y < 0 || y > 255 || !w.IsLoaded(x, z) {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, 0) {
 		return false
 	}
-	b := w.GetBlock(x, byte(y), z)
+	b := w.GetBlock(x, byte(y), z, 0)
 	if !b.IsAir() {
 		return false
 	}
 
-	setBlock(x, y, z, flowing)
+	setBlock(x, y, z, flowing, 0)
 	delay := fluidDelay(&flowing, false)
 	w.Scheduler.scheduleFluidUpdate(w.Tick+delay, x, y, z, setBlock)
 	return true
@@ -428,11 +428,11 @@ func lavaTouchesWater(w *World, x, y, z int32) bool {
 		if ny < 0 || ny > 255 {
 			continue
 		}
-		if !w.IsLoaded(nx, nz) {
+		if !w.IsLoaded(nx, nz, 0) {
 			continue
 		}
 
-		b := w.GetBlock(nx, byte(ny), nz)
+		b := w.GetBlock(nx, byte(ny), nz, 0)
 		if b.IsWater() {
 			return true
 		}
@@ -447,13 +447,13 @@ func tryHardenLava(w *World, x, y, z int32, b Block, setBlock SetBlock) bool {
 
 	if b.IsStillLava() {
 		obsidian := NewObsidianBlock()
-		setBlock(x, y, z, obsidian)
+		setBlock(x, y, z, obsidian, 0)
 	} else {
 		if b.Metadata > 4 {
 			return false
 		}
 		cobble := NewCobblestoneBlock()
-		setBlock(x, y, z, cobble)
+		setBlock(x, y, z, cobble, 0)
 	}
 
 	notifyFluidNeighbors(w, x, y, z, setBlock)
@@ -464,10 +464,10 @@ func countAdjacentWaterSources(w *World, x, y, z int32) int {
 	count := 0
 	for _, n := range lateralNeighbors {
 		nx, nz := x+n.dx, z+n.dz
-		if !w.IsLoaded(nx, nz) {
+		if !w.IsLoaded(nx, nz, 0) {
 			continue
 		}
-		nb := w.GetBlock(nx, byte(y), nz)
+		nb := w.GetBlock(nx, byte(y), nz, 0)
 		if nb.IsStillWater() {
 			count++
 		}
@@ -479,6 +479,6 @@ func hasSolidSupport(w *World, x, y, z int32) bool {
 	if y <= 0 {
 		return true
 	}
-	below := w.GetBlock(x, byte(y-1), z)
+	below := w.GetBlock(x, byte(y-1), z, 0)
 	return !below.IsAir() && !below.IsFluid()
 }

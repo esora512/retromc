@@ -17,20 +17,33 @@ func (w *World) DroppedItemPhysics() {
 }
 
 func (w *World) GravityOnItems() {
-	chunks := w.PlayerActiveChunks(1)
+	chunks := w.PlayerActiveChunks(1, 0)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for _, dropped := range logic.DroppedItems {
-			below := w.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z))
+			below := w.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z), 0)
 			if below.IsAir() || below.IsLiquid() {
 				dropped.Y--
 			}
 		}
 	}
+
+	nchunks := w.PlayerActiveChunks(1, -1)
+	for _, chunk := range nchunks {
+		logic := chunk.Logic
+		for _, dropped := range logic.DroppedItems {
+			below := w.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z), -1)
+			if below.IsAir() || below.IsLiquid() {
+				dropped.Y--
+			}
+		}
+	}
+
 }
 
 func (world *World) CollectNearbyItems() {
-	chunks := world.PlayerActiveChunks(1) // 3x3 chunks around each player
+	chunks := world.PlayerActiveChunks(1, 0) // 3x3 chunks around each player
+	chunks = append(chunks, world.PlayerActiveChunks(1, -1)...)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for entityId, dropped := range logic.DroppedItems {
@@ -75,15 +88,15 @@ func (world *World) FallingBlocksPhysics() {
 		if !ok {
 			continue
 		}
-		if !world.IsLoaded(falling.X, falling.Z) {
+		if !world.IsLoaded(falling.X, falling.Z, falling.Dimension) {
 			continue
 		}
 
 		if !falling.IsFalling {
-			if world.areaLoaded(falling.X, falling.Z, 32) {
+			if world.areaLoaded(falling.X, falling.Z, 32, falling.Dimension) {
 				falling.IsFalling = true
 			} else {
-				world.instaFall(falling)
+				world.instaFall(falling, falling.Dimension)
 				toRemove = append(toRemove, falling.EntityId)
 				continue
 			}
@@ -95,7 +108,7 @@ func (world *World) FallingBlocksPhysics() {
 		}
 
 		falling.Tick(func(x int32, y byte, z int32) entities.BlockInfo {
-			b := world.GetBlock(x, y, z)
+			b := world.GetBlock(x, y, z, falling.Dimension)
 			return entities.BlockInfo{
 				IsSolid:  !b.IsAir() && !b.IsLiquid() && !b.IsSnowLayer(),
 				Metadata: int(b.Metadata),
@@ -105,7 +118,7 @@ func (world *World) FallingBlocksPhysics() {
 		if falling.Landed && falling.Y >= 0 {
 			toRemove = append(toRemove, falling.EntityId)
 			block := NewBlockById(falling.TypeId, falling.Metadata)
-			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block)
+			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block, falling.Dimension)
 		}
 	}
 
@@ -115,11 +128,11 @@ func (world *World) FallingBlocksPhysics() {
 	}
 }
 
-func (world *World) areaLoaded(x, z, radius int32) bool {
+func (world *World) areaLoaded(x, z, radius int32, dim int32) bool {
 	offsets := []int32{-radius, 0, radius}
 	for _, dx := range offsets {
 		for _, dz := range offsets {
-			if !world.IsLoaded(x+dx, z+dz) {
+			if !world.IsLoaded(x+dx, z+dz, dim) {
 				return false
 			}
 		}
@@ -127,10 +140,10 @@ func (world *World) areaLoaded(x, z, radius int32) bool {
 	return true
 }
 
-func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte) {
+func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte, dim int32) {
 	y := startY
 	for y > 0 {
-		below := world.GetBlock(x, byte(y-1), z)
+		below := world.GetBlock(x, byte(y-1), z, dim)
 		if below.IsSnowLayer() {
 			y--
 			break
@@ -142,11 +155,11 @@ func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte)
 	}
 
 	block := NewBlockById(typeId, metadata)
-	world.SetBlockInQueue(x, y, z, block)
+	world.SetBlockInQueue(x, y, z, block, dim)
 }
 
-func (world *World) instaFall(falling *entities.BlockEntity) {
-	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata)
+func (world *World) instaFall(falling *entities.BlockEntity, dim int32) {
+	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata, dim)
 }
 
 func (world *World) maybeBroadcastVelocity(ridable *entities.RideableEntity, vx, vy, vz float64) {
@@ -184,8 +197,8 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 		}
 	}
 
-	getBlock := func(x int32, y byte, z int32) entities.BlockInfo {
-		b := world.GetBlock(x, y, z)
+	getBlock := func(x int32, y byte, z int32, dim int32) entities.BlockInfo {
+		b := world.GetBlock(x, y, z, dim)
 		return entities.BlockInfo{
 			IsRail:        b.IsRail(),
 			IsPoweredRail: b.IsPoweredRail(),
@@ -241,9 +254,9 @@ func (w *World) makeSendFurnaceSlot() func(item inventory.Item, slot int16) {
 	}
 }
 
-func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool) {
-	return func(x, y, z int16, lit bool) {
-		oldBlock := w.GetBlock(int32(x), byte(y), int32(z))
+func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool, dim int32) {
+	return func(x, y, z int16, lit bool, dim int32) {
+		oldBlock := w.GetBlock(int32(x), byte(y), int32(z), dim)
 
 		var newBlock Block
 		if lit {
@@ -251,7 +264,7 @@ func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool) {
 		} else {
 			newBlock = NewFurnaceBlock(oldBlock.Metadata)
 		}
-		w.SetBlockInQueue(int32(x), int32(y), int32(z), newBlock)
+		w.SetBlockInQueue(int32(x), int32(y), int32(z), newBlock, dim)
 	}
 }
 

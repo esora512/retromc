@@ -35,6 +35,7 @@ func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl
 	world.BroadcastPacket(p.Serialize())
 }
 
+
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
@@ -44,15 +45,26 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.Pitch = 0
 	pl.OnGround = true
 
-	sendRespawn(connection, p.World)
+	loc := int32(0)
+	if pl.Dimension == loc {
+		loc = -1
+		pl.Dimension = -1
+	} else {
+		pl.Dimension = loc
+	}
+
+	pl.SentChunks = make(player.ChunkSet)
+	pl.HasInitializedChunks = false
+
+	sendRespawn(connection, byte(loc))
 
 	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0)
-	//world.MulticastPacket(packets.SpawnPlayerEntityPacket(pl), pl)
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
 	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
+
 
 func sendRespawn(connection net.Conn, world byte) {
 	respawnPacket := packets.RespawnPacket{
@@ -268,6 +280,7 @@ func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 		int32(pl.Y),
 		int32(dropZ),
 		0, 0, 0, 40,
+		pl.Dimension,
 	)
 	world.BroadcastPacket(spawnDroppedItemPacket)
 }
@@ -282,7 +295,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
 
-	oldBlock := world.GetBlock(p.X, p.Y, p.Z)
+	oldBlock := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
 	if !shouldProcessDigging(p, pl, oldBlock) {
 		return
 	}
@@ -296,14 +309,13 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	removeMinedBlockEntity(world, p, oldBlock)
 
 	air := level.NewAirBlock()
-	//SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &air)
 
-	above := world.GetBlock(p.X, p.Y+1, p.Z)
+	above := world.GetBlock(p.X, p.Y+1, p.Z, pl.Dimension)
 	if above.IsSnowLayer() {
-		world.SetBlockInQueue(p.X, int32(p.Y)+1, p.Z, air)
+		world.SetBlockInQueue(p.X, int32(p.Y)+1, p.Z, air, pl.Dimension)
 	}
 
-	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air)
+	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
@@ -311,7 +323,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 		return
 	}
 
-	spawnMinedDrop(world, p, blockItem, blockMeta, count)
+	spawnMinedDrop(world, p, blockItem, blockMeta, count, pl.Dimension)
 }
 
 func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player) {
@@ -409,7 +421,7 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 			blockItem = constants.WheatItem.Value
 		}
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		chunk := world.GetLoadedChunk(p.X, p.Z)
+		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
 		logic := chunk.Logic
 		delete(logic.Growables, bk)
 	}
@@ -433,30 +445,29 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 		blockMeta = 0
 
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		chunk := world.GetLoadedChunk(p.X, p.Z)
+		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
 		delete(chunk.Logic.Growables, bk)
 
 		for i := 1; i <= 3; i++ {
 			aboveY := p.Y + byte(i)
-			above := world.GetBlock(p.X, aboveY, p.Z)
+			above := world.GetBlock(p.X, aboveY, p.Z, pl.Dimension)
 			if above.TypeId != oldBlock.TypeId {
 				break
 			}
 			air := level.NewAirBlock()
-			world.SetBlockInQueue(p.X, int32(aboveY), p.Z, air)
-			//SetBlockAndNotify(world, p.X, int32(aboveY), p.Z, &air)
+			world.SetBlockInQueue(p.X, int32(aboveY), p.Z, air, pl.Dimension)
 			count++
 		}
 	}
 
 	if blockItem == constants.Sapling.Value {
-		chunk := world.GetLoadedChunk(p.X, p.Z)
+		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
 		delete(chunk.Logic.Growables, bk)
 	}
 
 	if blockItem == constants.Grass.Value {
-		chunk := world.GetLoadedChunk(p.X, p.Z)
+		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
 		blockItem = constants.Dirt.Value
 		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
 		delete(chunk.Logic.Growables, bk)
@@ -465,11 +476,11 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	return blockItem, blockMeta, count
 }
 
-func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockItem int16, blockMeta byte, count byte) {
+func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockItem int16, blockMeta byte, count byte, dim int32) {
 	dropX := int32(p.X)
 	dropY := int32(p.Y)
 	dropZ := int32(p.Z)
-	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0)
+	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0, dim)
 	world.BroadcastPacket(spawnPacket)
 	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue)
 }
@@ -509,7 +520,7 @@ func raycastForWater(world *level.World, pl *player.Player, maxDistance float64)
 			continue
 		}
 
-		block := world.GetBlock(int32(bx), byte(by), int32(bz))
+		block := world.GetBlock(int32(bx), byte(by), int32(bz), pl.Dimension)
 
 		if block.IsWater() {
 			return bx, by, bz, true
@@ -531,7 +542,7 @@ func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Pl
 }
 
 func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
-	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z)
+	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
 
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
@@ -558,7 +569,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 		return
 	}
 
-	if tryTillSoil(world, p, oldExisting, heldItem) {
+	if tryTillSoil(world, p, oldExisting, heldItem, pl.Dimension) {
 		return
 	}
 
@@ -566,7 +577,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	defer pl.HotbarLocked.Store(false)
 	// X/Y/Z are the clicked block; the new block goes on the adjacent face.
 	// Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
-	newX, newY, newZ := placementTargetCoords(p, world)
+	newX, newY, newZ := placementTargetCoords(p, world, pl.Dimension)
 
 	// Reject out-of-bounds Y.
 	if newY < 0 || newY >= level.CHUNK_SIZE_Y {
@@ -581,7 +592,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	// }
 
 	// Only place into air — don't overwrite existing blocks.
-	existing := world.GetBlock(newX, byte(newY), newZ)
+	existing := world.GetBlock(newX, byte(newY), newZ, pl.Dimension)
 	//log.Printf("Existing id %d", existing.TypeId)
 	if !existing.IsAir() && !existing.IsLiquid() && !existing.IsSnowLayer() {
 		return
@@ -606,7 +617,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if block.IsRail() {
-		placeRailBlock(world, &block, newX, newY, newZ)
+		placeRailBlock(world, &block, newX, newY, newZ, pl.Dimension)
 		pl.Inventory.RemoveOne(slot)
 		return
 	}
@@ -715,8 +726,7 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlacementInPacket, pl *player.Player, heldItem inventory.Item) {
 	fire := level.NewFireBlock()
-	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire)
-	//SetBlockAndNotify(world, p.X, int32(p.Y+1), p.Z, &fire)
+	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire, pl.Dimension)
 	if !crafting.HasDurability(heldItem.TypeId) {
 		return
 	}
@@ -731,19 +741,18 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlace
 	}
 }
 
-func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, oldExisting level.Block, heldItem inventory.Item) bool {
+func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, oldExisting level.Block, heldItem inventory.Item, dim int32) bool {
 	if (oldExisting.TypeId != byte(constants.Dirt.Value) && oldExisting.TypeId != byte(constants.Grass.Value)) || !heldItem.IsHoe() {
 		return false
 	}
 	tilled := level.NewBlockById(constants.Farmland.Value, 0)
-	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled)
-	//SetBlockAndNotify(world, p.X, int32(p.Y), p.Z, &tilled)
+	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled, dim)
 	return true
 }
 
 // Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
-func placementTargetCoords(p packets.PlayerBlockPlacementInPacket, w *level.World) (int32, int, int32) {
-	existing := w.GetBlock(p.X, byte(p.Y), p.Z)
+func placementTargetCoords(p packets.PlayerBlockPlacementInPacket, w *level.World, dim int32) (int32, int, int32) {
+	existing := w.GetBlock(p.X, byte(p.Y), p.Z, dim)
 	if existing.TypeId == byte(constants.SnowLayer.Value) {
 		return p.X, int(p.Y), p.Z
 	}
@@ -798,8 +807,7 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 		return false
 	}
 	air := level.NewAirBlock()
-	//SetBlockAndNotify(world, newX, int32(newY), newZ, &air)
-	world.SetBlockInQueue(newX, int32(newY), newZ, air)
+	world.SetBlockInQueue(newX, int32(newY), newZ, air, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 	var bucketItem inventory.Item
 	if existing.IsWater() {
@@ -812,7 +820,7 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 	return true
 }
 
-func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int, newZ int32) {
+func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int, newZ int32, dim int32) {
 	railIds := map[byte]bool{
 		byte(constants.Rail.Value):         true,
 		byte(constants.PoweredRail.Value):  true,
@@ -820,7 +828,7 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 	}
 
 	hasRail := func(x, y, z int32) bool {
-		b := world.GetBlock(x, byte(y), z)
+		b := world.GetBlock(x, byte(y), z, dim)
 		return railIds[b.TypeId]
 	}
 
@@ -864,12 +872,11 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 
 	// Place the new rail with computed metadata
 	block.Metadata = computeMeta(x, y, z)
-	world.SetBlockInQueue(x, y, z, *block)
-	//SetBlockAndNotify(world, x, y, z, block)
+	world.SetBlockInQueue(x, y, z, *block, dim)
 
 	// Recalc each flat neighbour now that the new rail exists in the world
 	recalcRail := func(nx, ny, nz int32) {
-		existing := world.GetBlock(nx, byte(ny), nz)
+		existing := world.GetBlock(nx, byte(ny), nz, dim)
 		if !railIds[existing.TypeId] {
 			return
 		}
@@ -878,8 +885,7 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 			return
 		}
 		existing.Metadata = newMeta
-		world.SetBlockInQueue(nx, ny, nz, existing)
-		//SetBlockAndNotify(world, nx, ny, nz, &existing)
+		world.SetBlockInQueue(nx, ny, nz, existing, dim)
 	}
 
 	recalcRail(x, y, z-1) // north
@@ -936,7 +942,7 @@ func configureDirectionalBlock(world *level.World, block *level.Block, newX int3
 }
 
 func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, slot int16) {
-	beneath := world.GetBlock(newX, byte(newY-1), newZ)
+	beneath := world.GetBlock(newX, byte(newY-1), newZ, pl.Dimension)
 	isRail := beneath.TypeId == byte(constants.Rail.Value) ||
 		beneath.TypeId == byte(constants.PoweredRail.Value) ||
 		beneath.TypeId == byte(constants.DetectorRail.Value)
@@ -1001,8 +1007,7 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 			continue
 		}
 		b := fp.newBlock
-		//SetBlockAndNotify(world, newX, int32(newY), newZ, &b)
-		world.SetBlockInQueue(newX, int32(newY), newZ, b)
+		world.SetBlockInQueue(newX, int32(newY), newZ, b, pl.Dimension)
 		if heldItem.TypeId == fp.bucketId {
 			bucket := inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
 			pl.Inventory.Items[slot] = bucket
@@ -1018,13 +1023,12 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 }
 
 func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlayerBlockPlacementInPacket, slot int16) {
-	//SetBlockAndNotify(world, newX, int32(newY), newZ, &block)
 	// below := world.GetBlock(newX, byte(newY-1), newZ)
 	// if below.TypeId == byte(constants.SnowLayer.Value) {
 	// 	newY = newY - 1
 	// }
 
-	world.SetBlockInQueue(newX, int32(newY), newZ, block)
+	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
@@ -1039,7 +1043,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	cz := level.WorldToChunkCoord(int32(newZ))
 	coord := level.ChunkCoord{X: cx, Z: cz}
 	if !pl.SentChunks.Has(coord.String()) {
-		chunk := world.GetOrCreateChunk(cx, cz, level.Empty)
+		chunk := world.GetOrCreateChunk(cx, cz, pl.Dimension)
 		pre := packets.PreChunkOutPacket{X: cx, Z: cz, Mode: true}
 		connection.Write(pre.Serialize())
 		mapChunk := packets.MapChunkOutPacket{}
@@ -1048,19 +1052,6 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 		pl.SentChunks.Set(coord.String(), coord.X, coord.Z)
 	}
 }
-
-// func SetBlockAndNotify(world *level.World, x, y, z int32, block *level.Block) {
-// 	world.SetBlock(x, byte(y), z, *block)
-// 	//log.Printf("SetBlockAndNotify: X=%d Y=%d Z=%d Type=%d Meta=%d", x, y, z, block.TypeId, block.Metadata)
-// 	blockChange := packets.BlockChangeOutPacket{
-// 		X:         x,
-// 		Y:         byte(y),
-// 		Z:         z,
-// 		BlockType: block.TypeId,
-// 		BlockMeta: block.Metadata,
-// 	}
-// 	world.BroadcastPacket(blockChange.Serialize())
-// }
 
 func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
 	// Drop the update while a BlockPlacement is in progress to avoid a race

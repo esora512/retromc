@@ -5,14 +5,12 @@ import (
 	"log"
 	"math"
 	"net"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
-	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -44,6 +42,7 @@ type Entity interface {
 	SetHP(hp int16)
 	GetHP() int16
 	GetLoggedIn() bool
+	GetDim() int32
 }
 
 func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
@@ -132,7 +131,8 @@ func (et *EntityTracker) Manage(w *World) {
 			dz := math.Abs(z1 - z2)
 
 			isVisible := et.visible[viewerID][targetID]
-			inRange := dx <= distance && dz <= distance
+			sameDim := viewer.GetDim() == target.GetDim()
+			inRange := sameDim && dx <= distance && dz <= distance
 			alive := target.GetHP() > 0
 
 			if !isVisible && inRange && alive {
@@ -144,12 +144,10 @@ func (et *EntityTracker) Manage(w *World) {
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
 				} else {
-					//log.Printf("Spawning %d", targetID)
 					viewer.Connection.Write(et.SpawnObject(target))
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
-				//log.Printf("Despawning %d", targetID)
 				viewer.Connection.Write(et.DespawnEntity(targetID))
 				delete(et.visible[viewerID], targetID)
 			}
@@ -157,90 +155,6 @@ func (et *EntityTracker) Manage(w *World) {
 	}
 }
 
-func (w *World) GetLoadedChunk(x, z int32) *Chunk {
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	return w.chunks[ChunkCoord{cx, cz}]
-}
-
-func (w *World) GetRenderedChunks() []*Chunk {
-	wanted := w.wantedChunks()
-	chunks := make([]*Chunk, 0, len(wanted))
-	for wa := range wanted {
-		if c, ok := w.chunks[wa]; ok {
-			chunks = append(chunks, c)
-		}
-	}
-	return chunks
-}
-
-func (w *World) wantedChunks() map[ChunkCoord]struct{} {
-	wanted := make(map[ChunkCoord]struct{})
-	for _, pl := range w.Players {
-		cx := WorldToChunkCoord(int32(pl.X))
-		cz := WorldToChunkCoord(int32(pl.Z))
-		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
-			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
-				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
-			}
-		}
-	}
-	return wanted
-}
-
-func (w *World) PlayerActiveChunks(radius int32) []*Chunk {
-	seen := make(map[ChunkCoord]struct{})
-	chunks := make([]*Chunk, 0, len(w.Players)*9)
-	for _, pl := range w.Players {
-		cx := WorldToChunkCoord(int32(pl.X))
-		cz := WorldToChunkCoord(int32(pl.Z))
-		for dx := -radius; dx <= radius; dx++ {
-			for dz := -radius; dz <= radius; dz++ {
-				coord := ChunkCoord{X: cx + dx, Z: cz + dz}
-				if _, dup := seen[coord]; dup {
-					continue
-				}
-				seen[coord] = struct{}{}
-				if c, ok := w.chunks[coord]; ok {
-					chunks = append(chunks, c)
-				}
-			}
-		}
-	}
-	return chunks
-}
-
-func (w *World) PopUnusedChunks() map[ChunkCoord]*Chunk {
-	wanted := w.wantedChunks()
-
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-
-	var removed map[ChunkCoord]*Chunk
-	for coord, ch := range w.chunks {
-		if _, ok := wanted[coord]; !ok {
-			if removed == nil {
-				removed = make(map[ChunkCoord]*Chunk, 4)
-			}
-			removed[coord] = ch
-			delete(w.chunks, coord)
-		}
-	}
-	if len(removed) > 0 {
-		log.Printf("Popping %d chunks", len(removed))
-	}
-	return removed
-}
-
-func (w *World) IsLoaded(x, z int32) bool {
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	coord := ChunkCoord{X: cx, Z: cz}
-	if _, ok := w.chunks[coord]; ok {
-		return true
-	}
-	return false
-}
 
 func (w *World) SnapshotEntities() []Entity {
 	snapshot := make([]Entity, 0, len(w.Entities))
@@ -250,84 +164,14 @@ func (w *World) SnapshotEntities() []Entity {
 	return snapshot
 }
 
-func (w *World) Size() int64 {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
-	var total int64
-	for _, c := range w.chunks {
-		if c == nil {
-			continue
-		}
-		total += c.Size()
-	}
-	return total
-}
-
-func (c *Chunk) SizeString() string {
-	return formatBytes(c.Size())
-}
-
-func (w *World) SizeString() string {
-	return formatBytes(w.Size())
-}
-
-func formatBytes(b int64) string {
-	const (
-		KB = 1024
-		MB = KB * 1024
-		GB = MB * 1024
-	)
-	switch {
-	case b >= GB:
-		return fmt.Sprintf("%.2f GB", float64(b)/float64(GB))
-	case b >= MB:
-		return fmt.Sprintf("%.2f MB", float64(b)/float64(MB))
-	case b >= KB:
-		return fmt.Sprintf("%.2f KB", float64(b)/float64(KB))
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
-}
-
-type WorldType int
-
-const (
-	Template WorldType = iota
-	Empty
-	SkyGrid
-	Default
-	Esorian
-	Maze
-)
-
-type DroppedItem struct {
-	EntityId    int32
-	ItemId      int32
-	Amount      byte
-	Metadata    byte
-	X, Y, Z     int32
-	PickupDelay int32
-}
-
-type ChunkLogic struct {
-	Growables    map[BlockKey]Growable
-	DroppedItems map[int32]*DroppedItem
-}
-
-func NewChunkLogic() *ChunkLogic {
-	return &ChunkLogic{
-		Growables:    make(map[BlockKey]Growable),
-		DroppedItems: make(map[int32]*DroppedItem),
-	}
-}
-
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	//Mu         dlock.DebugRWMutex
 	Mu          sync.RWMutex
 	sessionMu   sync.Map
-	blockQueue  map[[3]int32]QueueBlock
-	chunks      map[ChunkCoord]*Chunk
+	blockQueue  map[[4]int32]QueueBlock
+	oChunks     map[ChunkCoord]*Chunk
+	nChunks     map[ChunkCoord]*Chunk
 	Tick        int64
 	Players     map[int32]*player.Player
 	Entities    map[int32]Entity
@@ -468,7 +312,8 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		CommitHash:  commitHash,
 		WorldDir:    "saves",
 		WorldType:   worldType,
-		chunks:      make(map[ChunkCoord]*Chunk),
+		oChunks:     make(map[ChunkCoord]*Chunk),
+		nChunks:     make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
 		Entities:    make(map[int32]Entity),
@@ -483,7 +328,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
 		Scheduler:  NewBlockUpdateScheduler(),
-		blockQueue: make(map[[3]int32]QueueBlock),
+		blockQueue: make(map[[4]int32]QueueBlock),
 	}
 }
 
@@ -503,11 +348,11 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 	return nil
 }
 
-func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay int32) int32 {
+func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay, dim int32) int32 {
 	entityId := w.NextEntityId()
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, dim)
 	logic := chunk.Logic
 	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
@@ -516,26 +361,15 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	chunk, ok := w.chunks[ChunkCoord{X: cx, Z: cz}]
+	chunk, ok := w.oChunks[ChunkCoord{X: cx, Z: cz}]
 	if ok {
 		delete(chunk.Logic.DroppedItems, entityId)
 	}
-}
-
-func (w *World) LoadChunks() []*Chunk {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
-	chunks := make([]*Chunk, 0, len(w.chunks))
-	for _, c := range w.chunks {
-		chunks = append(chunks, c)
+	nchunk, ok := w.nChunks[ChunkCoord{X: cx, Z: cz}]
+	if ok {
+		delete(nchunk.Logic.DroppedItems, entityId)
 	}
-	return chunks
-}
 
-// ChunkExists reports whether the chunk at (cx, cz) has already been loaded/generated.
-func (w *World) ChunkExists(cx, cz int32) bool {
-	_, ok := w.chunks[ChunkCoord{cx, cz}]
-	return ok
 }
 
 func printCallStack() {
@@ -567,56 +401,23 @@ func printCallStack() {
 	log.Printf("%s", strings.Join(callers, " <-- "))
 }
 
-// GetOrCreateChunk returns the chunk at (cx, cz), generating it if it doesn't exist yet.
-func (w *World) GetOrCreateChunk(cx, cz int32, worldType WorldType) *Chunk {
-	key := ChunkCoord{cx, cz}
-	ch, ok := w.chunks[key]
-	if ok {
-		return ch
-	}
-	if w.WorldDir != "" {
-		rx, rz := cx>>5, cz>>5
-		lx, lz := cx&31, cz&31
-		regionPath := filepath.Join(w.WorldDir, "region", mcregion.RegionFileName(rx*32, rz*32))
-
-		lvl, err := mcregion.ReadChunk(regionPath, lx, lz)
-		if err != nil {
-			log.Printf("chunk (%d,%d): read failed, regenerating: %v", cx, cz, err)
-		} else if lvl != nil {
-			c, err := w.readChunkFromNBT(lvl, cx, cz)
-			if err != nil {
-				log.Printf("chunk (%d,%d): decode failed, regenerating: %v", cx, cz, err)
-			} else {
-				w.chunks[key] = c
-				return c
-			}
-		}
-	}
-	c := w.generateChunk(cx, cz, w.WorldType)
-	c.X = cx * CHUNK_SIZE_X
-	c.Z = cz * CHUNK_SIZE_Z
-
-	w.chunks[key] = c
-	return c
-}
-
 // SetBlock updates a single block in the world using world-space coordinates.
-func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block) {
+func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block, dim int32) {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, dim)
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
 
 	key := BlockKey{worldX, worldY, worldZ}
-	w.SetGrowable(block, key)
+	w.SetGrowable(block, key, dim)
 }
 
-func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32) Block {
+func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) Block {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
-	chunk := w.GetOrCreateChunk(cx, cz, w.WorldType)
+	chunk := w.GetOrCreateChunk(cx, cz, dim)
 
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
@@ -698,27 +499,30 @@ func (w *World) ForEachPlayer(fn func(*player.Player)) {
 	}
 }
 
+
 type QueueBlock struct {
 	X        int32
 	Y        byte
 	Z        int32
 	TypeID   byte
 	Metadata byte
+	Dim      int32
 }
 
-func (w *World) SetBlockInQueue(x, y, z int32, block Block) {
-	w.SetBlock(x, byte(y), z, block)
+func (w *World) SetBlockInQueue(x, y, z int32, block Block, dim int32) {
+	w.SetBlock(x, byte(y), z, block, dim)
 
 	if w.blockQueue == nil {
-		w.blockQueue = make(map[[3]int32]QueueBlock)
+		w.blockQueue = make(map[[4]int32]QueueBlock)
 	}
 
-	w.blockQueue[[3]int32{x, y, z}] = QueueBlock{
+	w.blockQueue[[4]int32{x, y, z, dim}] = QueueBlock{
 		X:        x,
 		Y:        byte(y),
 		Z:        z,
 		TypeID:   block.TypeId,
 		Metadata: block.Metadata,
+		Dim:      dim,
 	}
 }
 
@@ -765,3 +569,4 @@ func (w *World) FlushBlockQueue() {
 		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta)
 	}
 }
+

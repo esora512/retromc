@@ -90,6 +90,10 @@ func (pl *Player) GetLoggedIn() bool {
 	return pl.LoggedIn
 }
 
+func (pl *Player) GetDim() int32 {
+	return pl.Dimension
+}
+
 type Player struct {
 	Username     string
 	EntityId     int
@@ -123,6 +127,7 @@ type Player struct {
 	LastChunkX           int32
 	LastChunkZ           int32
 	HasInitializedChunks bool
+	Dimension            int32
 
 	HP int16
 }
@@ -176,6 +181,7 @@ func NewPlayer(conn net.Conn) *Player {
 		SentChunks:           make(ChunkSet),
 		DebugBlock:           false,
 		HP:                   20,
+		Dimension:            0,
 	}
 }
 
