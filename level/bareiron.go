@@ -4,7 +4,6 @@ package level
 
 import (
 	"encoding/binary"
-	"math/rand"
 
 	"github.com/leNicDev/retromc/constants"
 )
@@ -22,7 +21,7 @@ type islandBiome uint8
 const (
 	biPlains islandBiome = iota
 	biDesert
-	biGarden 
+	biGarden
 	biSnowyPlains
 	biBeach // not seed-selected; the ring around/outside every island
 )
@@ -42,7 +41,7 @@ const (
 	idCoalOre    = 16
 	idLog        = 17
 	idLeaves     = 18
-	idLapisOre   = 21 
+	idLapisOre   = 21
 	idSandstone  = 24
 	idTallGrass  = 31 // metadata 1 = "grass" style
 	idDeadBush   = 32
@@ -315,11 +314,11 @@ func TerrainBlock(x, y, z int, rx, rz int, anchor chunkAnchor, feature ChunkFeat
 				dx := absIn(x - feature.x)
 				dz := absIn(z - feature.z)
 				if dx+dz < 4 {
-					roll := rand.Intn(2)
+					roll := (anchor.hash ^ uint32(x*31) ^ uint32(z*17)) & 1
 					switch roll {
 					case 0:
 						return idTallGrass, 1
-					case 1: 
+					case 1:
 						return byte(idDandelion), 1
 					}
 
@@ -463,6 +462,32 @@ func absIn(v int) int {
 	return v
 }
 
+func applySnowToTrees(chunk *Chunk, anchors []chunkAnchor) {
+	for x := 0; x < 16; x++ {
+		for z := 0; z < 16; z++ {
+			anchor := anchors[(x/biIslandsMiniSize)+((z/biIslandsMiniSize)*3)]
+
+			if anchor.biome != biSnowyPlains {
+				continue
+			}
+			for y := 126; y >= 0; y-- {
+
+				block := chunk.GetBlock(x, y, z)
+
+				if block.TypeId != idLeaves {
+					continue
+				}
+
+				above := chunk.GetBlock(x, y+1, z)
+				if above.IsAir() {
+					chunk.SetBlock(x, y+1, z, NewSnowLayerBlock())
+				}
+				break
+			}
+		}
+	}
+}
+
 func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
@@ -543,5 +568,6 @@ func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
+	applySnowToTrees(c, anchors)
 	c.relightAll()
 }
