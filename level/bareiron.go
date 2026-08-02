@@ -9,7 +9,6 @@ import (
 	"github.com/leNicDev/retromc/constants"
 )
 
-// ---- Tunable generator constants (see header comment above) ----------------
 const (
 	biIslandsMiniSize    = 8  // ASSUMED: minichunk size (must divide 16)
 	biIslandsBiomeSize   = 32 // ASSUMED: chunks-per-biome-cell (in minichunks)
@@ -18,18 +17,16 @@ const (
 	biIslandsCaveDepth   = 32 // ASSUMED: CAVE_BASE_DEPTH
 )
 
-// ---- Biomes ------------------------------------------------------------
-type betaIslandBiome uint8
+type islandBiome uint8
 
 const (
-	biPlains betaIslandBiome = iota
+	biPlains islandBiome = iota
 	biDesert
 	biGarden 
 	biSnowyPlains
 	biBeach // not seed-selected; the ring around/outside every island
 )
 
-// ---- Beta 1.7.3 block IDs (only the ones this generator needs) --------------
 const (
 	idAir        = 0
 	idStone      = 1
@@ -45,7 +42,7 @@ const (
 	idCoalOre    = 16
 	idLog        = 17
 	idLeaves     = 18
-	idLapisOre   = 21 // stand-in for B_copper_ore (Beta has no copper)
+	idLapisOre   = 21 
 	idSandstone  = 24
 	idTallGrass  = 31 // metadata 1 = "grass" style
 	idDeadBush   = 32
@@ -61,8 +58,8 @@ var (
 	idRose      = constants.Rose.Value
 )
 
-// splitmix64Beta mirrors the C helper `splitmix64` used by getChunkHash.
-func splitmix64Beta(x uint64) uint64 {
+// splitmix64 mirrors the C helper `splitmix64` used by getChunkHash.
+func splitmix64(x uint64) uint64 {
 	x += 0x9E3779B97F4A7C15
 	z := x
 	z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9
@@ -71,9 +68,7 @@ func splitmix64Beta(x uint64) uint64 {
 	return z
 }
 
-// divFloorBeta / modAbsBeta mirror the C helpers div_floor / mod_abs:
-// floor division, and a mod that's always non-negative.
-func divFloorBeta(a, b int) int {
+func divFloor(a, b int) int {
 	q := a / b
 	if a%b != 0 && ((a < 0) != (b < 0)) {
 		q--
@@ -81,7 +76,7 @@ func divFloorBeta(a, b int) int {
 	return q
 }
 
-func modAbsBeta(a, b int) int {
+func modAbs(a, b int) int {
 	m := a % b
 	if m < 0 {
 		m += b
@@ -89,53 +84,52 @@ func modAbsBeta(a, b int) int {
 	return m
 }
 
-// betaChunkHash mirrors C's getChunkHash(short x, short z): packs the
-// minichunk coordinates and world seed into 8 bytes (matching the original
-// memcpy layout) and runs them through splitmix64.
-func betaChunkHash(mx, mz int32, seed uint32) uint32 {
+// mirrors C's getChunkHash(short x, short z): packs the
+// minichunk coordinates and world seed into 8 bytes (matching the original memcpy layout) and runs them through splitmix64.
+func getChunkHash(mx, mz int32, seed uint32) uint32 {
 	var buf [8]byte
 	binary.LittleEndian.PutUint16(buf[0:2], uint16(int16(mx)))
 	binary.LittleEndian.PutUint16(buf[2:4], uint16(int16(mz)))
 	binary.LittleEndian.PutUint32(buf[4:8], seed)
 	v := binary.LittleEndian.Uint64(buf[:])
-	return uint32(splitmix64Beta(v))
+	return uint32(splitmix64(v))
 }
 
-// betaChunkBiome mirrors C's getChunkBiome: circular islands laid out on a
+// getChunkBiome mirrors C's getChunkBiome: circular islands laid out on a
 // repeating grid, with the 4 land biomes read 2 bits at a time from the seed.
-func betaChunkBiome(mx, mz int32, seed uint32) betaIslandBiome {
+func getChunkBiome(mx, mz int32, seed uint32) islandBiome {
 	x := int(mx) + biIslandsBiomeRadius
 	z := int(mz) + biIslandsBiomeRadius
 
-	dx := biIslandsBiomeRadius - modAbsBeta(x, biIslandsBiomeSize)
-	dz := biIslandsBiomeRadius - modAbsBeta(z, biIslandsBiomeSize)
+	dx := biIslandsBiomeRadius - modAbs(x, biIslandsBiomeSize)
+	dz := biIslandsBiomeRadius - modAbs(z, biIslandsBiomeSize)
 
 	if dx*dx+dz*dz > biIslandsBiomeRadius*biIslandsBiomeRadius {
 		return biBeach
 	}
 
-	biomeX := int32(divFloorBeta(x, biIslandsBiomeSize))
-	biomeZ := int32(divFloorBeta(z, biIslandsBiomeSize))
+	biomeX := int32(divFloor(x, biIslandsBiomeSize))
+	biomeZ := int32(divFloor(z, biIslandsBiomeSize))
 
-	h := betaIslandBiomeHash(biomeX, biomeZ, seed)
+	h := islandBiomeHash(biomeX, biomeZ, seed)
 
-	return betaIslandBiome(h % 4)
+	return islandBiome(h % 4)
 }
 
-func betaIslandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
+func islandBiomeHash(biomeX, biomeZ int32, seed uint32) uint32 {
 	var buf [12]byte
 	binary.LittleEndian.PutUint32(buf[0:4], uint32(biomeX))
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(biomeZ))
 	binary.LittleEndian.PutUint32(buf[8:12], seed)
 	v := uint64(uint32(biomeX))<<32 | uint64(uint32(biomeZ))
 	v ^= uint64(seed) * 0x9E3779B97F4A7C15
-	return uint32(splitmix64Beta(v))
+	return uint32(splitmix64(v))
 }
 
-// betaCornerHeight mirrors C's getCornerHeight. Deliberately uses byte
+// mirrors C's getCornerHeight. Deliberately uses byte
 // (uint8) arithmetic throughout so it wraps exactly like the original
 // uint8_t math (including the mangrove/swamp underflow-toward-water quirk).
-func betaCornerHeight(hash uint32, biome betaIslandBiome) byte {
+func getCornerHeight(hash uint32, biome islandBiome) byte {
 	height := byte(biIslandsBaseHeight)
 
 	switch biome {
@@ -157,94 +151,83 @@ func betaCornerHeight(hash uint32, biome betaIslandBiome) byte {
 	return height
 }
 
-// betaInterpolate mirrors C's interpolate(): bilinear interpolation across a
+// interpolate mirrors C's interpolate(): bilinear interpolation across a
 // minichunk given the 4 corner heights and a local position in [0, miniSize).
-func betaInterpolate(a, b, c, d byte, x, z int) byte {
+func interpolate(a, b, c, d byte, x, z int) byte {
 	size := biIslandsMiniSize
 	top := uint16(a)*uint16(size-x) + uint16(b)*uint16(x)
 	bottom := uint16(c)*uint16(size-x) + uint16(d)*uint16(x)
 	return byte((top*uint16(size-z) + bottom*uint16(z)) / uint16(size*size))
 }
 
-// betaAnchor mirrors C's ChunkAnchor: a precomputed minichunk hash + biome.
-type betaAnchor struct {
+// chunkAnchor mirrors C's ChunkAnchor: a precomputed minichunk hash + biome.
+type chunkAnchor struct {
 	x, z  int32
 	hash  uint32
-	biome betaIslandBiome
+	biome islandBiome
 }
 
-func makeBetaAnchor(mx, mz int32, seed uint32) betaAnchor {
-	return betaAnchor{
+func makeAnchor(mx, mz int32, seed uint32) chunkAnchor {
+	return chunkAnchor{
 		x:     mx,
 		z:     mz,
-		hash:  betaChunkHash(mx, mz, seed),
-		biome: betaChunkBiome(mx, mz, seed),
+		hash:  getChunkHash(mx, mz, seed),
+		biome: getChunkBiome(mx, mz, seed),
 	}
 }
 
-// betaHeightFromAnchors mirrors C's getHeightAtFromAnchors: given a pointer
+// mirrors C's getHeightAtFromAnchors: given a pointer
 // (here: index + row stride) into a grid of anchors, interpolate height at a
 // local (rx, rz) position within that minichunk.
-func betaHeightFromAnchors(rx, rz int, idx, stride int, anchors []betaAnchor) byte {
+func getHeightFromAnchors(rx, rz int, idx, stride int, anchors []chunkAnchor) byte {
 	if rx == 0 && rz == 0 {
-		h := int(betaCornerHeight(anchors[idx].hash, anchors[idx].biome))
+		h := int(getCornerHeight(anchors[idx].hash, anchors[idx].biome))
 		if h > 67 {
 			return byte(h - 1)
 		}
 	}
-	return betaInterpolate(
-		betaCornerHeight(anchors[idx].hash, anchors[idx].biome),
-		betaCornerHeight(anchors[idx+1].hash, anchors[idx+1].biome),
-		betaCornerHeight(anchors[idx+stride].hash, anchors[idx+stride].biome),
-		betaCornerHeight(anchors[idx+stride+1].hash, anchors[idx+stride+1].biome),
+	return interpolate(
+		getCornerHeight(anchors[idx].hash, anchors[idx].biome),
+		getCornerHeight(anchors[idx+1].hash, anchors[idx+1].biome),
+		getCornerHeight(anchors[idx+stride].hash, anchors[idx+stride].biome),
+		getCornerHeight(anchors[idx+stride+1].hash, anchors[idx+stride+1].biome),
 		rx, rz,
 	)
 }
 
-// betaHeightFromHash mirrors C's getHeightAtFromHash: same as above, but
+// mirrors C's getHeightAtFromHash: same as above, but
 // computes the 3 neighboring corners on demand instead of from a grid.
-func betaHeightFromHash(rx, rz int, mx, mz int32, hash uint32, biome betaIslandBiome, seed uint32) byte {
+func getHeightAtFromHash(rx, rz int, mx, mz int32, hash uint32, biome islandBiome, seed uint32) byte {
 	if rx == 0 && rz == 0 {
-		h := int(betaCornerHeight(hash, biome))
+		h := int(getCornerHeight(hash, biome))
 		if h > 67 {
 			return byte(h - 1)
 		}
 	}
-	a1 := makeBetaAnchor(mx+1, mz, seed)
-	a2 := makeBetaAnchor(mx, mz+1, seed)
-	a3 := makeBetaAnchor(mx+1, mz+1, seed)
-	return betaInterpolate(
-		betaCornerHeight(hash, biome),
-		betaCornerHeight(a1.hash, a1.biome),
-		betaCornerHeight(a2.hash, a2.biome),
-		betaCornerHeight(a3.hash, a3.biome),
+	a1 := makeAnchor(mx+1, mz, seed)
+	a2 := makeAnchor(mx, mz+1, seed)
+	a3 := makeAnchor(mx+1, mz+1, seed)
+	return interpolate(
+		getCornerHeight(hash, biome),
+		getCornerHeight(a1.hash, a1.biome),
+		getCornerHeight(a2.hash, a2.biome),
+		getCornerHeight(a3.hash, a3.biome),
 		rx, rz,
 	)
 }
 
-// betaHeightAt mirrors C's getHeightAt: terrain height at a world (x, z).
-func betaHeightAt(x, z int, seed uint32) byte {
-	mx := divFloorBeta(x, biIslandsMiniSize)
-	mz := divFloorBeta(z, biIslandsMiniSize)
-	rx := modAbsBeta(x, biIslandsMiniSize)
-	rz := modAbsBeta(z, biIslandsMiniSize)
-	hash := betaChunkHash(int32(mx), int32(mz), seed)
-	biome := betaChunkBiome(int32(mx), int32(mz), seed)
-	return betaHeightFromHash(rx, rz, int32(mx), int32(mz), hash, biome, seed)
-}
-
-// betaFeature mirrors C's ChunkFeature: one candidate tree/cactus/etc. slot
+// ChunkFeature mirrors C's ChunkFeature: one candidate tree/cactus/etc. slot
 // per minichunk. Y == 255 means "no feature here".
-type betaFeature struct {
+type ChunkFeature struct {
 	x, z    int
 	y       int // 255 (well, we use -1 here) means "skipped"
 	variant byte
 }
 
-const betaFeatureSkip = -1
+const FeatureSkip = -1
 
-// betaFeatureFromAnchor mirrors C's getFeatureFromAnchor.
-func betaFeatureFromAnchor(anchor betaAnchor, seed uint32) betaFeature {
+// mirrors C's getFeatureFromAnchor.
+func getFeatureFromAnchor(anchor chunkAnchor, seed uint32) ChunkFeature {
 	size := biIslandsMiniSize
 	pos := int(anchor.hash) % (size * size)
 	fx := pos % size
@@ -259,26 +242,26 @@ func betaFeatureFromAnchor(anchor betaAnchor, seed uint32) betaFeature {
 		}
 	}
 
-	var f betaFeature
+	var f ChunkFeature
 	if skip {
-		f.y = betaFeatureSkip
+		f.y = FeatureSkip
 		return f
 	}
 
 	f.x = fx + int(anchor.x)*size
 	f.z = fz + int(anchor.z)*size
-	h := betaHeightFromHash(modAbsBeta(f.x, size), modAbsBeta(f.z, size), anchor.x, anchor.z, anchor.hash, anchor.biome, seed)
+	h := getHeightAtFromHash(modAbs(f.x, size), modAbs(f.z, size), anchor.x, anchor.z, anchor.hash, anchor.biome, seed)
 	f.y = int(h) + 1
 	f.variant = byte((anchor.hash >> uint((f.x+f.z)%32)) & 1)
 	return f
 }
 
-// betaTerrainBlock mirrors C's getTerrainAtFromCache. Returns the block id
+// TerrainBlock mirrors C's getTerrainAtFromCache. Returns the block id
 // and metadata for a single world-space block, given precomputed per-column
 // context (anchor, feature, terrain height).
-func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFeature, height byte) (id byte, meta byte) {
+func TerrainBlock(x, y, z int, rx, rz int, anchor chunkAnchor, feature ChunkFeature, height byte) (id byte, meta byte) {
 
-	if y >= 64 && y >= int(height) && feature.y != betaFeatureSkip {
+	if y >= 64 && y >= int(height) && feature.y != FeatureSkip {
 		switch anchor.biome {
 
 		case biPlains: // trees
@@ -292,8 +275,8 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 					}
 				}
 
-				dx := absIntBeta(x - feature.x)
-				dz := absIntBeta(z - feature.z)
+				dx := absIn(x - feature.x)
+				dz := absIn(z - feature.z)
 
 				if dx < 3 && dz < 3 && y > feature.y-int(feature.variant)+2 && y < feature.y-int(feature.variant)+5 {
 					if !(y == feature.y-int(feature.variant)+4 && dx == 2 && dz == 2) {
@@ -329,8 +312,8 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 
 		case biGarden:
 			if y == int(height)+1 {
-				dx := absIntBeta(x - feature.x)
-				dz := absIntBeta(z - feature.z)
+				dx := absIn(x - feature.x)
+				dz := absIn(z - feature.z)
 				if dx+dz < 4 {
 					roll := rand.Intn(2)
 					switch roll {
@@ -354,8 +337,8 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 					}
 				}
 
-				dx := absIntBeta(x - feature.x)
-				dz := absIntBeta(z - feature.z)
+				dx := absIn(x - feature.x)
+				dz := absIn(z - feature.z)
 
 				if dx < 3 && dz < 3 && y > feature.y-int(feature.variant)+2 && y < feature.y-int(feature.variant)+5 {
 					if !(y == feature.y-int(feature.variant)+4 && dx == 2 && dz == 2) {
@@ -473,7 +456,7 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 	return idAir, 0
 }
 
-func absIntBeta(v int) int {
+func absIn(v int) int {
 	if v < 0 {
 		return -v
 	}
@@ -495,23 +478,23 @@ func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 	miniPerChunk := CHUNK_SIZE_X / biIslandsMiniSize // minichunks across one axis of this chunk
 	stride := miniPerChunk + 1                       // anchor grid width (needs +1 for the far edge)
 
-	baseMx := int32(divFloorBeta(worldX, biIslandsMiniSize))
-	baseMz := int32(divFloorBeta(worldZ, biIslandsMiniSize))
+	baseMx := int32(divFloor(worldX, biIslandsMiniSize))
+	baseMz := int32(divFloor(worldZ, biIslandsMiniSize))
 
 	// Precompute anchors (hash+biome) for every minichunk corner touching
 	// this chunk, plus one extra row/col so every minichunk has all 4 corners.
-	anchors := make([]betaAnchor, stride*stride)
+	anchors := make([]chunkAnchor, stride*stride)
 	for gz := 0; gz < stride; gz++ {
 		for gx := 0; gx < stride; gx++ {
-			anchors[gz*stride+gx] = makeBetaAnchor(baseMx+int32(gx), baseMz+int32(gz), seed)
+			anchors[gz*stride+gx] = makeAnchor(baseMx+int32(gx), baseMz+int32(gz), seed)
 		}
 	}
 
 	// Precompute one feature (tree/cactus/etc. candidate) per minichunk.
-	features := make([]betaFeature, miniPerChunk*miniPerChunk)
+	features := make([]ChunkFeature, miniPerChunk*miniPerChunk)
 	for gz := 0; gz < miniPerChunk; gz++ {
 		for gx := 0; gx < miniPerChunk; gx++ {
-			features[gz*miniPerChunk+gx] = betaFeatureFromAnchor(anchors[gz*stride+gx], seed)
+			features[gz*miniPerChunk+gx] = getFeatureFromAnchor(anchors[gz*stride+gx], seed)
 		}
 	}
 
@@ -525,7 +508,7 @@ func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 			idx := gz*stride + gx
 			rx := lx % biIslandsMiniSize
 			rz := lz % biIslandsMiniSize
-			heights[lx][lz] = betaHeightFromAnchors(rx, rz, idx, stride, anchors)
+			heights[lx][lz] = getHeightFromAnchors(rx, rz, idx, stride, anchors)
 		}
 	}
 
@@ -541,7 +524,7 @@ func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
 			rz := lz % biIslandsMiniSize
 
 			for ly := 0; ly < CHUNK_SIZE_Y; ly++ {
-				id, meta := betaTerrainBlock(worldX+lx, ly, worldZ+lz, rx, rz, anchor, feature, height)
+				id, meta := TerrainBlock(worldX+lx, ly, worldZ+lz, rx, rz, anchor, feature, height)
 
 				i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
 				blockTypes[i] = id

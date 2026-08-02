@@ -57,7 +57,6 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 		log.Printf("Failed to load player inventory for %s : %v", pl.Username, err)
 	}
 	level.ApplyPlayerData(pl, data)
-	log.Printf("Spawn in Dim = %d", pl.Dimension)
 	world.AddPlayer(pl)
 
 	sendLoginResponse(connection, world, pl)
