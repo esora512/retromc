@@ -35,7 +35,6 @@ func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl
 	world.BroadcastPacket(p.Serialize())
 }
 
-
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
@@ -64,7 +63,6 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
 	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
-
 
 func sendRespawn(connection net.Conn, world byte) {
 	respawnPacket := packets.RespawnPacket{
@@ -350,7 +348,9 @@ func shouldProcessDigging(p packets.PlayerDiggingInPacket, pl *player.Player, ol
 		oldBlock.TypeId == byte(constants.Sugarcane.Value) ||
 		oldBlock.TypeId == byte(constants.Cactus.Value) ||
 		oldBlock.TypeId == byte(constants.Sapling.Value) ||
-		oldBlock.TypeId == byte(constants.Torch.Value)
+		oldBlock.TypeId == byte(constants.Torch.Value) ||
+		oldBlock.TypeId == byte(constants.Dandelion.Value) ||
+		oldBlock.TypeId == byte(constants.Rose.Value)
 }
 
 func damageHeldItemOnDig(pl *player.Player) {
@@ -397,7 +397,8 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	}
 
 	if blockItem == constants.LapisLazuliOre.Value {
-		return constants.Dye.Value, 4, 1
+		roll := rand.Intn(6) + 1
+		return constants.Dye.Value, 4, byte(roll)
 	}
 
 	if blockItem == constants.DiamondOre.Value {
@@ -499,7 +500,7 @@ func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockIt
 	dropZ := int32(p.Z)
 	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0, dim)
 	world.BroadcastPacket(spawnPacket)
-	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue)
+	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue, dim)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {
@@ -805,13 +806,13 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 	if rule.UseMeta {
 		meta = byte(heldItem.Metadata)
 	}
-	crop := level.PlantGrowable(world, rule.PlantedBlock, newX, byte(newY), newZ, meta)
+	growable := level.PlantGrowable(world, rule.PlantedBlock, newX, byte(newY), newZ, meta, pl.Dimension)
 	blockChange := packets.BlockChangeOutPacket{
 		X:         newX,
 		Y:         byte(newY),
 		Z:         newZ,
-		BlockType: crop.TypeId,
-		BlockMeta: crop.Metadata,
+		BlockType: growable.TypeId,
+		BlockMeta: growable.Metadata,
 	}
 	world.BroadcastPacket(blockChange.Serialize())
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
@@ -825,7 +826,7 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 	}
 	air := level.NewAirBlock()
 	world.SetBlockInQueue(newX, int32(newY), newZ, air, pl.Dimension)
-	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
+	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	var bucketItem inventory.Item
 	if existing.IsWater() {
 		bucketItem = inventory.Item{TypeId: constants.WaterBucket.Value, Count: 1}
@@ -978,7 +979,7 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 		VelocityY:     0,
 		VelocityZ:     0,
 	}
-	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 10)
+	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 10, pl.Dimension)
 	world.BroadcastPacket(spawnPacket.Serialize())
 
 	pl.Inventory.RemoveOne(slot)
@@ -1004,7 +1005,7 @@ func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, tr
 		VelocityY:     0,
 		VelocityZ:     0,
 	}
-	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), spawnY, float64(newZ), 0, 0, 0, 1)
+	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), spawnY, float64(newZ), 0, 0, 0, 1, pl.Dimension)
 	world.BroadcastPacket(spawnPacket.Serialize())
 	tracker.Add(pl.GetEntityId(), entityId)
 
@@ -1033,7 +1034,7 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 			pl.Inventory.RemoveOne(slot)
 			SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		}
-		world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
+		world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 		return true
 	}
 	return false
@@ -1046,7 +1047,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	// }
 
 	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
-	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue)
+	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
 
 	// Decrement the item in the in-memory inventory and sync to client.

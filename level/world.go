@@ -437,7 +437,7 @@ func (w *World) AddPlayer(p *player.Player) {
 	w.Entities[int32(p.EntityId)] = p
 }
 
-func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz float64, objectType byte) {
+func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz float64, objectType byte, dim int32) {
 	r := entities.RideableEntity{
 		EntityId:      entityId,
 		OwnerEntityId: ownerEntityId,
@@ -449,6 +449,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		VelocityZ:     vz,
 		ObjectType:    objectType,
 		HP:            4,
+		Dimension: dim,
 	}
 	w.Entities[int32(entityId)] = &r
 }

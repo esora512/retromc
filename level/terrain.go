@@ -240,7 +240,7 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
 			for ly := 0; ly < MAZE_FLOOR_Y; ly++ {
-				setBlock(lx, ly, lz, NewStoneBlock())
+				setBlock(lx, ly, lz, NewBedrockBlock())
 			}
 
 			corridor := open[lx][lz]
@@ -251,7 +251,7 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 					block = NewAirBlock()
 					block.SkyLight = 0x0f
 				} else {
-					block = NewStoneBlock()
+					block = NewBedrockBlock()
 				}
 				setBlock(lx, ly, lz, block)
 			}

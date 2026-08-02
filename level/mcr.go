@@ -612,6 +612,7 @@ func ToPlayerData(p *player.Player) *PlayerData {
 		Pitch:     p.Pitch,
 		Health:    p.HP,
 		Inventory: items,
+		Dimension: p.Dimension,
 	}
 }
 
@@ -636,4 +637,5 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 	p.Yaw, p.Pitch = data.Yaw, data.Pitch
 	p.HP = data.Health
 	p.Inventory.Items = items
+	p.Dimension = data.Dimension
 }

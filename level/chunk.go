@@ -565,7 +565,6 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	}
 	worldType := w.WorldType
 	if dim == -1 {
-		log.Printf("Generating Maze")
 		worldType = Maze
 	}
 	c := w.generateChunk(cx, cz, worldType)

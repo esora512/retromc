@@ -12,29 +12,56 @@ const (
 type Growable interface {
 	Grow(w *World, bk *BlockKey)
 	GrowNow(w *World) bool
+	Dim() int32
 }
 
 type Wheat struct {
 	StartTick int64
 	State     byte
+	Dimension int32
 }
 
 type Sugarcane struct {
 	StartTick int64
+	Dimension int32
 }
 
 type Cactus struct {
 	StartTick int64
+	Dimension int32
 }
 
 type Sapling struct {
 	StartTick int64
 	WoodType  byte
+	Dimension int32
 }
 
 type GrowableDirt struct {
 	StartTick int64
+	Dimension int32
 }
+
+func (w *Wheat) Dim() int32 {
+	return w.Dimension
+}
+
+func (w *Sugarcane) Dim() int32 {
+	return w.Dimension
+}
+
+func (w *Cactus) Dim() int32 {
+	return w.Dimension
+}
+
+func (w *Sapling) Dim() int32 {
+	return w.Dimension
+}
+
+func (w *GrowableDirt) Dim() int32 {
+	return w.Dimension
+}
+
 
 type PlantRule struct {
 	ValidGround  func(groundType byte) bool
@@ -62,24 +89,25 @@ func (w *World) SetGrowable(block Block, bk BlockKey, dim int32) {
 	// defer w.Mu.Unlock()
 	logic := chunk.Logic
 	if block.TypeId == byte(constants.Wheat.Value) {
-		logic.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata}
+		logic.Growables[bk] = &Wheat{StartTick: w.Tick, State: block.Metadata, Dimension: dim}
 	}
 	if block.TypeId == byte(constants.Sugarcane.Value) && block.Metadata == 0 {
-		logic.Growables[bk] = &Sugarcane{StartTick: w.Tick}
+		logic.Growables[bk] = &Sugarcane{StartTick: w.Tick, Dimension: dim}
 	}
 	if block.TypeId == byte(constants.Cactus.Value) && block.Metadata == 0 {
-		logic.Growables[bk] = &Cactus{StartTick: w.Tick}
+		logic.Growables[bk] = &Cactus{StartTick: w.Tick, Dimension: dim}
 	}
 	if block.TypeId == byte(constants.Sapling.Value) {
-		logic.Growables[bk] = &Sapling{StartTick: w.Tick, WoodType: block.Metadata}
+		logic.Growables[bk] = &Sapling{StartTick: w.Tick, WoodType: block.Metadata, Dimension: dim}
 	}
 	if block.TypeId == byte(constants.Dirt.Value) {
-		logic.Growables[bk] = &GrowableDirt{StartTick: w.Tick}
+		logic.Growables[bk] = &GrowableDirt{StartTick: w.Tick, Dimension: dim}
 	}
 }
 
 func (w *World) GrowPhysics() {
 	chunks := w.GetRenderedChunks(0)
+	chunks = append(chunks, w.GetRenderedChunks(-1)...)
 	for _, chunk := range chunks {
 		logic := chunk.Logic
 		for key, growable := range logic.Growables {
@@ -190,7 +218,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 func (c *Wheat) Grow(w *World, bk *BlockKey) {
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.GetOrCreateChunk(cx, cz, 0)
+	chunk := w.GetOrCreateChunk(cx, cz, c.Dim())
 	logic := chunk.Logic
 	if c.State >= CROP_MAX_STATE {
 		delete(logic.Growables, *bk)
@@ -209,7 +237,7 @@ func (c *Sugarcane) Grow(w *World, bk *BlockKey) {
 	baseY := int(bk.Y)
 	height := 0
 	for {
-		b := w.GetBlock(bk.X, byte(baseY+height), bk.Z, 0)
+		b := w.GetBlock(bk.X, byte(baseY+height), bk.Z, c.Dim())
 		if b.IsAir() {
 			break
 		}
@@ -221,7 +249,7 @@ func (c *Sugarcane) Grow(w *World, bk *BlockKey) {
 	}
 
 	cane := NewBlockById(constants.Sugarcane.Value, 1)
-	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cane, 0)
+	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cane, c.Dim())
 	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cane.TypeId, cane.Metadata)
 }
 
@@ -241,7 +269,7 @@ func (c *Cactus) Grow(w *World, bk *BlockKey) {
 	}
 
 	cactus := NewBlockById(constants.Cactus.Value, 1)
-	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cactus, 0)
+	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cactus, c.Dim())
 	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cactus.TypeId, cactus.Metadata)
 }
 
@@ -249,7 +277,7 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	log := NewBlockById(constants.Log.Value, s.WoodType)
 	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {
-		w.SetBlock(bk.X, bk.Y+byte(i), bk.Z, log, 0)
+		w.SetBlock(bk.X, bk.Y+byte(i), bk.Z, log, s.Dim())
 		w.BroadcastBlockChange(bk.X, int32(bk.Y)+int32(i), bk.Z, log.TypeId, log.Metadata)
 	}
 
@@ -291,19 +319,19 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	for dy, offsets := range leafLayers {
 		for _, off := range offsets {
 			dx, dz := off[0], off[1]
-			w.SetBlock(bk.X+int32(dx), topY+byte(dy), bk.Z+int32(dz), leaves, 0)
-			w.BroadcastBlockChange(bk.X + int32(dx), int32(topY)+int32(dy), bk.Z+int32(dz), leaves.TypeId, leaves.Metadata)
+			w.SetBlock(bk.X+int32(dx), topY+byte(dy), bk.Z+int32(dz), leaves, s.Dim())
+			w.BroadcastBlockChange(bk.X+int32(dx), int32(topY)+int32(dy), bk.Z+int32(dz), leaves.TypeId, leaves.Metadata)
 		}
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.GetOrCreateChunk(cx, cz, 0)
+	chunk := w.GetOrCreateChunk(cx, cz, s.Dim())
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }
 
-func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte) *Block {
+func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte, dim int32) *Block {
 	growable := NewBlockById(typeId, meta)
-	w.SetBlock(x, y, z, growable, 0)
+	w.SetBlock(x, y, z, growable, dim)
 	return &growable
 }
