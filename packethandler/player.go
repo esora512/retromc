@@ -392,7 +392,21 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 		return constants.Coal.Value, 0, 1
 	}
 
+	if blockItem == constants.IronOre.Value {
+		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.StonePickaxe.Value {
+			return 0, 0, 0
+		}
+	}
+
 	if blockItem == constants.RedstoneOreOff.Value {
+		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value {
+			return 0, 0, 0
+		}
 		return constants.Redstone.Value, 0, 1
 	}
 
@@ -402,6 +416,11 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	}
 
 	if blockItem == constants.DiamondOre.Value {
+		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
+			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value {
+			return 0, 0, 0
+		}
 		return constants.Diamond.Value, 0, 1
 	}
 

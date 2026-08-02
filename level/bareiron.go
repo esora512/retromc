@@ -332,7 +332,7 @@ func TerrainBlock(x, y, z int, rx, rz int, anchor chunkAnchor, feature ChunkFeat
 						return idDirt, 0
 					}
 					if y >= feature.y && y < feature.y-int(feature.variant)+6 {
-						return idLog, 0
+						return idLog, 1
 					}
 				}
 
@@ -341,12 +341,12 @@ func TerrainBlock(x, y, z int, rx, rz int, anchor chunkAnchor, feature ChunkFeat
 
 				if dx < 3 && dz < 3 && y > feature.y-int(feature.variant)+2 && y < feature.y-int(feature.variant)+5 {
 					if !(y == feature.y-int(feature.variant)+4 && dx == 2 && dz == 2) {
-						return idLeaves, 0
+						return idLeaves, 1
 					}
 				}
 				if dx < 2 && dz < 2 && y >= feature.y-int(feature.variant)+5 && y <= feature.y-int(feature.variant)+6 {
 					if !(y == feature.y-int(feature.variant)+6 && dx == 1 && dz == 1) {
-						return idLeaves, 0
+						return idLeaves, 1
 					}
 				}
 			}
