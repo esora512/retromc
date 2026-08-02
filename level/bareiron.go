@@ -2,7 +2,12 @@ package level
 
 // IMPORTANT: This is AI generated code, based on: https://github.com/p2r3/bareiron/blob/main/src/worldgen.c
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"math/rand"
+
+	"github.com/leNicDev/retromc/constants"
+)
 
 // ---- Tunable generator constants (see header comment above) ----------------
 const (
@@ -19,7 +24,7 @@ type betaIslandBiome uint8
 const (
 	biPlains betaIslandBiome = iota
 	biDesert
-	biSwamp // stand-in for the original "mangrove swamp"
+	biGarden 
 	biSnowyPlains
 	biBeach // not seed-selected; the ring around/outside every island
 )
@@ -49,6 +54,11 @@ const (
 	idRedstoneOr = 73
 	idSnowLayer  = 78
 	idIce        = 79
+)
+
+var (
+	idDandelion = constants.Dandelion.Value
+	idRose      = constants.Rose.Value
 )
 
 // splitmix64Beta mirrors the C helper `splitmix64` used by getChunkHash.
@@ -129,7 +139,7 @@ func betaCornerHeight(hash uint32, biome betaIslandBiome) byte {
 	height := byte(biIslandsBaseHeight)
 
 	switch biome {
-	case biSwamp:
+	case biGarden:
 		height += byte((hash % 3) + ((hash >> 4) % 3) + ((hash >> 8) % 3) + ((hash >> 12) % 3))
 		if height < 64 {
 			height -= byte((hash >> 24) & 3)
@@ -241,7 +251,7 @@ func betaFeatureFromAnchor(anchor betaAnchor, seed uint32) betaFeature {
 	fz := pos / size
 
 	skip := false
-	if anchor.biome != biSwamp {
+	if anchor.biome != biGarden {
 		if fx < 3 || fx > size-3 {
 			skip = true
 		} else if fz < 3 || fz > size-3 {
@@ -317,16 +327,47 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 				}
 			}
 
-		case biSwamp: 
+		case biGarden:
 			if y == int(height)+1 {
 				dx := absIntBeta(x - feature.x)
 				dz := absIntBeta(z - feature.z)
 				if dx+dz < 4 {
-					return idTallGrass, 1
+					roll := rand.Intn(2)
+					switch roll {
+					case 0:
+						return idTallGrass, 1
+					case 1: 
+						return byte(idDandelion), 1
+					}
+
 				}
 			}
 
-		case biSnowyPlains: // grass tufts
+		case biSnowyPlains:
+			if feature.y >= 64 {
+				if x == feature.x && z == feature.z {
+					if y == feature.y-1 {
+						return idDirt, 0
+					}
+					if y >= feature.y && y < feature.y-int(feature.variant)+6 {
+						return idLog, 0
+					}
+				}
+
+				dx := absIntBeta(x - feature.x)
+				dz := absIntBeta(z - feature.z)
+
+				if dx < 3 && dz < 3 && y > feature.y-int(feature.variant)+2 && y < feature.y-int(feature.variant)+5 {
+					if !(y == feature.y-int(feature.variant)+4 && dx == 2 && dz == 2) {
+						return idLeaves, 0
+					}
+				}
+				if dx < 2 && dz < 2 && y >= feature.y-int(feature.variant)+5 && y <= feature.y-int(feature.variant)+6 {
+					if !(y == feature.y-int(feature.variant)+6 && dx == 1 && dz == 1) {
+						return idLeaves, 0
+					}
+				}
+			}
 			if x == feature.x && z == feature.z && y == int(height)+1 && int(height) >= 64 {
 				return idTallGrass, 1
 			}
@@ -337,8 +378,8 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 	if height >= 63 {
 		if y == int(height) {
 			switch anchor.biome {
-			case biSwamp:
-				return idDirt, 0 // stand-in for mud
+			case biGarden:
+				return idGrass, 0 // stand-in for mud
 			case biSnowyPlains:
 				return idGrass, 0 // snowy-grass-block stand-in; snow layer added below
 			case biDesert, biBeach:
@@ -411,7 +452,7 @@ func betaTerrainBlock(x, y, z int, rx, rz int, anchor betaAnchor, feature betaFe
 		switch anchor.biome {
 		case biDesert:
 			return idSandstone, 0
-		case biSwamp:
+		case biGarden:
 			return idDirt, 0 // stand-in for mud
 		case biBeach:
 			if height > 64 {
