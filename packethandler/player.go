@@ -660,7 +660,7 @@ func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlo
 	}
 
 	if block.IsDirectional() {
-		if !configureDirectionalBlock(world, &block, newX, newY, newZ, heldItem, p) {
+		if !configureDirectionalBlock(world, pl, &block, newX, newY, newZ, heldItem, p) {
 			return
 		}
 	}
@@ -931,7 +931,7 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 	recalcRail(x-1, y, z) // west
 }
 
-func configureDirectionalBlock(world *level.World, block *level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlayerBlockPlacementInPacket) bool {
+func configureDirectionalBlock(world *level.World, pl *player.Player, block *level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlayerBlockPlacementInPacket) bool {
 	if block.TypeId == byte(constants.Chest.Value) {
 		check := world.PlaceChest(int32(newX), int32(newY), int32(newZ))
 		if !check {
@@ -958,7 +958,12 @@ func configureDirectionalBlock(world *level.World, block *level.Block, newX int3
 	}
 
 	directions := block.GetDirections()
-	switch p.Face {
+	var face byte 
+	face = p.Face
+	if face == 1 {
+		face = yawToFace(pl.Yaw)
+	}
+	switch face {
 	case 3:
 		// West
 		block.Metadata = directions.West
@@ -976,6 +981,24 @@ func configureDirectionalBlock(world *level.World, block *level.Block, newX int3
 	}
 
 	return true
+}
+
+func yawToFace(yaw float32) byte {
+	y := math.Mod(float64(yaw), 360)
+	if y < 0 {
+		y += 360
+	}
+
+	switch {
+	case y >= 321 || y < 48:
+		return 2 // East
+	case y < 137:
+		return 5 // South
+	case y < 230:
+		return 3 // West
+	default:
+		return 4 // North
+	}
 }
 
 func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, slot int16) {
