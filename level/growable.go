@@ -196,7 +196,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 		dx, dz := dir[0], dir[1]
 		targetX := bk.X + int32(dx)
 		targetZ := bk.Z + int32(dz)
-		targetBlock := w.GetBlock(targetX, bk.Y, targetZ, 0)
+		targetBlock := w.GetBlock(targetX, bk.Y, targetZ, s.Dimension)
 
 		if targetBlock.TypeId == byte(constants.Grass.Value) {
 			connectedToGrass = true
@@ -204,13 +204,13 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 		}
 	}
 	if connectedToGrass {
-		grass := NewBlockById(constants.Grass.Value, 0)
-		w.SetBlock(bk.X, bk.Y, bk.Z, grass, 0)
+		grass := NewBlockById(constants.Grass.Value, byte(s.Dimension))
+		w.SetBlock(bk.X, bk.Y, bk.Z, grass, s.Dimension)
 		w.BroadcastBlockChange(bk.X, int32(bk.Y), bk.Z, grass.TypeId, grass.Metadata)
 	}
 	cx := WorldToChunkCoord(bk.X)
 	cz := WorldToChunkCoord(bk.Z)
-	chunk := w.GetOrCreateChunk(cx, cz, 0)
+	chunk := w.GetOrCreateChunk(cx, cz, s.Dimension)
 	logic := chunk.Logic
 	delete(logic.Growables, *bk)
 }
@@ -257,7 +257,7 @@ func (c *Cactus) Grow(w *World, bk *BlockKey) {
 	baseY := int(bk.Y)
 	height := 0
 	for {
-		b := w.GetBlock(bk.X, byte(baseY+height), bk.Z, 0)
+		b := w.GetBlock(bk.X, byte(baseY+height), bk.Z, c.Dimension)
 		if b.IsAir() {
 			break
 		}

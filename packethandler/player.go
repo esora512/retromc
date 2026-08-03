@@ -314,7 +314,7 @@ func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInP
 	}
 
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
-	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
 	if blockItem == 0 {
@@ -958,7 +958,7 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *lev
 	}
 
 	directions := block.GetDirections()
-	var face byte 
+	var face byte
 	face = p.Face
 	if face == 1 {
 		face = yawToFace(pl.Yaw)
@@ -1090,7 +1090,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 
 	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
-	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue)
+	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)

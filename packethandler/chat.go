@@ -350,6 +350,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "growables":
 				loadedGrowables := make(map[level.BlockKey]level.Growable)
 				chunks := world.LoadChunks(0)
+				chunks = append(chunks, world.LoadChunks(-1)...)
 				for _, chunk := range chunks {
 					logic := chunk.Logic
 					for key, growable := range logic.Growables {

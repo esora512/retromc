@@ -76,13 +76,13 @@ func (s *BlockUpdateScheduler) scheduleFluidUpdate(tick int64, x, y, z int32, se
 	s.FluidUpdates[tick] = append(s.FluidUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock, Dimension: dim})
 }
 
-func (s *BlockUpdateScheduler) scheduleFallableUpdate(tick int64, x, y, z int32, setBlock SetBlock) {
+func (s *BlockUpdateScheduler) scheduleFallableUpdate(tick int64, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, job := range s.FallableUpdates[tick] {
 		if job.X == x && job.Y == y && job.Z == z {
 			return // already scheduled for this tick
 		}
 	}
-	s.FallableUpdates[tick] = append(s.FallableUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock})
+	s.FallableUpdates[tick] = append(s.FallableUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock, Dimension: dim})
 }
 
 func notifyFluid(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
@@ -97,21 +97,21 @@ func notifyFluid(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	w.Scheduler.scheduleFluidUpdate(w.Tick+delay, x, y, z, setBlock, dim)
 }
 
-func notifyFallable(w *World, x, y, z int32, setBlock SetBlock) {
-	if y < 0 || y > 255 || !w.IsLoaded(x, z, 0) {
+func notifyFallable(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, dim) {
 		return
 	}
-	b := w.GetBlock(x, byte(y), z, 0)
+	b := w.GetBlock(x, byte(y), z, dim)
 	if b.TypeId != byte(constants.Sand.Value) && b.TypeId != byte(constants.Gravel.Value) {
 		return
 	}
-	w.Scheduler.scheduleFallableUpdate(w.Tick+5, x, y, z, setBlock)
+	w.Scheduler.scheduleFallableUpdate(w.Tick+5, x, y, z, setBlock, dim)
 
 }
 
-func notifyFallableNeighbours(w *World, x, y, z int32, setBlock SetBlock) {
+func notifyFallableNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
-		notifyFallable(w, x+n.dx, y+n.dy, z+n.dz, setBlock)
+		notifyFallable(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
 	}
 }
 
@@ -138,21 +138,21 @@ func processFluidUpdate(w *World, u *BlockUpdate) {
 }
 
 func processFallableUpdateJob(w *World, u *BlockUpdate) {
-	b := w.GetBlock(u.X, byte(u.Y), u.Z, 0)
+	b := w.GetBlock(u.X, byte(u.Y), u.Z, u.Dimension)
 	if b.TypeId != byte(constants.Sand.Value) && b.TypeId != byte(constants.Gravel.Value) {
 		return
 	}
-	beneath := w.GetBlock(u.X, byte(u.Y)-1, u.Z, 0)
+	beneath := w.GetBlock(u.X, byte(u.Y)-1, u.Z, u.Dimension)
 	if !beneath.IsAir() && !beneath.IsLiquid() {
 		return
 	}
 
 	air := NewAirBlock()
-	u.SetBlock(u.X, u.Y, u.Z, air, 0)
+	u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
 
-	if !w.areaLoaded(u.X, u.Z, 32, 0) {
-		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata), 0)
-		notifyFallableNeighbours(w, u.X, u.Y, u.Z, u.SetBlock)
+	if !w.areaLoaded(u.X, u.Z, 32, u.Dimension) {
+		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata), u.Dimension)
+		notifyFallableNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 		return
 	}
 
@@ -164,10 +164,13 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	}
 
 	entityId := w.NextEntityId()
-	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z))
+	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z), u.Dimension)
 	w.BroadcastSpawnObject(entityId, objectType, int32(math.Floor((float64(u.X)+0.5)*32)), int32(math.Floor(float64(u.Y)*32)), int32(math.Floor((float64(u.Z)+0.5)*32)), 0, 0, 0, 0)
+	if falling.Dimension == -1 {
+		log.Println("Adding Falling Entity in Nether")
+	}
 	w.AddEntity(falling)
-	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock)
+	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock, u.Dimension)
 }
 
 func (w *World) TickFluids() {
@@ -189,9 +192,9 @@ func (w *World) TriggerFluidUpdate(x, y, z int32, setBlock SetBlock, dim int32) 
 	notifyFluidNeighbors(w, x, y, z, setBlock, dim)
 }
 
-func (w *World) TriggerFallableUpdate(x, y, z int32, setBlock SetBlock) {
-	notifyFallable(w, x, y, z, setBlock)
-	notifyFallableNeighbours(w, x, y, z, setBlock)
+func (w *World) TriggerFallableUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
+	notifyFallable(w, x, y, z, setBlock, dim)
+	notifyFallableNeighbours(w, x, y, z, setBlock, dim)
 }
 
 func recomputeFluid(w *World, u *BlockUpdate, b Block) {
@@ -491,5 +494,6 @@ func isFluidReplaceable(b Block) bool {
 		b.TypeId == byte(constants.Dandelion.Value) ||
 		b.TypeId == byte(constants.Rose.Value) ||
 		b.TypeId == byte(constants.BrownMushroom.Value) ||
-		b.TypeId == byte(constants.RedMushroom.Value)
+		b.TypeId == byte(constants.RedMushroom.Value) ||
+		b.TypeId == byte(constants.Tallgrass.Value)
 }

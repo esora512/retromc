@@ -18,7 +18,7 @@ type BlockEntity struct {
 	Dimension int32
 }
 
-func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64) *BlockEntity {
+func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32) *BlockEntity {
 	return &BlockEntity{
 		EntityId:     entityId,
 		TypeId:       typeId,
@@ -29,7 +29,7 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		VelocityY:    0,
 		VelocitySent: false,
 		IsFalling:    false,
-		Dimension: 0,
+		Dimension: dim,
 	}
 }
 
