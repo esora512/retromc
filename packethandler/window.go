@@ -363,7 +363,7 @@ func sendSetEquipment(world *level.World, slot, itemId int16, playerId int32) {
 		7: 2,
 		8: 1,
 	}
-	p := packets.SetEquipmentOutPacket{
+	p := packets.SetEquipmentPacket{
 		EntityId:      playerId,
 		InventorySlot: armorSlotMap[slot],
 		ItemId:        itemId,

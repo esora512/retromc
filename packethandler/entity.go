@@ -141,7 +141,7 @@ func applyKnockback(w *level.World, attacker, victim *player.Player) {
 	w.BroadcastPacket(ev.Serialize())
 }
 
-func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
+func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
 	player := world.Players[p.PlayerId]
 	other := world.Entities[p.EntityId]
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
@@ -232,7 +232,7 @@ func handleInteractWithEntityInPacket(p packets.InteractWithEntityOutPacket, pl 
 	}
 }
 
-func handleEntityActionInPacket(p packets.EntityActionInPacket, pl *player.Player, world *level.World) {
+func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, world *level.World) {
 	if p.ActionId == 1 {
 		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, true), pl)
 	}

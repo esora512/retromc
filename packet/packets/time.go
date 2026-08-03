@@ -1,4 +1,4 @@
-package packets 
+package packets
 
 import "github.com/leNicDev/retromc/packet"
 
@@ -8,7 +8,7 @@ type SetTimePacket struct {
 
 func (p *SetTimePacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.TimeUpdate)
+	w.WriteByte(packet.SetTime)
 	w.WriteInt64(p.Time)
 	return w.Bytes()
 }

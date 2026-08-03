@@ -46,15 +46,15 @@ func (p *UpdateSignPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-type SpawnPositionOutPacket struct {
+type SpawnPositionPacket struct {
 	X int32
 	Y int32
 	Z int32
 }
 
-func (p *SpawnPositionOutPacket) Serialize() []byte {
+func (p *SpawnPositionPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.SpawnPosition)
+	writer.WriteByte(packet.SetSpawnPosition)
 	writer.WriteInt32(p.X)
 	writer.WriteInt32(p.Y)
 	writer.WriteInt32(p.Z)
@@ -62,12 +62,12 @@ func (p *SpawnPositionOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-type PlayerAnimation struct {
+type AnimationPacket struct {
 	PlayerId int32
 	Action   byte
 }
 
-type SetEquipmentOutPacket struct {
+type SetEquipmentPacket struct {
 	EntityId      int32
 	InventorySlot int16
 	ItemId        int16
@@ -103,7 +103,7 @@ func (p *SpawnPlayerEntityOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func (p *SetEquipmentOutPacket) Serialize() []byte {
+func (p *SetEquipmentPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.SetEquipment)
 	w.WriteInt32(p.EntityId)
@@ -113,16 +113,16 @@ func (p *SetEquipmentOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func (p *PlayerAnimation) Serialize() []byte {
+func (p *AnimationPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.PlayerAnimation)
+	w.WriteByte(packet.Animation)
 	w.WriteInt32(p.PlayerId)
 	w.WriteByte(p.Action)
 	return w.Bytes()
 }
 
 func ArmSwing(pl *player.Player) []byte {
-	p := PlayerAnimation{
+	p := AnimationPacket{
 		PlayerId: int32(pl.EntityId),
 		Action:   1,
 	}
@@ -172,7 +172,7 @@ func SetEquipment(pl *player.Player, send func([]byte)) {
 		4: pl.Inventory.Items[5].TypeId,
 	}
 	for slot, itemId := range data {
-		p := &SetEquipmentOutPacket{
+		p := &SetEquipmentPacket{
 			EntityId:      int32(pl.EntityId),
 			InventorySlot: slot,
 			ItemId:        itemId,
@@ -192,7 +192,7 @@ func SetEquipment2(pl *player.Player, send func([]byte) (int, error)) {
 		4: pl.Inventory.Items[5].TypeId,
 	}
 	for slot, itemId := range data {
-		p := &SetEquipmentOutPacket{
+		p := &SetEquipmentPacket{
 			EntityId:      int32(pl.EntityId),
 			InventorySlot: slot,
 			ItemId:        itemId,
@@ -206,7 +206,7 @@ type RespawnPacket struct {
 	World byte
 }
 
-func ReadRespawnInPacket(reader *packet.PacketReader) RespawnPacket {
+func ReadRespawnPacket(reader *packet.PacketReader) RespawnPacket {
 	packet := RespawnPacket{}
 	packet.World = reader.ReadByte()
 	return packet
@@ -219,11 +219,11 @@ func (p *RespawnPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-type SetHealthOutPacket struct {
+type SetHealthPacket struct {
 	Health uint16
 }
 
-func (p *SetHealthOutPacket) Serialize() []byte {
+func (p *SetHealthPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.SetHealth)
 	w.WriteShort(p.Health)
@@ -236,7 +236,7 @@ type PlayerAnimationInPacket struct {
 	Animation byte
 }
 
-func ReadPlayerAnimationInPacket(reader *packet.PacketReader) PlayerAnimationInPacket {
+func ReadAnimationPacket(reader *packet.PacketReader) PlayerAnimationInPacket {
 	packet := PlayerAnimationInPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt()
@@ -245,15 +245,15 @@ func ReadPlayerAnimationInPacket(reader *packet.PacketReader) PlayerAnimationInP
 	return packet
 }
 
-type PlayerLookInPacket struct {
+type PlayerRotationPacket struct {
 	packet.Packet
 	Yaw      float32
 	Pitch    float32
 	OnGround bool
 }
 
-func ReadPlayerLookInPacket(reader *packet.PacketReader) PlayerLookInPacket {
-	packet := PlayerLookInPacket{}
+func ReadPlayerRotationPacket(reader *packet.PacketReader) PlayerRotationPacket {
+	packet := PlayerRotationPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Yaw = reader.ReadFloat32()
 	packet.Pitch = reader.ReadFloat32()
@@ -262,19 +262,19 @@ func ReadPlayerLookInPacket(reader *packet.PacketReader) PlayerLookInPacket {
 	return packet
 }
 
-type PlayerOnGroundInPacket struct {
+type PlayerMovementPacket struct {
 	packet.Packet
 	OnGround bool
 }
 
-func ReadPlayerOnGroundInPacket(reader *packet.PacketReader) PlayerOnGroundInPacket {
-	packet := PlayerOnGroundInPacket{}
+func ReadPlayerMovementPacket(reader *packet.PacketReader) PlayerMovementPacket {
+	packet := PlayerMovementPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.OnGround = reader.ReadBool()
 	return packet
 }
 
-type PlayerPositionInPacket struct {
+type PlayerPositionPacket struct {
 	packet.Packet
 	X        float64
 	Y        float64
@@ -283,28 +283,19 @@ type PlayerPositionInPacket struct {
 	OnGround bool
 }
 
-type PlayerPositionOutPacket struct {
-	packet.Packet
-	X        float64
-	Y        float64
-	Stance   float64
-	Z        float64
-	OnGround bool
-}
-
-func (p *PlayerPositionOutPacket) Serialize() []byte {
+func (p *PlayerPositionPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.PlayerPosition) // write packet id
-	w.WriteFloat64(p.X)                // write x position
-	w.WriteFloat64(p.Y)                // write y position
-	w.WriteFloat64(p.Stance)           // write stance
-	w.WriteFloat64(p.Z)                // write z position
-	w.WriteBool(p.OnGround)            // write on ground
+	w.WriteByte(packet.PlayerPosition)
+	w.WriteFloat64(p.X)
+	w.WriteFloat64(p.Y)
+	w.WriteFloat64(p.Stance)
+	w.WriteFloat64(p.Z)
+	w.WriteBool(p.OnGround)
 	return w.Bytes()
 }
 
-func ReadPlayerPositionInPacket(reader *packet.PacketReader) PlayerPositionInPacket {
-	packet := PlayerPositionInPacket{}
+func ReadPlayerPositionInPacket(reader *packet.PacketReader) PlayerPositionPacket {
+	packet := PlayerPositionPacket{}
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
 	packet.Stance = reader.ReadFloat64()
@@ -313,7 +304,7 @@ func ReadPlayerPositionInPacket(reader *packet.PacketReader) PlayerPositionInPac
 	return packet
 }
 
-type PlayerPositionAndLookInPacket struct {
+type PlayerPositionAndRotationPacket struct {
 	packet.Packet
 	X        float64
 	Y        float64
@@ -324,8 +315,8 @@ type PlayerPositionAndLookInPacket struct {
 	OnGround bool
 }
 
-func ReadPlayerPositionAndLookInPacket(reader *packet.PacketReader) PlayerPositionAndLookInPacket {
-	packet := PlayerPositionAndLookInPacket{}
+func ReadPlayerPositionAndRotationPacket(reader *packet.PacketReader) PlayerPositionAndRotationPacket {
+	packet := PlayerPositionAndRotationPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
@@ -337,19 +328,9 @@ func ReadPlayerPositionAndLookInPacket(reader *packet.PacketReader) PlayerPositi
 	return packet
 }
 
-type PlayerPositionAndLookOutPacket struct {
-	X        float64
-	Y        float64
-	Stance   float64
-	Z        float64
-	Yaw      float32
-	Pitch    float32
-	OnGround bool
-}
-
-func (p *PlayerPositionAndLookOutPacket) Serialize() []byte {
+func (p *PlayerPositionAndRotationPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.PlayerPositionAndLook)
+	w.WriteByte(packet.PlayerPositionAndRotation)
 	w.WriteFloat64(p.X)
 	w.WriteFloat64(p.Stance)
 	w.WriteFloat64(p.Y)
@@ -360,7 +341,7 @@ func (p *PlayerPositionAndLookOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-type PlayerBlockPlacementInPacket struct {
+type PlaceBlockPacket struct {
 	packet.Packet
 	X      int32
 	Y      byte
@@ -371,8 +352,8 @@ type PlayerBlockPlacementInPacket struct {
 	Damage int16 //short
 }
 
-func ReadPlaceInPacket(reader *packet.PacketReader) PlayerBlockPlacementInPacket {
-	packet := PlayerBlockPlacementInPacket{}
+func ReadPlaceBlockPacket(reader *packet.PacketReader) PlaceBlockPacket {
+	packet := PlaceBlockPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.X = reader.ReadInt32()
 	packet.Y = reader.ReadByte()
@@ -386,7 +367,7 @@ func ReadPlaceInPacket(reader *packet.PacketReader) PlayerBlockPlacementInPacket
 	return packet
 }
 
-type PlayerDiggingInPacket struct {
+type MineBlockPacket struct {
 	packet.Packet
 	Status byte
 	X      int32
@@ -395,28 +376,26 @@ type PlayerDiggingInPacket struct {
 	Face   byte
 }
 
-func ReadPlayerDiggingInPacket(reader *packet.PacketReader) PlayerDiggingInPacket {
-	packet := PlayerDiggingInPacket{}
+func ReadPlayerMineBlockPacket(reader *packet.PacketReader) MineBlockPacket {
+	packet := MineBlockPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Status = reader.ReadByte()
 	packet.X = reader.ReadInt32()
 	packet.Y = reader.ReadByte()
 	packet.Z = reader.ReadInt32()
 	packet.Face = reader.ReadByte()
-	//log.Printf("Mine: %+v", packet)
 	return packet
 }
 
-type HoldingChangeInPacket struct {
+type SetHotbarSlotPacket struct {
 	packet.Packet
 	Slot int16
 }
 
-func ReadHoldingChangeInPacket(reader *packet.PacketReader) HoldingChangeInPacket {
-	packet := HoldingChangeInPacket{}
+func ReadSetHotbarSlot(reader *packet.PacketReader) SetHotbarSlotPacket {
+	packet := SetHotbarSlotPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Slot = int16(reader.ReadShort())
-	//log.Printf("Holding change: %+v", packet)
 	return packet
 }
 

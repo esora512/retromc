@@ -7,7 +7,7 @@ type ChatMessagePacket struct {
 	Message string
 }
 
-func ReadChatMessageInPacket(reader *packet.PacketReader) ChatMessagePacket {
+func ReadChatMessagePacket(reader *packet.PacketReader) ChatMessagePacket {
 	packet := ChatMessagePacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Message = reader.ReadString16AndDecodeUTF16()

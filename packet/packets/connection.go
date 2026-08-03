@@ -14,57 +14,51 @@ func ReadDisconnectInPacket(reader *packet.PacketReader) DisconnectInPacket {
 	return packet
 }
 
-type HandshakeInPacket struct {
+type PreLoginPacket struct {
 	packet.Packet
-	Username string // string16
+	Username       string // string16, C->S
+	ConnectionHash string // string16, S->C
 }
 
-func ReadHandshakeInPacket(reader *packet.PacketReader) HandshakeInPacket {
-	packet := HandshakeInPacket{}
+func ReadPreLoginPacket(reader *packet.PacketReader) PreLoginPacket {
+	packet := PreLoginPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.Username = reader.ReadString16()
 	return packet
 }
 
-type HandshakeOutPacket struct {
-	ConnectionHash string // string16
-}
-
-func (p *HandshakeOutPacket) Serialize() []byte {
+func (p *PreLoginPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.Handshake)     // write packet id
+	w.WriteByte(packet.PreLogin)      // write packet id
 	w.WriteString16(p.ConnectionHash) // write connection hash (no name authentication)
 	return w.Bytes()
 }
 
-type KeepAliveInPacket struct {
+type KeepAlivePacket struct {
 	packet.Packet
 }
 
-func ReadKeepAliveInPacket(reader *packet.PacketReader) KeepAliveInPacket {
-	p := KeepAliveInPacket{}
+func ReadKeepAlivePacket(reader *packet.PacketReader) KeepAlivePacket {
+	p := KeepAlivePacket{}
 	p.PacketId = reader.GetPacketId()
 	return p
 }
 
-type KeepAliveOutPacket struct {
-	packet.Packet
-}
-
-func (p *KeepAliveOutPacket) Serialize() []byte {
+func (p *KeepAlivePacket) Serialize() []byte {
 	return []byte{packet.KeepAlive}
 }
 
-type LoginRequestInPacket struct {
+type LoginPacket struct {
 	packet.Packet
 	ProtocolVersion int
 	Username        string
 	MapSeed         int64
 	Dimension       byte
+	EntityId        int
 }
 
-func ReadLoginRequestInPacket(reader *packet.PacketReader) LoginRequestInPacket {
-	packet := LoginRequestInPacket{}
+func ReadLoginPacket(reader *packet.PacketReader) LoginPacket {
+	packet := LoginPacket{}
 	packet.ProtocolVersion = reader.ReadInt()
 	packet.Username = reader.ReadString16AndDecodeUTF16()
 	packet.MapSeed = reader.ReadLong()
@@ -72,15 +66,9 @@ func ReadLoginRequestInPacket(reader *packet.PacketReader) LoginRequestInPacket 
 	return packet
 }
 
-type LoginResponseOutPacket struct {
-	EntityId  int
-	MapSeed   int64
-	Dimension byte
-}
-
-func (p *LoginResponseOutPacket) Serialize() []byte {
+func (p *LoginPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.LoginRequest)
+	w.WriteByte(packet.Login)
 	w.WriteInt32(int32(p.EntityId))
 	w.WriteString16("") // write unknown attribute (possible server name?)
 	w.WriteInt64(p.MapSeed)

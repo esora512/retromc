@@ -75,7 +75,7 @@ func handleKeepAlive(connection net.Conn, stop chan struct{}) {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		keepAlive := packets.KeepAliveOutPacket{}
+		keepAlive := packets.KeepAlivePacket{}
 		for {
 			select {
 			case <-ticker.C:

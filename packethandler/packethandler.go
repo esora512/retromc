@@ -31,42 +31,43 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 
 	switch packetId {
 	case packet.KeepAlive:
-		packet := packets.ReadKeepAliveInPacket(packetReader)
+		packet := packets.ReadKeepAlivePacket(packetReader)
 		handleKeepAliveInPacket(connection, packet)
-	case packet.Handshake:
-		packet := packets.ReadHandshakeInPacket(packetReader)
+	case packet.PreLogin:
+		packet := packets.ReadPreLoginPacket(packetReader)
 		handleHandshakeInPacket(connection, packet)
-	case packet.LoginRequest:
-		packet := packets.ReadLoginRequestInPacket(packetReader)
+	case packet.Login:
+		packet := packets.ReadLoginPacket(packetReader)
 		handleLoginRequestInPacket(connection, packet, world, pl, tracker)
-	case packet.PlayerPositionAndLook:
-		p := packets.ReadPlayerPositionAndLookInPacket(packetReader)
-		handlePlayerPositionAndLookInPacket(connection, p, pl, world)
+	case packet.PlayerPositionAndRotation:
+		p := packets.ReadPlayerPositionAndRotationPacket(packetReader)
+		handlePlayerPositionAndRotationPacket(connection, p, pl, world)
 	case packet.PlayerPosition:
 		p := packets.ReadPlayerPositionInPacket(packetReader)
-		handlePlayerPositionInPacket(connection, p, pl, world)
-	case packet.PlayerOnGround:
-		packets.ReadPlayerOnGroundInPacket(packetReader)
-	case packet.PlayerLook:
-		p := packets.ReadPlayerLookInPacket(packetReader)
-		handlePlayerLookInPacket(p, pl, world)
-	case packet.EntityAction:
-		p := packets.ReadEntityActionInPacket(packetReader)
-		handleEntityActionInPacket(p, pl, world)
-	case packet.PlayerAnimation:
-		p := packets.ReadPlayerAnimationInPacket(packetReader)
+		handlePlayerPositionPacket(connection, p, pl, world)
+	case packet.PlayerMovement:
+		packets.ReadPlayerMovementPacket(packetReader)
+		// TODO: Unhandled, should broadcast player movement to other players
+	case packet.PlayerRotation:
+		p := packets.ReadPlayerRotationPacket(packetReader)
+		handlePlayerRotationPacket(p, pl, world)
+	case packet.PlayerAction:
+		p := packets.ReadPlayerActionPacket(packetReader)
+		handlePlayerActionPacket(p, pl, world)
+	case packet.Animation:
+		p := packets.ReadAnimationPacket(packetReader)
 		if p.Animation == 1 {
 			world.MulticastPacket(packets.ArmSwing(pl), pl)
 		}
-	case packet.PlayerDigging:
-		p := packets.ReadPlayerDiggingInPacket(packetReader)
-		handlePlayerDiggingInPacket(connection, p, world, pl)
-	case packet.HoldingChange:
-		p := packets.ReadHoldingChangeInPacket(packetReader)
-		handleHoldingChangeInPacket(p, pl, world)
-	case packet.PlayerBlockPlacement:
-		p := packets.ReadPlaceInPacket(packetReader)
-		handlePlayerBlockPlacementInPacket(connection, p, world, pl, tracker)
+	case packet.MineBlock:
+		p := packets.ReadPlayerMineBlockPacket(packetReader)
+		handleMineBlockPacket(connection, p, world, pl)
+	case packet.SetHotbarSlot:
+		p := packets.ReadSetHotbarSlot(packetReader)
+		handleSetHotbarSlot(p, pl, world)
+	case packet.PlaceBlock:
+		p := packets.ReadPlaceBlockPacket(packetReader)
+		handlePlaceBlockPacket(connection, p, world, pl, tracker)
 	case packet.WindowClick:
 		p := packets.ReadWindowClickInPacket(packetReader)
 		before := pl.Inventory.PeekItem(pl.HotbarSlot)
@@ -77,19 +78,19 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 			sendEquipmentChangeForHotbarSlot(world, pl)
 		}
 	case packet.Respawn:
-		p := packets.ReadRespawnInPacket(packetReader)
+		p := packets.ReadRespawnPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl, tracker)
 	case packet.CloseWindow:
 		p := packets.ReadCloseWindowInPacket(packetReader, pl)
 		handleCloseWindowInPacket(p, pl)
 	case packet.InteractWithEntity:
-		p := packets.ReadInteractWithEntityInPacket(packetReader)
-		handleInteractWithEntityInPacket(p, pl, world, tracker)
+		p := packets.ReadInteractWithEntityPacket(packetReader)
+		handleInteractWithEntityPacket(p, pl, world, tracker)
 	case packet.Disconnect:
 		p := packets.ReadDisconnectInPacket(packetReader)
 		handleDisconnectInPacket(connection, p, world, pl)
 	case packet.ChatMessage:
-		p := packets.ReadChatMessageInPacket(packetReader)
+		p := packets.ReadChatMessagePacket(packetReader)
 		isCommand := handleChatMessageInPacket(p, pl, world)
 		if isCommand {
 			sendCurrentInventory(connection, pl)

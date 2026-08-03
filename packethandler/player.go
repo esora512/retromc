@@ -72,7 +72,7 @@ func sendRespawn(connection net.Conn, world byte) {
 }
 
 func sendSetHealth(connection net.Conn, health uint16) {
-	setHealthPacket := packets.SetHealthOutPacket{
+	setHealthPacket := packets.SetHealthPacket{
 		Health: health,
 	}
 	connection.Write(setHealthPacket.Serialize())
@@ -84,7 +84,7 @@ func outOfBounds(x, z float64) bool {
 
 // rubberBand sends the player back to their last valid position.
 func rubberBand(connection net.Conn, pl *player.Player) {
-	p := packets.PlayerPositionAndLookOutPacket{
+	p := packets.PlayerPositionAndRotationPacket{
 		X:        pl.X,
 		Y:        pl.Y,
 		Stance:   pl.Stance,
@@ -137,7 +137,7 @@ func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player,
 //  }
 // }
 
-func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPositionAndLookInPacket, pl *player.Player, world *level.World) {
+func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
@@ -196,7 +196,7 @@ func handlePlayerPositionAndLookInPacket(connection net.Conn, p packets.PlayerPo
 	updateChunks(world, x, z, pl)
 }
 
-func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionInPacket, pl *player.Player, world *level.World) {
+func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPacket, pl *player.Player, world *level.World) {
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
@@ -245,8 +245,8 @@ func handlePlayerPositionInPacket(connection net.Conn, p packets.PlayerPositionI
 
 }
 
-func handlePlayerLookInPacket(p packets.PlayerLookInPacket, pl *player.Player, world *level.World) {
-	ep := packets.PlayerEntityLookPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
+	ep := packets.PlayerEntityRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
@@ -283,7 +283,7 @@ func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	world.BroadcastPacket(spawnDroppedItemPacket)
 }
 
-func handlePlayerDiggingInPacket(connection net.Conn, p packets.PlayerDiggingInPacket, world *level.World, pl *player.Player) {
+func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player) {
 	if p.Status == 4 {
 		dropHeldItemStack(connection, world, pl)
 		return
@@ -336,7 +336,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	dropItemFromPlayer(world, pl, typeId, metadata, 1)
 }
 
-func shouldProcessDigging(p packets.PlayerDiggingInPacket, pl *player.Player, oldBlock level.Block) bool {
+func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock level.Block) bool {
 	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
 	if pl.Inventory.Items[pl.HotbarSlot].IsShovel() && oldBlock.TypeId == byte(constants.SnowLayer.Value) {
 		return true
@@ -369,7 +369,7 @@ func damageHeldItemOnDig(pl *player.Player) {
 	}
 }
 
-func removeMinedBlockEntity(world *level.World, p packets.PlayerDiggingInPacket, oldBlock level.Block) {
+func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock level.Block) {
 	if oldBlock.TypeId == byte(constants.Chest.Value) {
 		world.RemoveChest(p.X, int32(p.Y), p.Z)
 	}
@@ -383,7 +383,7 @@ func removeMinedBlockEntity(world *level.World, p packets.PlayerDiggingInPacket,
 	}
 }
 
-func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBlock level.Block, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
+func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock level.Block, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
@@ -513,7 +513,7 @@ func computeMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, oldBl
 	return blockItem, blockMeta, count
 }
 
-func spawnMinedDrop(world *level.World, p packets.PlayerDiggingInPacket, blockItem int16, blockMeta byte, count byte, dim int32) {
+func spawnMinedDrop(world *level.World, p packets.MineBlockPacket, blockItem int16, blockMeta byte, count byte, dim int32) {
 	dropX := int32(p.X)
 	dropY := int32(p.Y)
 	dropZ := int32(p.Z)
@@ -578,7 +578,7 @@ func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Pl
 	return true
 }
 
-func handlePlayerBlockPlacementInPacket(connection net.Conn, p packets.PlayerBlockPlacementInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
 
@@ -690,7 +690,7 @@ func logPlacementDebug(pl *player.Player, oldExisting level.Block) {
 	sendDebugMessage(pl, fmt.Sprintf("Block type=%d meta=%d, light=%d, skylight=%d", oldExisting.TypeId, oldExisting.Metadata, oldExisting.Light, oldExisting.SkyLight))
 }
 
-func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Player, p packets.PlayerBlockPlacementInPacket, oldExisting level.Block) bool {
+func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Player, p packets.PlaceBlockPacket, oldExisting level.Block) bool {
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		cp := packets.NewCraftingTable()
 		connection.Write(cp.Serialize())
@@ -761,7 +761,7 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 	return true
 }
 
-func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlacementInPacket, pl *player.Player, heldItem inventory.Item) {
+func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, heldItem inventory.Item) {
 	fire := level.NewFireBlock()
 	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire, pl.Dimension)
 	if !crafting.HasDurability(heldItem.TypeId) {
@@ -778,7 +778,7 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlayerBlockPlace
 	}
 }
 
-func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, oldExisting level.Block, heldItem inventory.Item, dim int32) bool {
+func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting level.Block, heldItem inventory.Item, dim int32) bool {
 	if (oldExisting.TypeId != byte(constants.Dirt.Value) && oldExisting.TypeId != byte(constants.Grass.Value)) || !heldItem.IsHoe() {
 		return false
 	}
@@ -788,7 +788,7 @@ func tryTillSoil(world *level.World, p packets.PlayerBlockPlacementInPacket, old
 }
 
 // Face: 0=-Y  1=+Y  2=-Z  3=+Z  4=-X  5=+X
-func placementTargetCoords(p packets.PlayerBlockPlacementInPacket, w *level.World, dim int32) (int32, int, int32) {
+func placementTargetCoords(p packets.PlaceBlockPacket, w *level.World, dim int32) (int32, int, int32) {
 	existing := w.GetBlock(p.X, byte(p.Y), p.Z, dim)
 	if existing.TypeId == byte(constants.SnowLayer.Value) {
 		return p.X, int(p.Y), p.Z
@@ -931,7 +931,7 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 	recalcRail(x-1, y, z) // west
 }
 
-func configureDirectionalBlock(world *level.World, pl *player.Player, block *level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlayerBlockPlacementInPacket) bool {
+func configureDirectionalBlock(world *level.World, pl *player.Player, block *level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlaceBlockPacket) bool {
 	if block.TypeId == byte(constants.Chest.Value) {
 		check := world.PlaceChest(int32(newX), int32(newY), int32(newZ))
 		if !check {
@@ -1082,7 +1082,7 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 	return false
 }
 
-func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlayerBlockPlacementInPacket, slot int16) {
+func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlaceBlockPacket, slot int16) {
 	// below := world.GetBlock(newX, byte(newY-1), newZ)
 	// if below.TypeId == byte(constants.SnowLayer.Value) {
 	// 	newY = newY - 1
@@ -1113,7 +1113,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	}
 }
 
-func handleHoldingChangeInPacket(p packets.HoldingChangeInPacket, pl *player.Player, world *level.World) {
+func handleSetHotbarSlot(p packets.SetHotbarSlotPacket, pl *player.Player, world *level.World) {
 	// Drop the update while a BlockPlacement is in progress to avoid a race
 	// where a slot change arriving just after placement resets the wrong slot.
 	if pl.HotbarLocked.Load() {

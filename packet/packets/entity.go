@@ -63,7 +63,7 @@ type EntityPositionOutPacket struct {
 	Z        byte
 }
 
-type EntityLookOutPacket struct {
+type EntityRotationPacket struct {
 	EntityId int32
 	Yaw      byte
 	Pitch    byte
@@ -158,7 +158,7 @@ func (p *EntityPositionOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *EntityLookOutPacket) Serialize() []byte {
+func (p *EntityRotationPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityLook)
 	writer.WriteInt32(p.EntityId)
@@ -248,8 +248,7 @@ func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world 
 	return p.Serialize()
 }
 
-
-const maxRelDelta = 127 
+const maxRelDelta = 127
 
 func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
@@ -293,8 +292,6 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 	return p.Serialize()
 }
 
-
-
 func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
@@ -328,11 +325,11 @@ func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level
 	return p.Serialize()
 }
 
-func PlayerEntityLookPacket(pl *player.Player, yaw, pitch float64, world *level.World) []byte {
+func PlayerEntityRotationPacket(pl *player.Player, yaw, pitch float64, world *level.World) []byte {
 	dYaw := int32(math.Floor(yaw * 256 / 360))
 	dPitch := int32(math.Floor(pitch * 256 / 360))
 
-	p := EntityLookOutPacket{
+	p := EntityRotationPacket{
 		EntityId: int32(pl.EntityId),
 		Yaw:      byte(dYaw),
 		Pitch:    byte(dPitch),
@@ -340,14 +337,14 @@ func PlayerEntityLookPacket(pl *player.Player, yaw, pitch float64, world *level.
 	return p.Serialize()
 }
 
-type EntityActionInPacket struct {
+type PlayerActionPacket struct {
 	packet.Packet
 	EntityId int
 	ActionId byte
 }
 
-func ReadEntityActionInPacket(reader *packet.PacketReader) EntityActionInPacket {
-	packet := EntityActionInPacket{}
+func ReadPlayerActionPacket(reader *packet.PacketReader) PlayerActionPacket {
+	packet := PlayerActionPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.EntityId = reader.ReadInt()
 	packet.ActionId = reader.ReadByte()
@@ -362,7 +359,7 @@ type InteractWithEntityOutPacket struct {
 	Attack   bool // true = left click, false = right click
 }
 
-func ReadInteractWithEntityInPacket(reader *packet.PacketReader) InteractWithEntityOutPacket {
+func ReadInteractWithEntityPacket(reader *packet.PacketReader) InteractWithEntityOutPacket {
 	packet := InteractWithEntityOutPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt32()

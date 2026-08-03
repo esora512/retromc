@@ -10,11 +10,11 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleHandshakeInPacket(connection net.Conn, p packets.HandshakeInPacket) {
-	handshakeOutPacket := packets.HandshakeOutPacket{
+func handleHandshakeInPacket(connection net.Conn, p packets.PreLoginPacket) {
+	pkt := packets.PreLoginPacket{
 		ConnectionHash: "-",
 	}
-	outData := handshakeOutPacket.Serialize()
+	outData := pkt.Serialize()
 	connection.Write(outData)
 }
 
@@ -27,10 +27,10 @@ func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket,
 	world.BroadcastPacket(packets.EntityDespawnPacket(pl.GetEntityId()))
 }
 
-func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
+func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAlivePacket) {
 	//log.Printf("KeepAlive: %+v", p)
 	// create keep alive out packet
-	keepAliveOutPacket := packets.KeepAliveOutPacket{}
+	keepAliveOutPacket := packets.KeepAlivePacket{}
 	outData := keepAliveOutPacket.Serialize()
 
 	// write keep alive out packet
@@ -40,7 +40,7 @@ func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAliveInPacket) {
 	}
 }
 
-func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	pl.Username = p.Username
 	unlock := world.LockSession(p.Username)
 	defer unlock()
@@ -81,7 +81,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginRequestInPac
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {
-	outPacket := packets.LoginResponseOutPacket{
+	outPacket := packets.LoginPacket{
 		EntityId:  pl.EntityId,
 		MapSeed:   w.Seed,
 		Dimension: byte(pl.Dimension),

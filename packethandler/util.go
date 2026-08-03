@@ -177,7 +177,7 @@ func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
 }
 
 func sendPlayerPositionAndLook(connection net.Conn, x, z float64, y float64) {
-	packet := packets.PlayerPositionAndLookOutPacket{
+	packet := packets.PlayerPositionAndRotationPacket{
 		X:        x,
 		Y:        y,
 		Stance:   y + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
@@ -233,7 +233,7 @@ func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64,
 			continue
 		}
 		if pl.GetEntityId() == c.GetEntityId() {
-			selfPkt := packets.PlayerPositionAndLookOutPacket{
+			selfPkt := packets.PlayerPositionAndRotationPacket{
 				X: cx, Y: cy, Z: cz, Stance: cy + 2, OnGround: true,
 				Yaw:   float32(yaw) * 360.0 / 256.0,
 				Pitch: 0,
@@ -335,7 +335,7 @@ type SetTimePacket struct {
 
 func (p *SetTimePacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.TimeUpdate)
+	w.WriteByte(packet.SetTime)
 	w.WriteInt64(p.Time)
 	return w.Bytes()
 }
