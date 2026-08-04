@@ -8,7 +8,7 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-type TeleportEntity struct {
+type TeleportEntityPacket struct {
 	EntityId int32
 	X        int32
 	Y        int32
@@ -17,12 +17,12 @@ type TeleportEntity struct {
 	Pitch    byte
 }
 
-type AddPassenger struct {
+type AddPassengerPacket struct {
 	Passenger int32
 	Vehicle   int32
 }
 
-type SpawnObject struct {
+type SpawnObjectPacket struct {
 	EntityId      int32
 	ObjectType    byte
 	X             int32
@@ -34,7 +34,7 @@ type SpawnObject struct {
 	VelocityZ     int16
 }
 
-type SpawnItem struct {
+type SpawnItemPacket struct {
 	EntityId int32
 	ItemId   int16
 	Amount   byte
@@ -47,7 +47,7 @@ type SpawnItem struct {
 	Roll     byte
 }
 
-type EntityPositionAndLookOutPacket struct {
+type EntityPositionAndLookPacket struct {
 	EntityId int32
 	X        byte
 	Y        byte
@@ -56,7 +56,7 @@ type EntityPositionAndLookOutPacket struct {
 	Pitch    byte
 }
 
-type EntityPositionOutPacket struct {
+type EntityPositionPacket struct {
 	EntityId int32
 	X        byte
 	Y        byte
@@ -69,16 +69,16 @@ type EntityRotationPacket struct {
 	Pitch    byte
 }
 
-type EntityDespawnOutPacket struct {
+type DespawnEntityPacket struct {
 	EntityId int32
 }
 
-type EntityEventOutPacket struct {
+type EntityEventPacket struct {
 	EntityId int32
 	Action   byte
 }
 
-type CollectItemOutPacket struct {
+type CollectItemPacket struct {
 	ItemId      int32
 	CollectorId int32
 }
@@ -93,7 +93,7 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
-func (p *CollectItemOutPacket) Serialize() []byte {
+func (p *CollectItemPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.CollectItem)
 	w.WriteInt32(p.ItemId)
@@ -101,7 +101,7 @@ func (p *CollectItemOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func (p *SpawnItem) Serialize() []byte {
+func (p *SpawnItemPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.SpawnItem)
 	w.WriteInt32(p.EntityId)
@@ -117,12 +117,12 @@ func (p *SpawnItem) Serialize() []byte {
 	return w.Bytes()
 }
 
-type EntityVelocity struct {
+type EntityVelocityPacket struct {
 	EntityId   int32
 	Vx, Vy, Vz float64
 }
 
-func (p *EntityVelocity) Serialize() []byte {
+func (p *EntityVelocityPacket) Serialize() []byte {
 	vx := int16(clamp(p.Vx, -3.9, 3.9) * 8000)
 	vy := int16(clamp(p.Vy, -3.9, 3.9) * 8000)
 	vz := int16(clamp(p.Vz, -3.9, 3.9) * 8000)
@@ -136,7 +136,7 @@ func (p *EntityVelocity) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *EntityPositionAndLookOutPacket) Serialize() []byte {
+func (p *EntityPositionAndLookPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityPositionAndRotation)
 	writer.WriteInt32(p.EntityId)
@@ -148,7 +148,7 @@ func (p *EntityPositionAndLookOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *EntityPositionOutPacket) Serialize() []byte {
+func (p *EntityPositionPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityPosition)
 	writer.WriteInt32(p.EntityId)
@@ -160,21 +160,21 @@ func (p *EntityPositionOutPacket) Serialize() []byte {
 
 func (p *EntityRotationPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.EntityLook)
+	writer.WriteByte(packet.EntityRotation)
 	writer.WriteInt32(p.EntityId)
 	writer.WriteByte(p.Yaw)
 	writer.WriteByte(p.Pitch)
 	return writer.Bytes()
 }
 
-func (p *EntityDespawnOutPacket) Serialize() []byte {
+func (p *DespawnEntityPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.DespawnEntity)
 	writer.WriteInt32(p.EntityId)
 	return writer.Bytes()
 }
 
-func (p *SpawnObject) Serialize() []byte {
+func (p *SpawnObjectPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.SpawnObject)
 	writer.WriteInt32(p.EntityId)
@@ -189,7 +189,7 @@ func (p *SpawnObject) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *AddPassenger) Serialize() []byte {
+func (p *AddPassengerPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.AddPassenger)
 	writer.WriteInt32(p.Passenger)
@@ -197,7 +197,7 @@ func (p *AddPassenger) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *TeleportEntity) Serialize() []byte {
+func (p *TeleportEntityPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.TeleportEntity)
 	writer.WriteInt32(p.EntityId)
@@ -209,35 +209,28 @@ func (p *TeleportEntity) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func AlicesRidesBob(alice, bob int32) []byte {
-	p := AddPassenger{
-		Passenger: alice,
-		Vehicle:   bob,
+func NewAddPassengerPacket(passenger, vehicle int32) []byte {
+	p := AddPassengerPacket{
+		Passenger: passenger,
+		Vehicle:   vehicle,
 	}
 	return p.Serialize()
 }
 
-func PlayerEntityDespawnPacket(pl *player.Player) []byte {
-	p := EntityDespawnOutPacket{
-		EntityId: int32(pl.EntityId),
-	}
-	return p.Serialize()
-}
-
-func EntityDespawnPacket(id int32) []byte {
-	p := EntityDespawnOutPacket{
+func NewEntityDespawnPacket(id int32) []byte {
+	p := DespawnEntityPacket{
 		EntityId: id,
 	}
 	return p.Serialize()
 }
 
-func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
+func NewTeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
 	dYaw := int32(math.Floor(yaw * 256 / 360))
 	dPitch := int32(math.Floor(pitch * 256 / 360))
-	p := TeleportEntity{
+	p := TeleportEntityPacket{
 		EntityId: pl.GetEntityId(),
 		X:        encX,
 		Y:        encY,
@@ -250,7 +243,7 @@ func TeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, world 
 
 const maxRelDelta = 127
 
-func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
+func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
@@ -270,7 +263,7 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 		// 	pl.EntityId, dX, dY, dZ,
 		// )
 
-		p := TeleportEntity{
+		p := TeleportEntityPacket{
 			EntityId: int32(pl.EntityId),
 			X:        encX,
 			Y:        encY,
@@ -281,7 +274,7 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 		return p.Serialize()
 	}
 
-	p := EntityPositionAndLookOutPacket{
+	p := EntityPositionAndLookPacket{
 		EntityId: int32(pl.EntityId),
 		X:        byte(dX),
 		Y:        byte(dY),
@@ -292,7 +285,7 @@ func PlayerEntityPositionAndLookPacket(pl *player.Player, x, y, z, yaw, pitch fl
 	return p.Serialize()
 }
 
-func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
+func NewPlayerPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
@@ -305,7 +298,7 @@ func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level
 		dY < -maxRelDelta || dY > maxRelDelta ||
 		dZ < -maxRelDelta || dZ > maxRelDelta {
 
-		p := TeleportEntity{
+		p := TeleportEntityPacket{
 			EntityId: int32(pl.EntityId),
 			X:        encX,
 			Y:        encY,
@@ -316,7 +309,7 @@ func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level
 		return p.Serialize()
 	}
 
-	p := EntityPositionOutPacket{
+	p := EntityPositionPacket{
 		EntityId: int32(pl.EntityId),
 		X:        byte(dX),
 		Y:        byte(dY),
@@ -325,7 +318,7 @@ func PlayerEntityPositionPacket(pl *player.Player, x, y, z float64, world *level
 	return p.Serialize()
 }
 
-func PlayerEntityRotationPacket(pl *player.Player, yaw, pitch float64, world *level.World) []byte {
+func NewPlayerRotationPacket(pl *player.Player, yaw, pitch float64, world *level.World) []byte {
 	dYaw := int32(math.Floor(yaw * 256 / 360))
 	dPitch := int32(math.Floor(pitch * 256 / 360))
 
@@ -352,15 +345,15 @@ func ReadPlayerActionPacket(reader *packet.PacketReader) PlayerActionPacket {
 	return packet
 }
 
-type InteractWithEntityOutPacket struct {
+type InteractWithEntityPacket struct {
 	packet.Packet
 	EntityId int32
 	PlayerId int32
 	Attack   bool // true = left click, false = right click
 }
 
-func ReadInteractWithEntityPacket(reader *packet.PacketReader) InteractWithEntityOutPacket {
-	packet := InteractWithEntityOutPacket{}
+func ReadInteractWithEntityPacket(reader *packet.PacketReader) InteractWithEntityPacket {
+	packet := InteractWithEntityPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.PlayerId = reader.ReadInt32()
 	packet.EntityId = reader.ReadInt32()
@@ -368,7 +361,7 @@ func ReadInteractWithEntityPacket(reader *packet.PacketReader) InteractWithEntit
 	return packet
 }
 
-type EntityMetadata struct {
+type EntityMetadataPacket struct {
 	EntityId int32
 	Metadata []byte
 }
@@ -405,7 +398,7 @@ func ridingMetadata(riding bool) []byte {
 	}
 }
 
-func (p *EntityMetadata) Serialize() []byte {
+func (p *EntityMetadataPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.EntityMetadata)
 	w.WriteInt32(p.EntityId)
@@ -413,8 +406,8 @@ func (p *EntityMetadata) Serialize() []byte {
 	return w.Bytes()
 }
 
-func PlayerEntityMetadataPacketSneak(pl *player.Player, sneaking bool) []byte {
-	p := EntityMetadata{
+func NewPlayerMetadataPacketSneak(pl *player.Player, sneaking bool) []byte {
+	p := EntityMetadataPacket{
 		EntityId: int32(pl.EntityId),
 		Metadata: sneakMetadata(sneaking),
 	}
@@ -422,14 +415,14 @@ func PlayerEntityMetadataPacketSneak(pl *player.Player, sneaking bool) []byte {
 }
 
 func PlayerEntityMetadataPacketRiding(pl *player.Player, riding bool) []byte {
-	p := EntityMetadata{
+	p := EntityMetadataPacket{
 		EntityId: int32(pl.EntityId),
 		Metadata: ridingMetadata(riding),
 	}
 	return p.Serialize()
 }
 
-func (p *EntityEventOutPacket) Serialize() []byte {
+func (p *EntityEventPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.EntityEvent)
 	w.WriteInt32(p.EntityId)
@@ -438,13 +431,13 @@ func (p *EntityEventOutPacket) Serialize() []byte {
 }
 
 func CollectItem(itemId, collectorId int32) []byte {
-	p := CollectItemOutPacket{ItemId: itemId, CollectorId: collectorId}
+	p := CollectItemPacket{ItemId: itemId, CollectorId: collectorId}
 	return p.Serialize()
 }
 
 func SpawnDroppedItem(w *level.World, itemId int16, amount, meta byte, x, y, z int32, yaw, pitch, roll byte, pickupDelay int32, dim int32) []byte {
 	entityId := w.AddDroppedItem(x, y, z, int32(itemId), amount, meta, pickupDelay, dim)
-	p := SpawnItem{
+	p := SpawnItemPacket{
 		EntityId: entityId,
 		ItemId:   itemId,
 		Amount:   amount,

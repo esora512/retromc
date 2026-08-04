@@ -53,7 +53,7 @@ func main() {
 	world.SetBroadcastSpawnObject(packethandler.BroadcastSpawnObject)
 	world.SetBroadcastTime(packethandler.BroadcastTime)
 
-	entityTracker := level.NewEntityTracker(packets.SpawnPlayerEntityPacket, packets.SpawnObjectPacket, packets.EntityDespawnPacket, packets.SetEquipment2)
+	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.NewEntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -109,7 +109,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
 						log.Println("Failed to save inventory:", saveErr)
 					}
-					world.BroadcastPacket(packets.PlayerEntityDespawnPacket(pl))
+					world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 					world.RemovePlayer(pl)
 					tracker.Remove(pl.GetEntityId())
 				}

@@ -63,8 +63,9 @@ func (p *SpawnPositionPacket) Serialize() []byte {
 }
 
 type AnimationPacket struct {
+	packet.Packet
 	PlayerId int32
-	Action   byte
+	Animation   byte
 }
 
 type SetEquipmentPacket struct {
@@ -74,7 +75,7 @@ type SetEquipmentPacket struct {
 	ItemMetadata  int16
 }
 
-type SpawnPlayerEntityOutPacket struct {
+type SpawnPlayerPacket struct {
 	EntityId int32
 	Username string
 	X        int32
@@ -85,9 +86,9 @@ type SpawnPlayerEntityOutPacket struct {
 	HeldItem int16
 }
 
-func (p *SpawnPlayerEntityOutPacket) Serialize() []byte {
+func (p *SpawnPlayerPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.SpawnPlayerEntity)
+	w.WriteByte(packet.SpawnPlayer)
 	w.WriteInt32(p.EntityId)
 	// log.Printf("Raw username bytes: % X\n", []byte(p.Username))
 	// log.Printf("Raw username string: %q\n", p.Username)
@@ -117,22 +118,22 @@ func (p *AnimationPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.Animation)
 	w.WriteInt32(p.PlayerId)
-	w.WriteByte(p.Action)
+	w.WriteByte(p.Animation)
 	return w.Bytes()
 }
 
 func ArmSwing(pl *player.Player) []byte {
 	p := AnimationPacket{
 		PlayerId: int32(pl.EntityId),
-		Action:   1,
+		Animation:   1,
 	}
 	return p.Serialize()
 }
 
-func SpawnPlayerEntityPacket(pl *player.Player) []byte {
+func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	// The protocol encodes positions in entity space: 1 block = 32 units.
 	//log.Printf("Spawn %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)
-	p := SpawnPlayerEntityOutPacket{
+	p := SpawnPlayerPacket{
 		EntityId: int32(pl.EntityId),
 		Username: pl.Username,
 		X:        int32(pl.X * 32),
@@ -145,10 +146,10 @@ func SpawnPlayerEntityPacket(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
-func SpawnObjectPacket(e level.Entity) []byte {
+func NewSpawnObjectPacket(e level.Entity) []byte {
 	// NOTE: Bad practice but we wing it...
 	rideable, _ := e.(*entities.RideableEntity)
-	p := SpawnObject{
+	p := SpawnObjectPacket{
 		EntityId:      e.GetEntityId(),
 		ObjectType:    rideable.ObjectType,
 		X:             int32(rideable.X * 32),
@@ -230,18 +231,12 @@ func (p *SetHealthPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-type PlayerAnimationInPacket struct {
-	packet.Packet
-	PlayerId  int
-	Animation byte
-}
 
-func ReadAnimationPacket(reader *packet.PacketReader) PlayerAnimationInPacket {
-	packet := PlayerAnimationInPacket{}
+func ReadAnimationPacket(reader *packet.PacketReader) AnimationPacket {
+	packet := AnimationPacket{}
 	packet.PacketId = reader.GetPacketId()
-	packet.PlayerId = reader.ReadInt()
+	packet.PlayerId = reader.ReadInt32()
 	packet.Animation = reader.ReadByte()
-	//log.Printf("Player animation: %+v", packet)
 	return packet
 }
 
@@ -294,7 +289,7 @@ func (p *PlayerPositionPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func ReadPlayerPositionInPacket(reader *packet.PacketReader) PlayerPositionPacket {
+func ReadPlayerPositionPacket(reader *packet.PacketReader) PlayerPositionPacket {
 	packet := PlayerPositionPacket{}
 	packet.X = reader.ReadFloat64()
 	packet.Y = reader.ReadFloat64()
@@ -399,7 +394,7 @@ func ReadSetHotbarSlot(reader *packet.PacketReader) SetHotbarSlotPacket {
 	return packet
 }
 
-type BlockChangeOutPacket struct {
+type SetBlockPacket struct {
 	X         int32
 	Y         byte
 	Z         int32
@@ -407,9 +402,9 @@ type BlockChangeOutPacket struct {
 	BlockMeta byte
 }
 
-func (p *BlockChangeOutPacket) Serialize() []byte {
+func (p *SetBlockPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.BlockChange)
+	writer.WriteByte(packet.SetBlock)
 	writer.WriteInt32(p.X)
 	writer.WriteByte(p.Y)
 	writer.WriteInt32(p.Z)
@@ -419,7 +414,7 @@ func (p *BlockChangeOutPacket) Serialize() []byte {
 }
 
 func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta byte) {
-	p := BlockChangeOutPacket{
+	p := SetBlockPacket{
 		X:         x,
 		Y:         byte(y),
 		Z:         z,
@@ -429,7 +424,7 @@ func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta by
 	w.BroadcastPacket(p.Serialize())
 }
 
-type PlayerInputInPacket struct {
+type PlayerInputPacket struct {
 	packet.Packet
 	StrafeDirection  float64
 	ForwardDirection float64
@@ -439,8 +434,8 @@ type PlayerInputInPacket struct {
 	Sneaking         bool
 }
 
-func ReadPlayerInputInPacket(reader *packet.PacketReader) PlayerInputInPacket {
-	packet := PlayerInputInPacket{}
+func ReadPlayerInputPacket(reader *packet.PacketReader) PlayerInputPacket {
+	packet := PlayerInputPacket{}
 	packet.PacketId = reader.GetPacketId()
 	packet.StrafeDirection = reader.ReadFloat64()
 	packet.ForwardDirection = reader.ReadFloat64()
@@ -451,7 +446,7 @@ func ReadPlayerInputInPacket(reader *packet.PacketReader) PlayerInputInPacket {
 	return packet
 }
 
-type MultiBlockChangeOutPacket struct {
+type SetMultipleBlocksPacket struct {
 	ChunkX      int32
 	ChunkZ      int32
 	NumOfBlocks uint16
@@ -460,9 +455,9 @@ type MultiBlockChangeOutPacket struct {
 	Metadata    []byte
 }
 
-func (p *MultiBlockChangeOutPacket) Serialize() []byte {
+func (p *SetMultipleBlocksPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.MultiBlockChange)
+	writer.WriteByte(packet.SetMultipleBlocks)
 	writer.WriteInt32(p.ChunkX)
 	writer.WriteInt32(p.ChunkZ)
 	writer.WriteShort(p.NumOfBlocks)
@@ -473,7 +468,7 @@ func (p *MultiBlockChangeOutPacket) Serialize() []byte {
 }
 
 func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
-	p := MultiBlockChangeOutPacket{
+	p := SetMultipleBlocksPacket{
 		ChunkX:      chunkX,
 		ChunkZ:      chunkZ,
 		NumOfBlocks: numOfBlocks,

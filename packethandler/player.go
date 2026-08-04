@@ -31,7 +31,7 @@ type fluidPlacement struct {
 	newBlock     level.Block
 }
 
-func handleSignUpdateInPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
+func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
 	world.BroadcastPacket(p.Serialize())
 }
 
@@ -60,8 +60,8 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.SetHP(20)
 	sendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
-	world.MulticastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1), pl)
-	world.MulticastPacket(packets.TeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
+	world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
+	world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -123,7 +123,7 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 //  log.Printf("[move] %s  dx=%.3f dz=%.3f", dir, dx, dz)
 // }
 
-func handlePlayerInputInPacket(p packets.PlayerInputInPacket, pl *player.Player, world *level.World) {
+func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, world *level.World) {
 	log.Printf("Received PlayerInput packet: Strafe=%.2f Forward=%.2f Jump=%t Sneaking=%t",
 		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
@@ -184,7 +184,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 		pl.BelowZeroHeightCount = 0
 	}
 
-	ep := packets.PlayerEntityPositionAndLookPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
+	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
 	pl.X = x
 	pl.Y = y
@@ -234,7 +234,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	//  return
 	// }
 
-	ep := packets.PlayerEntityPositionPacket(pl, x, y, z, world)
+	ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
 	world.MulticastPacket(ep, pl)
 	pl.X = x
 	pl.Y = y
@@ -246,7 +246,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
-	ep := packets.PlayerEntityRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
@@ -834,7 +834,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 		meta = byte(heldItem.Metadata)
 	}
 	growable := level.PlantGrowable(world, rule.PlantedBlock, newX, byte(newY), newZ, meta, pl.Dimension)
-	blockChange := packets.BlockChangeOutPacket{
+	blockChange := packets.SetBlockPacket{
 		X:         newX,
 		Y:         byte(newY),
 		Z:         newZ,
@@ -1023,7 +1023,7 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 		return
 	}
 	entityId := world.NextEntityId()
-	spawnPacket := packets.SpawnObject{
+	spawnPacket := packets.SpawnObjectPacket{
 		EntityId:      entityId,
 		ObjectType:    constants.ObjectMinecart,
 		X:             int32(newX * 32),
@@ -1049,7 +1049,7 @@ func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, tr
 	// Lift posY by BoatYOffset so the hitbox bottom sits on the block top
 	// instead of half-burying the model in the block below.
 	spawnY := float64(newY) + entities.BoatYOffset
-	spawnPacket := packets.SpawnObject{
+	spawnPacket := packets.SpawnObjectPacket{
 		EntityId:      entityId,
 		ObjectType:    constants.ObjectBoat,
 		X:             int32(math.Floor(float64(newX) * 32)),
@@ -1117,9 +1117,9 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	coord := level.ChunkCoord{X: cx, Z: cz}
 	if !pl.SentChunks.Has(coord.String()) {
 		chunk := world.GetOrCreateChunk(cx, cz, pl.Dimension)
-		pre := packets.PreChunkOutPacket{X: cx, Z: cz, Mode: true}
+		pre := packets.SetChunkVisibilityPacket{X: cx, Z: cz, Mode: true}
 		connection.Write(pre.Serialize())
-		mapChunk := packets.MapChunkOutPacket{}
+		mapChunk := packets.ChunkBlockRegionPacket{}
 		mapChunk.Apply(*chunk)
 		connection.Write(mapChunk.Serialize())
 		pl.SentChunks.Set(coord.String(), coord.X, coord.Z)

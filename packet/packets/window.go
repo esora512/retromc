@@ -8,13 +8,13 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-type SetSlotOutPacket struct {
+type SetSlotPacket struct {
 	WindowId byte
 	Slot     int16
 	Item     inventory.Item
 }
 
-func (p *SetSlotOutPacket) Serialize() []byte {
+func (p *SetSlotPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.SetSlot)
 	writer.WriteByte(p.WindowId)
@@ -23,22 +23,22 @@ func (p *SetSlotOutPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-type WindowItemsOutPacket struct {
+type FillContainerPacket struct {
 	WindowId byte
 	Count    int16
 	Payload  inventory.Inventory
 }
 
-func (p *WindowItemsOutPacket) Serialize() []byte {
+func (p *FillContainerPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.WindowItems)
+	writer.WriteByte(packet.FillContainer)
 	writer.WriteByte(p.WindowId)
 	writer.WriteInt16(p.Count)
 	writer.Write(p.Payload.Serialize())
 	return writer.Bytes()
 }
 
-type WindowClickInPacket struct {
+type ClickSlotPacket struct {
 	WindowId     byte
 	Slot         int16
 	RightClick   byte
@@ -49,14 +49,14 @@ type WindowClickInPacket struct {
 	ItemUses     uint16
 }
 
-func (p *WindowClickInPacket) Print() {
+func (p *ClickSlotPacket) Print() {
 	slot := p.Slot
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	log.Printf("Window click: slot=%d rightClick=%v shift=%v itemID=%d action=%d", slot, rightClick, shift, p.ItemID, p.ActionNumber)
 }
 
-func (p *WindowClickInPacket) GetItem() inventory.Item {
+func (p *ClickSlotPacket) GetItem() inventory.Item {
 	return inventory.Item{
 		TypeId:   p.ItemID,
 		Count:    p.ItemCount,
@@ -64,8 +64,8 @@ func (p *WindowClickInPacket) GetItem() inventory.Item {
 	}
 }
 
-func ReadWindowClickInPacket(reader *packet.PacketReader) WindowClickInPacket {
-	p := WindowClickInPacket{}
+func ReadClickSlotPacket(reader *packet.PacketReader) ClickSlotPacket {
+	p := ClickSlotPacket{}
 	_ = reader.GetPacketId()
 	p.WindowId = reader.ReadByte()
 	p.Slot = int16(reader.ReadShort())
@@ -81,13 +81,13 @@ func ReadWindowClickInPacket(reader *packet.PacketReader) WindowClickInPacket {
 	return p
 }
 
-type CloseWindowInPacket struct {
+type CloseContainerPacket struct {
 	packet.Packet
 	WindowId byte
 }
 
-func ReadCloseWindowInPacket(reader *packet.PacketReader, pl *player.Player) CloseWindowInPacket {
-	p := CloseWindowInPacket{}
+func ReadCloseContainerPacket(reader *packet.PacketReader, pl *player.Player) CloseContainerPacket {
+	p := CloseContainerPacket{}
 	p.PacketId = reader.GetPacketId()
 	p.WindowId = reader.ReadByte()
 	if p.WindowId == 1 {
@@ -96,15 +96,15 @@ func ReadCloseWindowInPacket(reader *packet.PacketReader, pl *player.Player) Clo
 	return p
 }
 
-type OpenInventoryOutPacket struct {
+type OpenContainerPacket struct {
 	WindowID byte
 	Type     byte
 	Title    string
 	Size     byte
 }
 
-func NewCraftingTable() OpenInventoryOutPacket {
-	p := OpenInventoryOutPacket{
+func NewCraftingTable() OpenContainerPacket {
+	p := OpenContainerPacket{
 		WindowID: byte(1),
 		Type:     1,
 		Title:    "Crafting",
@@ -113,8 +113,8 @@ func NewCraftingTable() OpenInventoryOutPacket {
 	return p
 }
 
-func NewChest(size byte) OpenInventoryOutPacket {
-	p := OpenInventoryOutPacket{
+func NewChest(size byte) OpenContainerPacket {
+	p := OpenContainerPacket{
 		WindowID: byte(1),
 		Type:     0,
 		Title:    "Chest",
@@ -123,8 +123,8 @@ func NewChest(size byte) OpenInventoryOutPacket {
 	return p
 }
 
-func NewDispenser() OpenInventoryOutPacket {
-	p := OpenInventoryOutPacket{
+func NewDispenser() OpenContainerPacket {
+	p := OpenContainerPacket{
 		WindowID: byte(1),
 		Type:     3,
 		Title:    "Dispenser",
@@ -133,8 +133,8 @@ func NewDispenser() OpenInventoryOutPacket {
 	return p
 }
 
-func NewFurnace() OpenInventoryOutPacket {
-	p := OpenInventoryOutPacket{
+func NewFurnace() OpenContainerPacket {
+	p := OpenContainerPacket{
 		WindowID: byte(1),
 		Type:     2,
 		Title:    "Furnace",
@@ -143,9 +143,9 @@ func NewFurnace() OpenInventoryOutPacket {
 	return p
 }
 
-func (p *OpenInventoryOutPacket) Serialize() []byte {
+func (p *OpenContainerPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
-	w.WriteByte(packet.OpenInventory)
+	w.WriteByte(packet.OpenContainer)
 	w.WriteByte(p.WindowID)
 	w.WriteByte(p.Type)
 	w.WriteString8(p.Title)
@@ -153,13 +153,13 @@ func (p *OpenInventoryOutPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-type ContainerDataOutPacket struct {
+type ContainerDataPacket struct {
 	WindowID byte
 	Type     int16
 	Value    int16
 }
 
-func (p *ContainerDataOutPacket) Serialize() []byte {
+func (p *ContainerDataPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.ContainerData)
 	w.WriteByte(p.WindowID)

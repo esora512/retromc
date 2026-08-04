@@ -238,7 +238,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			air := level.NewAirBlock()
 			world.SetBlock(x, byte(y), z, air, pl.Dimension)
-			blockChange := packets.BlockChangeOutPacket{
+			blockChange := packets.SetBlockPacket{
 				X:         x,
 				Y:         byte(y),
 				Z:         z,
@@ -534,7 +534,7 @@ func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string
 	}
 
 	for key, change := range changes {
-		p := packets.MultiBlockChangeOutPacket{
+		p := packets.SetMultipleBlocksPacket{
 			ChunkX:      key[0],
 			ChunkZ:      key[1],
 			NumOfBlocks: uint16(len(change.coords)),

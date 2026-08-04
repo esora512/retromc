@@ -13,7 +13,7 @@ import (
 
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
-func handleWindowClickInPacket(connection net.Conn, p packets.WindowClickInPacket, world *level.World, pl *player.Player) {
+func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world *level.World, pl *player.Player) {
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
@@ -495,8 +495,8 @@ func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.W
 	furnace.Print()
 }
 
-func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
-	out := packets.TransactionOutPacket{
+func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {
+	out := packets.ContainerTransactionPacket{
 		WindowId:     0,
 		ActionNumber: p.ActionNumber,
 		Accepted:     true,
@@ -504,11 +504,11 @@ func acceptTransaction(connection net.Conn, p packets.WindowClickInPacket) {
 	connection.Write(out.Serialize())
 }
 
-func handleCloseWindowInPacket(p packets.CloseWindowInPacket, pl *player.Player) {
+func handleCloseContainerPacket(p packets.CloseContainerPacket, pl *player.Player) {
 	pl.InventoryType = player.PlayerInventory
 }
 
-func handleWorkbench(p packets.WindowClickInPacket, pl *player.Player, shift, rightClick bool) {
+func handleWorkbench(p packets.ClickSlotPacket, pl *player.Player, shift, rightClick bool) {
 	targetSlot := p.Slot
 	if targetSlot == 0 {
 		craftInWorkbench(pl, shift, rightClick)

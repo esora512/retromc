@@ -10,7 +10,7 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handleHandshakeInPacket(connection net.Conn, p packets.PreLoginPacket) {
+func handlePreLoginPacket(connection net.Conn, p packets.PreLoginPacket) {
 	pkt := packets.PreLoginPacket{
 		ConnectionHash: "-",
 	}
@@ -18,21 +18,18 @@ func handleHandshakeInPacket(connection net.Conn, p packets.PreLoginPacket) {
 	connection.Write(outData)
 }
 
-func handleDisconnectInPacket(connection net.Conn, p packets.DisconnectInPacket, world *level.World, pl *player.Player) {
+func handleDisconnectPacket(connection net.Conn, p packets.DisconnectPacket, world *level.World, pl *player.Player) {
 	log.Printf("%s", p.Reason)
 	chatPacket := packets.ChatMessagePacket{
 		Message: "\u00a7e" + pl.Username + " left the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
-	world.BroadcastPacket(packets.EntityDespawnPacket(pl.GetEntityId()))
+	world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 }
 
-func handleKeepAliveInPacket(connection net.Conn, p packets.KeepAlivePacket) {
-	//log.Printf("KeepAlive: %+v", p)
-	// create keep alive out packet
-	keepAliveOutPacket := packets.KeepAlivePacket{}
-	outData := keepAliveOutPacket.Serialize()
-
+func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {
+	pkt := packets.KeepAlivePacket{}
+	outData := pkt.Serialize()
 	// write keep alive out packet
 	_, err := connection.Write(outData)
 	if err != nil {
@@ -46,7 +43,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	defer unlock()
 
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
-		world.BroadcastPacket(packets.PlayerEntityDespawnPacket(old))
+		world.BroadcastPacket(packets.NewEntityDespawnPacket(old.GetEntityId()))
 		world.RemovePlayer(old)
 		tracker.Remove(old.GetEntityId())
 		old.Connection.Close()

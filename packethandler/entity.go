@@ -132,7 +132,7 @@ func applyKnockback(w *level.World, attacker, victim *player.Player) {
 	vZ -= dz * knockbackHorizontal
 	vY = math.Min(vY+knockbackVertical, knockbackVertical)
 
-	ev := packets.EntityVelocity{
+	ev := packets.EntityVelocityPacket{
 		EntityId: victim.GetEntityId(),
 		Vx:       vX,
 		Vy:       vY,
@@ -141,7 +141,7 @@ func applyKnockback(w *level.World, attacker, victim *player.Player) {
 	w.BroadcastPacket(ev.Serialize())
 }
 
-func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
+func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
 	player := world.Players[p.PlayerId]
 	other := world.Entities[p.EntityId]
 	log.Printf("%s interacted with %s", player.Username, other.GetName())
@@ -158,7 +158,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *p
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			sendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
-			p := packets.EntityEventOutPacket{
+			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),
 				Action:   2,
 			}
@@ -174,7 +174,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *p
 		}
 
 		if other.IsRideable() {
-			p := packets.EntityEventOutPacket{
+			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),
 				Action:   2,
 			}
@@ -186,7 +186,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *p
 				Message: other.GetName() + " was killed by " + player.Username,
 			}
 			world.BroadcastPacket(cMsgPkt.Serialize())
-			p := packets.EntityEventOutPacket{
+			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),
 				Action:   3,
 			}
@@ -218,11 +218,11 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *p
 		if pl.IsRiding != -1 {
 			pl.IsRiding = -1
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
-			world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), -1))
+			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
 		} else {
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
-			world.BroadcastPacket(packets.AlicesRidesBob(pl.GetEntityId(), other.GetEntityId()))
+			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))
 			pl.IsRiding = other.GetEntityId()
 			ridable.PassengerEntityId = pl.GetEntityId()
 			pl.Lx = pl.X
@@ -234,14 +234,14 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityOutPacket, pl *p
 
 func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, world *level.World) {
 	if p.ActionId == 1 {
-		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, true), pl)
+		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, true), pl)
 	}
 	if p.ActionId == 2 {
-		world.MulticastPacket(packets.PlayerEntityMetadataPacketSneak(pl, false), pl)
+		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, false), pl)
 	}
 }
 
 func BroadcastDespawn(world *level.World, id int32) {
-	despawn := packets.EntityDespawnOutPacket{EntityId: id}
+	despawn := packets.DespawnEntityPacket{EntityId: id}
 	world.BroadcastPacket(despawn.Serialize())
 }

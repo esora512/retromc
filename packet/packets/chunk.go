@@ -5,22 +5,22 @@ import (
 	"github.com/leNicDev/retromc/packet"
 )
 
-type PreChunkOutPacket struct {
+type SetChunkVisibilityPacket struct {
 	X    int32
 	Z    int32
 	Mode bool // True = 1 (Initialize chunk); False = 0 (Unload chunk)
 }
 
-func (p *PreChunkOutPacket) Serialize() []byte {
+func (p *SetChunkVisibilityPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.PreChunk)
+	writer.WriteByte(packet.SetChunkVisibility)
 	writer.WriteInt32(p.X)   // write chunk x position
 	writer.WriteInt32(p.Z)   // write chunk z position
 	writer.WriteBool(p.Mode) // write pre chunk mode
 	return writer.Bytes()
 }
 
-type MapChunkOutPacket struct {
+type ChunkBlockRegionPacket struct {
 	X              int32
 	Y              int16
 	Z              int32
@@ -31,7 +31,7 @@ type MapChunkOutPacket struct {
 	CompressedData []byte
 }
 
-func (p *MapChunkOutPacket) Apply(chunk level.Chunk) {
+func (p *ChunkBlockRegionPacket) Apply(chunk level.Chunk) {
 	p.X = chunk.X
 	p.Y = chunk.Y
 	p.Z = chunk.Z
@@ -42,9 +42,9 @@ func (p *MapChunkOutPacket) Apply(chunk level.Chunk) {
 	p.CompressedSize = int32(len(p.CompressedData))
 }
 
-func (p *MapChunkOutPacket) Serialize() []byte {
+func (p *ChunkBlockRegionPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.MapChunk)
+	writer.WriteByte(packet.ChunkBlockRegion)
 	writer.WriteInt32(p.X)              // write chunk x position
 	writer.WriteInt16(p.Y)              // write chunk y position
 	writer.WriteInt32(p.Z)              // write chunk z position

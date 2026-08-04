@@ -15,7 +15,7 @@ import (
 
 // SendSetSlot tells the client to update a single inventory slot.
 func SendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
-	setSlotPacket := packets.SetSlotOutPacket{
+	setSlotPacket := packets.SetSlotPacket{
 		WindowId: windowId,
 		Slot:     slot,
 		Item:     item,
@@ -123,10 +123,10 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 		if !pl.SentChunks.Has(key) {
 			chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
 
-			pre := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: true}
+			pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
 			pl.Connection.Write(pre.Serialize())
 
-			mapChunk := packets.MapChunkOutPacket{}
+			mapChunk := packets.ChunkBlockRegionPacket{}
 			mapChunk.Apply(*chunk)
 			pl.Connection.Write(mapChunk.Serialize())
 
@@ -137,7 +137,7 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	// Unload chunks that fell out of range
 	for key, coord := range pl.SentChunks {
 		if _, ok := wanted[key]; !ok {
-			unload := packets.PreChunkOutPacket{X: coord.X, Z: coord.Z, Mode: false}
+			unload := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: false}
 			pl.Connection.Write(unload.Serialize())
 			delete(pl.SentChunks, key)
 		}
@@ -168,12 +168,12 @@ func decodeChunkCoord(key string) (level.ChunkCoord, bool) {
 // }
 
 func sendInventory(connection net.Conn, pl *player.Player, w *level.World) {
-	windowItemsPacket := packets.WindowItemsOutPacket{
+	pkt := packets.FillContainerPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),
 		Payload:  pl.Inventory,
 	}
-	connection.Write(windowItemsPacket.Serialize())
+	connection.Write(pkt.Serialize())
 }
 
 func sendPlayerPositionAndLook(connection net.Conn, x, z float64, y float64) {
@@ -204,7 +204,7 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 // Use teleport packet to obtain absolute control over minecart
 // Too bad at math to get it to work with relative positions and mimicking client-side calculations...
 func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
-	tpkt := packets.TeleportEntity{
+	tpkt := packets.TeleportEntityPacket{
 		EntityId: c.GetEntityId(),
 		X:        int32(math.Floor(cx * 32)),
 		Y:        int32(math.Floor(cy * 32)),
@@ -216,7 +216,7 @@ func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw b
 }
 
 func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
-	tpkt := packets.TeleportEntity{
+	tpkt := packets.TeleportEntityPacket{
 		EntityId: c.GetEntityId(),
 		X:        int32(math.Floor(cx * 32)),
 		Y:        int32(math.Floor(cy * 32)),
@@ -263,7 +263,7 @@ func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, next
 		return
 	}
 
-	p := packets.EntityPositionOutPacket{
+	p := packets.EntityPositionPacket{
 		EntityId: c.GetEntityId(),
 		X:        byte(dX),
 		Y:        byte(dY),
@@ -290,7 +290,7 @@ func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, pre
 		return
 	}
 
-	p := packets.EntityPositionAndLookOutPacket{
+	p := packets.EntityPositionAndLookPacket{
 		EntityId: c.GetEntityId(),
 		X:        byte(dX),
 		Y:        byte(dY),
@@ -302,7 +302,7 @@ func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, pre
 }
 
 func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64) {
-	packet := packets.EntityVelocity{
+	packet := packets.EntityVelocityPacket{
 		EntityId: entityId,
 		Vx:       vx,
 		Vy:       vy,
@@ -312,7 +312,7 @@ func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64)
 }
 
 func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue int16) {
-	p := packets.ContainerDataOutPacket{
+	p := packets.ContainerDataPacket{
 		WindowID: windowId,
 		Type:     itemType,
 		Value:    itemValue,
@@ -321,7 +321,7 @@ func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue i
 }
 
 func BroadcastSetSlot(w *level.World, windowId byte, slot int16, item inventory.Item) {
-	p := packets.SetSlotOutPacket{
+	p := packets.SetSlotPacket{
 		WindowId: windowId,
 		Slot:     slot,
 		Item:     item,

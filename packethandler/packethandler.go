@@ -12,8 +12,8 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func sendCurrentInventory(connection net.Conn, pl *player.Player) {
-	windowItemsPacket := packets.WindowItemsOutPacket{
+func NewFillContainerPacket(connection net.Conn, pl *player.Player) {
+	windowItemsPacket := packets.FillContainerPacket{
 		WindowId: 0, // 0 = player inventory
 		Count:    int16(pl.Inventory.Size),
 		Payload:  pl.Inventory,
@@ -32,10 +32,10 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	switch packetId {
 	case packet.KeepAlive:
 		packet := packets.ReadKeepAlivePacket(packetReader)
-		handleKeepAliveInPacket(connection, packet)
+		handleKeepAlivePacket(connection, packet)
 	case packet.PreLogin:
 		packet := packets.ReadPreLoginPacket(packetReader)
-		handleHandshakeInPacket(connection, packet)
+		handlePreLoginPacket(connection, packet)
 	case packet.Login:
 		packet := packets.ReadLoginPacket(packetReader)
 		handleLoginRequestInPacket(connection, packet, world, pl, tracker)
@@ -43,7 +43,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		p := packets.ReadPlayerPositionAndRotationPacket(packetReader)
 		handlePlayerPositionAndRotationPacket(connection, p, pl, world)
 	case packet.PlayerPosition:
-		p := packets.ReadPlayerPositionInPacket(packetReader)
+		p := packets.ReadPlayerPositionPacket(packetReader)
 		handlePlayerPositionPacket(connection, p, pl, world)
 	case packet.PlayerMovement:
 		packets.ReadPlayerMovementPacket(packetReader)
@@ -68,11 +68,11 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.PlaceBlock:
 		p := packets.ReadPlaceBlockPacket(packetReader)
 		handlePlaceBlockPacket(connection, p, world, pl, tracker)
-	case packet.WindowClick:
-		p := packets.ReadWindowClickInPacket(packetReader)
+	case packet.ClickSlot:
+		p := packets.ReadClickSlotPacket(packetReader)
 		before := pl.Inventory.PeekItem(pl.HotbarSlot)
-		handleWindowClickInPacket(connection, p, world, pl)
-		sendCurrentInventory(connection, pl)
+		handleClickSlotPacket(connection, p, world, pl)
+		NewFillContainerPacket(connection, pl)
 		after := pl.Inventory.PeekItem(pl.HotbarSlot)
 		if before != after {
 			sendEquipmentChangeForHotbarSlot(world, pl)
@@ -80,28 +80,28 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.Respawn:
 		p := packets.ReadRespawnPacket(packetReader)
 		handleRespawnInPacket(connection, p, world, pl, tracker)
-	case packet.CloseWindow:
-		p := packets.ReadCloseWindowInPacket(packetReader, pl)
-		handleCloseWindowInPacket(p, pl)
+	case packet.CloseContainer:
+		p := packets.ReadCloseContainerPacket(packetReader, pl)
+		handleCloseContainerPacket(p, pl)
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityPacket(packetReader)
 		handleInteractWithEntityPacket(p, pl, world, tracker)
 	case packet.Disconnect:
-		p := packets.ReadDisconnectInPacket(packetReader)
-		handleDisconnectInPacket(connection, p, world, pl)
+		p := packets.ReadDisconnectPacket(packetReader)
+		handleDisconnectPacket(connection, p, world, pl)
 	case packet.ChatMessage:
 		p := packets.ReadChatMessagePacket(packetReader)
 		isCommand := handleChatMessageInPacket(p, pl, world)
 		if isCommand {
-			sendCurrentInventory(connection, pl)
+			NewFillContainerPacket(connection, pl)
 		}
 	case packet.UpdateSign:
 		p := packets.ReadUpdateSignPacket(packetReader)
-		handleSignUpdateInPacket(p, world, pl)
+		handleUpdateSignPacket(p, world, pl)
 	case packet.PlayerInput:
 		log.Println("Received PlayerInput packet")
-		p := packets.ReadPlayerInputInPacket(packetReader)
-		handlePlayerInputInPacket(p, pl, world)
+		p := packets.ReadPlayerInputPacket(packetReader)
+		handlePlayerInputPacket(p, pl, world)
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}
