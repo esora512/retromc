@@ -278,6 +278,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.AdvanceTime()
 	w.TickFluids()
 	w.TickFallables()
+	w.TickLeaves()
 	w.FallingBlocksPhysics()
 	w.RidablePhysics(tracker)
 	w.GrowPhysics()

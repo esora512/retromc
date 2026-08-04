@@ -316,6 +316,10 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 
+	if oldBlock.TypeId == byte(constants.Log.Value) {
+		world.TriggerLeafUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
+	}
+
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
 	if blockItem == 0 {
 		return

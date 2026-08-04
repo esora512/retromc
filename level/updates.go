@@ -51,12 +51,14 @@ type BlockUpdate struct {
 type BlockUpdateScheduler struct {
 	FluidUpdates    map[int64][]BlockUpdate
 	FallableUpdates map[int64][]BlockUpdate
+	LeafUpdates     map[int64][]BlockUpdate
 }
 
 func NewBlockUpdateScheduler() BlockUpdateScheduler {
 	return BlockUpdateScheduler{
 		FluidUpdates:    make(map[int64][]BlockUpdate),
 		FallableUpdates: make(map[int64][]BlockUpdate),
+		LeafUpdates:     map[int64][]BlockUpdate{},
 	}
 }
 
@@ -72,6 +74,12 @@ func (s *BlockUpdateScheduler) applyFallableUpdates(tick int64) []BlockUpdate {
 	return updates
 }
 
+func (s *BlockUpdateScheduler) applyLeafUpdates(tick int64) []BlockUpdate {
+	updates := s.LeafUpdates[tick]
+	delete(s.LeafUpdates, tick)
+	return updates
+}
+
 func (s *BlockUpdateScheduler) scheduleFluidUpdate(tick int64, x, y, z int32, setBlock SetBlock, dim int32) {
 	s.FluidUpdates[tick] = append(s.FluidUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock, Dimension: dim})
 }
@@ -83,6 +91,26 @@ func (s *BlockUpdateScheduler) scheduleFallableUpdate(tick int64, x, y, z int32,
 		}
 	}
 	s.FallableUpdates[tick] = append(s.FallableUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock, Dimension: dim})
+}
+
+func (s *BlockUpdateScheduler) scheduleLeafUpdate(tick int64, x, y, z int32, setBlock SetBlock, dim int32) {
+	for _, job := range s.LeafUpdates[tick] {
+		if job.X == x && job.Y == y && job.Z == z {
+			return
+		}
+	}
+	s.LeafUpdates[tick] = append(s.LeafUpdates[tick], BlockUpdate{X: x, Y: y, Z: z, SetBlock: setBlock, Dimension: dim})
+}
+
+func notifyLeaf(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, dim) {
+		return
+	}
+	b := w.GetBlock(x, byte(y), z, dim)
+	if b.TypeId != byte(constants.Leaves.Value) {
+		return
+	}
+	w.Scheduler.scheduleLeafUpdate(w.Tick+50, x, y, z, setBlock, dim)
 }
 
 func notifyFluid(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
@@ -109,6 +137,12 @@ func notifyFallable(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 
 }
 
+func notifyLeafNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
+	for _, n := range neighbours {
+		notifyLeaf(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
+	}
+}
+
 func notifyFallableNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
 		notifyFallable(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
@@ -118,6 +152,35 @@ func notifyFallableNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim in
 func notifyFluidNeighbors(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
 		notifyFluid(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
+	}
+}
+
+func processLeafUpdateJob(w *World, u *BlockUpdate) {
+	b := w.GetBlock(u.X, byte(u.Y), u.Z, u.Dimension)
+	if b.TypeId != byte(constants.Leaves.Value) {
+		return
+	}
+	foundLog := false
+	for _, n := range neighbours {
+		l := w.GetBlock(u.X+n.dx, byte(u.Y+n.dy), u.Z+n.dz, u.Dimension)
+		if l.TypeId == byte(constants.Log.Value) {
+			log.Println("DEBUG: Found Log")
+			foundLog = true
+			break
+		}
+	}
+	if foundLog {
+		return
+	} else {
+		air := NewAirBlock()
+		maybeSnow := w.GetBlock(u.X, byte(u.Y+1), u.Z, u.Dimension)
+		if maybeSnow.IsSnowLayer() {
+			u.SetBlock(u.X, u.Y+1, u.Z, air, u.Dimension)
+			w.SetBlockInQueue(u.X, u.Y+1, u.Z, air, u.Dimension)
+		}
+		u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
+		w.SetBlockInQueue(u.X, u.Y, u.Z, air, u.Dimension)
+		notifyLeafNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 	}
 }
 
@@ -187,6 +250,13 @@ func (w *World) TickFallables() {
 	}
 }
 
+func (w *World) TickLeaves() {
+	updates := w.Scheduler.applyLeafUpdates(w.Tick)
+	for _, update := range updates {
+		processLeafUpdateJob(w, &update)
+	}
+}
+
 func (w *World) TriggerFluidUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
 	notifyFluid(w, x, y, z, setBlock, dim)
 	notifyFluidNeighbors(w, x, y, z, setBlock, dim)
@@ -195,6 +265,10 @@ func (w *World) TriggerFluidUpdate(x, y, z int32, setBlock SetBlock, dim int32) 
 func (w *World) TriggerFallableUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
 	notifyFallable(w, x, y, z, setBlock, dim)
 	notifyFallableNeighbours(w, x, y, z, setBlock, dim)
+}
+
+func (w *World) TriggerLeafUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
+	notifyLeafNeighbours(w, x, y, z, setBlock, dim)
 }
 
 func recomputeFluid(w *World, u *BlockUpdate, b Block) {
