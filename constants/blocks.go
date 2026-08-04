@@ -227,7 +227,7 @@ var BlockCommandMap = map[string]Block{
 	"soul_sand":               SoulSand,
 	"glowstone":               Glowstone,
 	"portal":                  NetherPortal,
-	"lit_pumpkin":             PumpkinLit,
+	"jack":             PumpkinLit,
 	"cake":                    Cake,
 	"unlit_redstone_repeater": RedstoneRepeaterOff,
 	"lit_redstone_repeater":   RedstoneRepeaterOn,

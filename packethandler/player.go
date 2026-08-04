@@ -388,6 +388,14 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
 
+	if blockItem == constants.Trapdoor.Value {
+		return constants.Trapdoor.Value, 0, 1
+	}
+
+	if blockItem == constants.StoneButton.Value {
+		return constants.StoneButton.Value, 0, 1
+	}
+
 	if blockItem == constants.CoalOre.Value {
 		return constants.Coal.Value, 0, 1
 	}
@@ -960,6 +968,7 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *lev
 	directions := block.GetDirections()
 	var face byte
 	face = p.Face
+	log.Printf("Face %d", face)
 	if face == 1 {
 		face = yawToFace(pl.Yaw)
 	}
@@ -967,15 +976,19 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *lev
 	case 3:
 		// West
 		block.Metadata = directions.West
+		log.Println("West")
 	case 2:
 		// East
 		block.Metadata = directions.East
+		log.Println("East")
 	case 4:
 		// North
 		block.Metadata = directions.North
+		log.Println("North")
 	case 5:
 		// South
 		block.Metadata = directions.South
+		log.Println("South")
 	default:
 		block.Metadata = 0
 	}

@@ -120,6 +120,15 @@ func (b *Block) IsPoweredRail() bool {
 }
 
 func (b *Block) GetDirections() BlockDirections {
+	if b.TypeId == byte(constants.Ladder.Value) {
+		return BlockDirections{
+			North: 4,
+			South: 5,
+			West:  3,
+			East:  2,
+		}
+	}
+
 	if b.TypeId == byte(constants.SignGround.Value) {
 		return BlockDirections{
 			North: 4,
@@ -162,6 +171,33 @@ func (b *Block) GetDirections() BlockDirections {
 			South: 5,
 			East:  2,
 			West:  3,
+		}
+	}
+
+	if b.TypeId == byte(constants.Pumpkin.Value) || b.TypeId == byte(constants.PumpkinLit.Value) {
+		return BlockDirections{
+			North: 1,
+			South: 3,
+			East:  2,
+			West:  0,
+		}
+	}
+
+	if b.TypeId == byte(constants.StoneButton.Value) {
+		return BlockDirections{
+			North: 2,
+			South: 1,
+			East:  4,
+			West:  3,
+		}
+	}
+
+	if b.TypeId == byte(constants.Trapdoor.Value) {
+		return BlockDirections{
+			North: 2,
+			South: 3,
+			East:  4,
+			West:  1,
 		}
 	}
 

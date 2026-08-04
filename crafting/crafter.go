@@ -620,7 +620,7 @@ func Craft3x3(grid [9]int16) Result {
 		}
 
 		if same && grid[1] == -1 && grid[7] == -1 && itemId == constants.Stick.Value {
-			return Result{constants.Ladder.Value, 0, 1}
+			return Result{constants.Ladder.Value, 0, 2}
 		}
 
 		if itemCount == 6 && itemId == constants.Planks.Value && grid[6] == -1 && grid[8] == -1 && grid[7] == constants.Stick.Value {
