@@ -75,6 +75,14 @@ func (b *Block) IsLiquid() bool {
 	return b.TypeId == byte(constants.WaterFlowing.Value) || b.TypeId == byte(constants.WaterStill.Value) || b.TypeId == byte(constants.LavaFlowing.Value) || b.TypeId == byte(constants.LavaStill.Value)
 }
 
+func (b *Block) IsBedHead() bool {
+	return b.TypeId == byte(constants.Bed.Value) && b.Metadata&0x8 != 0
+}
+
+func (b *Block) IsBed() bool {
+	return b.TypeId == byte(constants.Bed.Value)
+}
+
 func (b *Block) IsSnowLayer() bool {
 	return b.TypeId == byte(constants.SnowLayer.Value)
 }

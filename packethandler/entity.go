@@ -239,6 +239,10 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 	if p.ActionId == 2 {
 		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, false), pl)
 	}
+	if p.ActionId == 3 {
+		p := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 3}
+		world.BroadcastPacket(p.Serialize())
+	}
 }
 
 func BroadcastDespawn(world *level.World, id int32) {

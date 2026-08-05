@@ -616,6 +616,25 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if oldExisting.IsBed() {
+		var hX, hZ int32
+		if oldExisting.IsBedHead() {
+			hX, hZ = p.X, p.Z
+			log.Printf("Clicked on Bed Head x=%d, y=%d, z=%d", p.X, p.Y, p.Z)
+		} else {
+			for _, n := range level.GetNeighbours() {
+				head := world.GetBlock(p.X+n.Dx, p.Y, p.Z+n.Dz, pl.Dimension)
+				if head.IsBedHead() {
+					hX, hZ = p.X+n.Dx, p.Z+n.Dz
+					log.Printf("Clicked on Bed, Head at x=%d, y=%d, z=%d", hX, p.Y, hZ)
+				}
+			}
+		}
+		p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
+		world.BroadcastPacket(p)
+		return
+	}
+
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if p.X == -1 && p.Y == 255 && p.Z == -1 && heldItem.TypeId == constants.Boat.Value {
 		log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
@@ -844,6 +863,7 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 
 	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
 	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, heldItem inventory.Item) {

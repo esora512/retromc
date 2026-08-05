@@ -64,8 +64,8 @@ func (p *SpawnPositionPacket) Serialize() []byte {
 
 type AnimationPacket struct {
 	packet.Packet
-	PlayerId int32
-	Animation   byte
+	PlayerId  int32
+	Animation byte
 }
 
 type SetEquipmentPacket struct {
@@ -124,8 +124,8 @@ func (p *AnimationPacket) Serialize() []byte {
 
 func ArmSwing(pl *player.Player) []byte {
 	p := AnimationPacket{
-		PlayerId: int32(pl.EntityId),
-		Animation:   1,
+		PlayerId:  int32(pl.EntityId),
+		Animation: 1,
 	}
 	return p.Serialize()
 }
@@ -230,7 +230,6 @@ func (p *SetHealthPacket) Serialize() []byte {
 	w.WriteShort(p.Health)
 	return w.Bytes()
 }
-
 
 func ReadAnimationPacket(reader *packet.PacketReader) AnimationPacket {
 	packet := AnimationPacket{}
@@ -477,4 +476,34 @@ func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBl
 		Metadata:    metadata,
 	}
 	world.BroadcastPacket(p.Serialize())
+}
+
+type InteractWithBlockPacket struct {
+	EntityId int32
+	Type     byte
+	X        int32
+	Y        byte
+	Z        int32
+}
+
+func (p *InteractWithBlockPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.InteractWithBlock)
+	writer.WriteInt32(p.EntityId)
+	writer.WriteByte(p.Type)
+	writer.WriteInt32(p.X)
+	writer.WriteByte(p.Y)
+	writer.WriteInt32(p.Z)
+	return writer.Bytes()
+}
+
+func NewInteractWithBlockPacket(entityId int32, bedType byte, x int32, y byte, z int32) []byte {
+	p := InteractWithBlockPacket{
+		EntityId: entityId,
+		Type:     bedType,
+		X:        x,
+		Y:        y,
+		Z:        z,
+	}
+	return p.Serialize()
 }
