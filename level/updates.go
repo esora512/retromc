@@ -32,8 +32,12 @@ func fluidDelay(b *Block, decay bool) int64 {
 	return 5
 }
 
-var neighbours = []struct{ dx, dy, dz int32 }{
+var neighbours = []struct{ Dx, Dy, Dz int32 }{
 	{1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}, {0, 1, 0}, {0, -1, 0},
+}
+
+func GetNeighbours() []struct{ Dx, Dy, Dz int32 } {
+	return neighbours
 }
 
 var lateralNeighbors = []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
@@ -139,19 +143,19 @@ func notifyFallable(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 
 func notifyLeafNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
-		notifyLeaf(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
+		notifyLeaf(w, x+n.Dx, y+n.Dy, z+n.Dz, setBlock, dim)
 	}
 }
 
 func notifyFallableNeighbours(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
-		notifyFallable(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
+		notifyFallable(w, x+n.Dx, y+n.Dy, z+n.Dz, setBlock, dim)
 	}
 }
 
 func notifyFluidNeighbors(w *World, x, y, z int32, setBlock SetBlock, dim int32) {
 	for _, n := range neighbours {
-		notifyFluid(w, x+n.dx, y+n.dy, z+n.dz, setBlock, dim)
+		notifyFluid(w, x+n.Dx, y+n.Dy, z+n.Dz, setBlock, dim)
 	}
 }
 
@@ -162,7 +166,7 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	}
 	foundLog := false
 	for _, n := range neighbours {
-		l := w.GetBlock(u.X+n.dx, byte(u.Y+n.dy), u.Z+n.dz, u.Dimension)
+		l := w.GetBlock(u.X+n.Dx, byte(u.Y+n.Dy), u.Z+n.Dz, u.Dimension)
 		if l.TypeId == byte(constants.Log.Value) {
 			log.Println("DEBUG: Found Log")
 			foundLog = true

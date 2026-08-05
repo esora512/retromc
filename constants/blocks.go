@@ -154,7 +154,6 @@ var BlockCommandMap = map[string]Block{
 	"dispenser":               Dispenser,
 	"sandstone":               Sandstone,
 	"noteblock":               Noteblock,
-	"bed":                     Bed,
 	"rail":                    Rail,
 	"powered_rail":            PoweredRail,
 	"detector_rail":           DetectorRail,

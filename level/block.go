@@ -120,6 +120,15 @@ func (b *Block) IsPoweredRail() bool {
 }
 
 func (b *Block) GetDirections() BlockDirections {
+	if b.TypeId == byte(constants.Bed.Value) {
+		return BlockDirections{
+			North: 3,
+			South: 5,
+			West:  2,
+			East:  4,
+		}
+	}
+
 	if b.TypeId == byte(constants.Ladder.Value) {
 		return BlockDirections{
 			North: 4,

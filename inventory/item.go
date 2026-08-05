@@ -49,6 +49,8 @@ func NewItem(typeId int16, count byte, metadata uint16) Item {
 }
 
 var nonStackableItems = map[int16]bool{
+	constants.BedItem.Value: true,
+
 	constants.IronShovel.Value:  true,
 	constants.IronPickaxe.Value: true,
 	constants.IronAxe.Value:     true,

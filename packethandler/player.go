@@ -316,6 +316,20 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 
+	if oldBlock.TypeId == byte(constants.Bed.Value) {
+		var hX, hZ int32
+		for _, n := range level.GetNeighbours() {
+			head := world.GetBlock(p.X+n.Dx, p.Y, p.Z+n.Dz, pl.Dimension)
+			if head.TypeId == byte(constants.Bed.Value) {
+				hX = p.X + n.Dx
+				hZ = p.Z + n.Dz
+				break
+			}
+		}
+		world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
+		world.SetBlockInQueue(hX, int32(p.Y), hZ, air, pl.Dimension)
+	}
+
 	if oldBlock.TypeId == byte(constants.Log.Value) {
 		world.TriggerLeafUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 	}
@@ -391,6 +405,10 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
+
+	if blockItem == constants.Bed.Value {
+		return constants.BedItem.Value, 0, 1
+	}
 
 	if blockItem == constants.Trapdoor.Value {
 		return constants.Trapdoor.Value, 0, 1
@@ -647,6 +665,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if heldItem.TypeId == constants.BedItem.Value {
+		handleBedPlacement(world, p, pl)
+		return
+	}
+
 	if tryPlacePlant(connection, world, pl, newX, newY, newZ, oldExisting, heldItem) {
 		return
 	}
@@ -767,10 +790,60 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 		heldItem.TypeId != constants.Seeds.Value &&
 		heldItem.TypeId != constants.SugarcaneItem.Value &&
 		heldItem.TypeId != constants.Sapling.Value &&
-		heldItem.TypeId != constants.FlintAndSteel.Value {
+		heldItem.TypeId != constants.FlintAndSteel.Value &&
+		heldItem.TypeId != constants.BedItem.Value {
 		return false
 	}
 	return true
+}
+
+func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {
+	var face byte = p.Face
+	if face == 1 {
+		face = yawToFace(pl.Yaw)
+	}
+
+	bed := level.NewBedBlock(0)
+	directions := bed.GetDirections()
+	var headDir byte
+	var dx, dz int32
+	switch face {
+	case 3:
+		// West
+		headDir = directions.West
+		dx, dz = 0, -1
+	case 2:
+		// East
+		headDir = directions.East
+		dx, dz = 0, 1
+	case 4:
+		// North
+		headDir = directions.North
+		dx, dz = 1, 0
+	case 5:
+		// South
+		headDir = directions.South
+		dx, dz = -1, 0
+	default:
+		headDir = directions.South
+		dx, dz = 0, 1
+	}
+
+	footBlock := level.NewBedBlock(headDir)
+	headBlock := level.NewBedBlock(headDir | 0x8)
+
+	var y int32 = int32(p.Y + 1)
+
+	maybeSnow := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
+	if maybeSnow.IsSnowLayer() {
+		y = int32(p.Y)
+	}
+
+	world.SetBlockInQueue(p.X, y, p.Z, footBlock, pl.Dimension)
+	world.SetBlockInQueue(p.X+dx, y, p.Z+dz, headBlock, pl.Dimension)
+
+	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
 }
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, heldItem inventory.Item) {
