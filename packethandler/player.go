@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/crafting"
@@ -620,18 +621,19 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		var hX, hZ int32
 		if oldExisting.IsBedHead() {
 			hX, hZ = p.X, p.Z
-			log.Printf("Clicked on Bed Head x=%d, y=%d, z=%d", p.X, p.Y, p.Z)
 		} else {
 			for _, n := range level.GetNeighbours() {
 				head := world.GetBlock(p.X+n.Dx, p.Y, p.Z+n.Dz, pl.Dimension)
 				if head.IsBedHead() {
 					hX, hZ = p.X+n.Dx, p.Z+n.Dz
-					log.Printf("Clicked on Bed, Head at x=%d, y=%d, z=%d", hX, p.Y, hZ)
 				}
 			}
 		}
 		p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
-		world.BroadcastPacket(p)
+		mP := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 1}
+		pl.Connection.Write(p)
+		world.MulticastPacket(mP.Serialize(), pl)
+		go func() { time.Sleep(time.Millisecond * 500); world.MulticastPacket(p, pl) }()
 		return
 	}
 
