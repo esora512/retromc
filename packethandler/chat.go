@@ -297,6 +297,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 		}
 
+		if strings.HasPrefix(message, "/summon") {
+			p := packets.NewSpawnMob(world, 52, 0, int32(pl.X), int32(pl.Y), int32(pl.Z), 0, 0, pl.Dimension)
+			world.BroadcastPacket(p)
+		}
+
 		if strings.HasPrefix(message, "/time") {
 			var subcommand string
 			var value int64

@@ -298,7 +298,7 @@ func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	dropX := pl.X + dirX*dropDistance
 	dropZ := pl.Z + dirZ*dropDistance
 
-	spawnDroppedItemPacket := packets.SpawnDroppedItem(
+	spawnDroppedItemPacket := packets.NewSpawnDroppedItem(
 		world,
 		typeId,
 		count,
@@ -576,7 +576,7 @@ func spawnMinedDrop(world *level.World, p packets.MineBlockPacket, blockItem int
 	dropX := int32(p.X)
 	dropY := int32(p.Y)
 	dropZ := int32(p.Z)
-	spawnPacket := packets.SpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0, dim)
+	spawnPacket := packets.NewSpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0, dim)
 	world.BroadcastPacket(spawnPacket)
 	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue, dim)
 }

@@ -25,6 +25,7 @@ const (
 	SpawnItem                 byte = 0x15
 	CollectItem               byte = 0x16
 	SpawnObject               byte = 0x17
+	SpawnMob                  byte = 0x18
 	PlayerInput               byte = 0x1B
 	EntityVelocity            byte = 0x1c
 	DespawnEntity             byte = 0x1D

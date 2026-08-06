@@ -196,13 +196,13 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					spawnPacket := packets.SpawnDroppedItem(world, constants.Boat.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
+					spawnPacket := packets.NewSpawnDroppedItem(world, constants.Boat.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
 					world.BroadcastPacket(spawnPacket)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					spawnPacket := packets.SpawnDroppedItem(world, constants.Minecart.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
+					spawnPacket := packets.NewSpawnDroppedItem(world, constants.Minecart.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
 					world.BroadcastPacket(spawnPacket)
 				}
 			}
