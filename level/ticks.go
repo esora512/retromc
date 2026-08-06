@@ -285,9 +285,16 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.DroppedItemPhysics()
 	w.TickFurnaces()
 	w.TickSleep()
+	w.TickPlayers()
 }
 
 func (w *World) TickSleep() {
 	w.Sleep()
 	w.SleepThroughNight()
+}
+
+func (w *World) TickPlayers() {
+	for _, pl := range w.Players {
+		pl.OnlineFor += 1
+	}
 }

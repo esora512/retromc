@@ -130,6 +130,10 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 }
 
 func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGround bool) {
+	if pl.OnlineFor < 30 {
+		return
+	}
+
 	diff := pl.Y - newY
 
 	if !pl.OnGround && diff > 0 {

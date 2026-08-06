@@ -130,7 +130,8 @@ type Player struct {
 	HasInitializedChunks bool
 	Dimension            int32
 
-	HP int16
+	HP        int16
+	OnlineFor int64
 }
 
 func (pl *Player) SetHP(hp int16) {
@@ -183,6 +184,7 @@ func NewPlayer(conn net.Conn) *Player {
 		DebugBlock:           false,
 		HP:                   20,
 		Dimension:            0,
+		OnlineFor:            0,
 	}
 }
 
