@@ -95,6 +95,7 @@ func (pl *Player) GetDim() int32 {
 }
 
 type Player struct {
+	FallDistance float64
 	Username     string
 	EntityId     int
 	Connection   net.Conn
@@ -142,7 +143,7 @@ func (pl *Player) GetHP() int16 {
 
 const (
 	SpawnX      = 0.0
-	SpawnY      = 80.0
+	SpawnY      = 70.0
 	SpawnZ      = 0.0
 	SpawnStance = SpawnY + 2
 )

@@ -129,14 +129,43 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
 
-// if ok && ridable.ObjectType == constants.ObjectBoat {
-//  if p.Y <= ignoreY {
-//      if (p.X != pl.X || p.Z != pl.Z) && p.X != 0 && p.Z != 0 {
-//          log.Printf("SENTINEL XZ CHANGED: p.X=%.6f p.Z=%.6f | pl.X=%.6f pl.Z=%.6f | dx=%.6f dz=%.6f",
-//              p.X, p.Z, pl.X, pl.Z, p.X-pl.X, p.Z-pl.Z)
-//      }
-//  }
-// }
+func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGround bool) {
+	diff := pl.Y - newY
+
+	if !pl.OnGround && diff > 0 {
+		pl.FallDistance += diff
+	}
+
+	if onGround && !pl.OnGround {
+		if pl.FallDistance > 3 {
+			dmg := int16(math.Ceil(pl.FallDistance - 3))
+			newHP := pl.HP - dmg
+			if newHP < 0 {
+				newHP = 0
+			}
+			pl.SetHP(newHP)
+
+			p := packets.SetHealthPacket{Health: uint16(pl.HP)}
+			pl.Connection.Write(p.Serialize())
+
+			if pl.HP == 0 {
+				cMsgPkt := packets.ChatMessagePacket{
+					Message: pl.GetName() + " was killed by gravity",
+				}
+				world.BroadcastPacket(cMsgPkt.Serialize())
+				p := packets.EntityEventPacket{
+					EntityId: pl.GetEntityId(),
+					Action:   3,
+				}
+				world.BroadcastPacket(p.Serialize())
+			}
+		}
+		pl.FallDistance = 0
+	}
+
+	pl.OnGround = onGround
+	pl.Y = newY
+}
 
 func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
@@ -187,6 +216,8 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 
 	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
 	world.MulticastPacket(ep, pl)
+	applyFallDamage(world, pl, p.Y, p.OnGround)
+
 	pl.X = x
 	pl.Y = y
 	pl.Z = z
@@ -201,6 +232,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
+
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, ok := maybeRidable.(*entities.RideableEntity)
@@ -229,14 +261,10 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 			x, y, z = ridable.X, ridable.Y, ridable.Z
 		}
 	}
-
-	// if outOfBounds(x, z) {
-	//  rubberBand(connection, pl)
-	//  return
-	// }
-
 	ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
 	world.MulticastPacket(ep, pl)
+	applyFallDamage(world, pl, p.Y, p.OnGround)
+
 	pl.X = x
 	pl.Y = y
 	pl.Z = z
