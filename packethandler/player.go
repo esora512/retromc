@@ -629,11 +629,19 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 				}
 			}
 		}
-		p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
-		mP := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 1}
-		pl.Connection.Write(p)
-		world.MulticastPacket(mP.Serialize(), pl)
-		go func() { time.Sleep(time.Millisecond * 500); world.MulticastPacket(p, pl) }()
+
+		timeTicks := world.TimeTick % 24000
+		canSleep := timeTicks >= 12541 && timeTicks < 23458
+		if canSleep {
+			p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
+			mP := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 1}
+			pl.Connection.Write(p)
+			world.MulticastPacket(mP.Serialize(), pl)
+			world.AddSleeper(pl)
+			go func() { time.Sleep(time.Millisecond * 500); world.MulticastPacket(p, pl) }()
+		} else {
+			sendDebugMessage(pl, fmt.Sprintf("Can only sleep at night..."))
+		}
 		return
 	}
 

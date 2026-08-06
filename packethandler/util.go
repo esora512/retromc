@@ -345,6 +345,11 @@ func BroadcastTime(w *level.World, tick int64) {
 	w.BroadcastPacket(p.Serialize())
 }
 
+func BroadcastWakeUp(w *level.World, id int32) {
+	p := packets.AnimationPacket{PlayerId: id, Animation: 3}
+	w.BroadcastPacket(p.Serialize())
+}
+
 type SpawnObject struct {
 	EntityId      int32
 	ObjectType    byte

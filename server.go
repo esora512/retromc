@@ -52,6 +52,8 @@ func main() {
 	world.SetBroadcastMultiBlockChange(packets.BroadcastMultiBlockChange)
 	world.SetBroadcastSpawnObject(packethandler.BroadcastSpawnObject)
 	world.SetBroadcastTime(packethandler.BroadcastTime)
+	world.SetBroadcastWakeUp(packethandler.BroadcastWakeUp)
+	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 
 	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.NewEntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)

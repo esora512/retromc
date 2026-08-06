@@ -155,7 +155,6 @@ func (et *EntityTracker) Manage(w *World) {
 	}
 }
 
-
 func (w *World) SnapshotEntities() []Entity {
 	snapshot := make([]Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
@@ -173,6 +172,7 @@ type World struct {
 	oChunks     map[ChunkCoord]*Chunk
 	nChunks     map[ChunkCoord]*Chunk
 	Tick        int64
+	TimeTick    int64
 	Players     map[int32]*player.Player
 	Entities    map[int32]Entity
 	EntityCount int32
@@ -186,6 +186,7 @@ type World struct {
 	CommitHash      string
 	Seed            int64
 	noise           *PerlinNoise
+	sleepers        map[int32]int
 
 	broadcastRelativePosition func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	collectItem               func(itemId, collectorId int32) []byte
@@ -199,6 +200,16 @@ type World struct {
 	broadcastBlockChange      func(w *World, x, y, z int32, blockType, blockMeta byte)
 	broadcastTime             func(w *World, tick int64)
 	broadcastSpawnObject      func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
+	broadcastWakeUp           func(w *World, id int32)
+	broadcastWorldMsg         func(w *World, msg string)
+}
+
+func (w *World) BroadcastWorldMsg(msg string) {
+	w.broadcastWorldMsg(w, msg)
+}
+
+func (w *World) BroadcastWakeUp(id int32) {
+	w.broadcastWakeUp(w, id)
 }
 
 func (w *World) BroadcastTime(tick int64) {
@@ -297,6 +308,14 @@ func (w *World) SetBroadcastSpawnObject(f func(w *World, eId int32, oType byte, 
 	w.broadcastSpawnObject = f
 }
 
+func (w *World) SetBroadcastWakeUp(f func(w *World, id int32)) {
+	w.broadcastWakeUp = f
+}
+
+func (w *World) SetBroadcastWorldMsg(f func(w *World, msg string)) {
+	w.broadcastWorldMsg = f
+}
+
 func (w *World) LockSession(username string) func() {
 	muIface, _ := w.sessionMu.LoadOrStore(username, &sync.Mutex{})
 	mu := muIface.(*sync.Mutex)
@@ -329,6 +348,38 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		},
 		Scheduler:  NewBlockUpdateScheduler(),
 		blockQueue: make(map[[4]int32]QueueBlock),
+		sleepers:   make(map[int32]int),
+	}
+}
+
+func (w *World) AddSleeper(pl *player.Player) {
+	w.sleepers[pl.GetEntityId()] = 0
+}
+
+func (w *World) RemoveSleeper(pl *player.Player) {
+	delete(w.sleepers, pl.GetEntityId())
+}
+
+func (w *World) Sleep() {
+	for k, _ := range w.sleepers {
+		w.sleepers[k] += 1
+	}
+}
+
+func (w *World) SleepThroughNight() {
+	var wokeUp bool
+	for k, s := range w.sleepers {
+		if s > 30 {
+			toNextDay := 24000 - (w.TimeTick % 24000)
+			w.TimeTick += toNextDay
+			w.BroadcastWakeUp(k)
+			wokeUp = true
+			w.BroadcastWorldMsg("Sleeping through the night...")
+			break
+		}
+	}
+	if wokeUp {
+		clear(w.sleepers)
 	}
 }
 
@@ -449,7 +500,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		VelocityZ:     vz,
 		ObjectType:    objectType,
 		HP:            4,
-		Dimension: dim,
+		Dimension:     dim,
 	}
 	w.Entities[int32(entityId)] = &r
 }
@@ -472,7 +523,8 @@ func (w *World) RemoveEntity(entityId int32) {
 }
 
 func (w *World) AdvanceTime() {
-	w.BroadcastTime(w.Tick)
+	w.TimeTick += 1
+	w.BroadcastTime(w.TimeTick)
 }
 
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
@@ -499,7 +551,6 @@ func (w *World) ForEachPlayer(fn func(*player.Player)) {
 		}
 	}
 }
-
 
 type QueueBlock struct {
 	X        int32
@@ -570,4 +621,3 @@ func (w *World) FlushBlockQueue() {
 		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta)
 	}
 }
-

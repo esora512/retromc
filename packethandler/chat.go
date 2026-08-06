@@ -53,6 +53,11 @@ func sendDebugMessage(pl *player.Player, lines ...string) {
 	}
 }
 
+func BroadcastWorldMsg(w *level.World, msg string) {
+	p := packets.ChatMessagePacket{Message: "\u00A7e" + msg}
+	w.BroadcastPacket(p.Serialize())
+}
+
 // sendUsage looks up a command by name and prints its usage line.
 // If the command isn't found (shouldn't normally happen), it's a no-op.
 func sendUsage(pl *player.Player, name string) {
@@ -297,12 +302,13 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			var value int64
 			_, err := fmt.Sscanf(message, "/time %s %d", &subcommand, &value)
 			if err != nil {
-				sendUsage(pl, "/time")
+				// TODO: Change this to be more elegant...
+				sendDebugMessage(pl, fmt.Sprintf("Current Time is %d", world.TimeTick))
 				return false
 			}
 			switch subcommand {
 			case "set":
-				world.Tick = value
+				world.TimeTick = value
 				sendDebugMessage(pl, fmt.Sprintf("Time set to %d", value))
 			case "tickspeed":
 				world.TickSpeed = value

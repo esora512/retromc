@@ -168,7 +168,6 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	for _, n := range neighbours {
 		l := w.GetBlock(u.X+n.Dx, byte(u.Y+n.Dy), u.Z+n.Dz, u.Dimension)
 		if l.TypeId == byte(constants.Log.Value) {
-			log.Println("DEBUG: Found Log")
 			foundLog = true
 			break
 		}

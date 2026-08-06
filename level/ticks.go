@@ -284,5 +284,10 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.GrowPhysics()
 	w.DroppedItemPhysics()
 	w.TickFurnaces()
+	w.TickSleep()
+}
 
+func (w *World) TickSleep() {
+	w.Sleep()
+	w.SleepThroughNight()
 }

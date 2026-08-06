@@ -240,6 +240,7 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, false), pl)
 	}
 	if p.ActionId == 3 {
+		world.RemoveSleeper(pl)
 		p := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 3}
 		world.BroadcastPacket(p.Serialize())
 	}
