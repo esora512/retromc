@@ -637,14 +637,7 @@ func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Pl
 	return true
 }
 
-func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
-	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
-	logPlacementDebug(pl, oldExisting)
-
-	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
-		return
-	}
-
+func interactWithBed(oldExisting *level.Block, world *level.World, pl *player.Player, p packets.PlaceBlockPacket) bool {
 	if oldExisting.IsBed() {
 		var hX, hZ int32
 		if oldExisting.IsBedHead() {
@@ -670,6 +663,20 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		} else {
 			sendDebugMessage(pl, fmt.Sprintf("Can only sleep at night..."))
 		}
+		return true
+	}
+	return false
+}
+
+func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
+	logPlacementDebug(pl, oldExisting)
+
+	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
+		return
+	}
+
+	if interactWithBed(&oldExisting, world, pl, p) {
 		return
 	}
 
