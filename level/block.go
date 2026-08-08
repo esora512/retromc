@@ -243,7 +243,7 @@ func (b *Block) IsAir() bool {
 }
 
 func (b *Block) IsSolid () bool {
-	return !b.IsAir() && !b.IsFluid()
+	return !b.IsAir() && !b.IsFluid() && !b.IsSnowLayer()
 }
 
 // ID 0 - Air

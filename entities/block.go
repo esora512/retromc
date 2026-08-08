@@ -33,6 +33,14 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 	}
 }
 
+func (b *BlockEntity) GetVelocity() (float64, float64, float64) {
+	return 0, b.VelocityY, 0
+}
+
+func (b *BlockEntity) IsMob() bool {
+	return false
+}
+
 func (b *BlockEntity) GetDim() int32 {
 	return b.Dimension
 }

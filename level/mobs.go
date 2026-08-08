@@ -1,8 +1,8 @@
 package level
 
 import (
-	"log"
 	"math"
+	"math/rand"
 )
 
 type Mob struct {
@@ -18,7 +18,17 @@ type Mob struct {
 	MobType  byte
 	Metadata byte
 
-	OnGround bool
+	OnGround       bool
+	AttackCooldown int32
+
+	WanderDirX, WanderDirZ float64
+	WanderTicksLeft        int32
+	KnockbackTicks         int32
+}
+
+func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
+	m.Vx, m.Vy, m.Vz = vx, vy, vz
+	m.KnockbackTicks = 6
 }
 
 func (m *Mob) GetName() string {
@@ -90,11 +100,172 @@ func (m *Mob) UnsetTarget() {
 	m.TargetId = -1
 }
 
+func (m *Mob) wander(w *World) {
+	if m.WanderTicksLeft <= 0 {
+		m.pickNewWanderDirection()
+	}
+	m.WanderTicksLeft--
+
+	mx, my, mz := m.GetPosition()
+	speed := m.Speed() * 0.4
+
+	vx := m.WanderDirX * speed
+	vz := m.WanderDirZ * speed
+
+	avoidX, avoidZ := m.adjustForOthers(w)
+	vx += avoidX * speed
+	vz += avoidZ * speed
+	if mag := math.Sqrt(vx*vx + vz*vz); mag > speed {
+		vx = (vx / mag) * speed
+		vz = (vz / mag) * speed
+	}
+
+	blockedX, blockedZ := m.checkObstacles(w, mx, my, mz, vx, vz)
+	if blockedX {
+		vx = 0
+	}
+	if blockedZ {
+		vz = 0
+	}
+
+	if blockedX || blockedZ {
+		m.WanderTicksLeft = 0
+	}
+
+	vy := m.resolveVerticalVelocity(w, mx, my, mz, vx, vz, blockedX || blockedZ)
+
+	newX := mx + vx
+	newY := my + vy
+	newZ := mz + vz
+
+	belowBlock := w.GetBlock(int32(math.Floor(newX)), byte(math.Floor(newY-0.01)), int32(math.Floor(newZ)), m.Dimension)
+	onGround := belowBlock.IsSolid() && vy <= 0
+	if onGround {
+		newY = math.Floor(newY)
+		vy = 0
+	}
+
+	yaw, pitch := computeYawPitch(vx, 0, vz)
+	if vx == 0 && vz == 0 {
+		yaw, pitch = float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
+	}
+
+	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+
+	m.OnGround = onGround
+	m.Vx, m.Vy, m.Vz = vx, vy, vz
+	m.SetPosition(newX, newY, newZ)
+	m.SetYawPitch(yaw, pitch)
+}
+
+func (m *Mob) pickNewWanderDirection() {
+	angle := rand.Float64() * 2 * math.Pi
+	m.WanderDirX = math.Cos(angle)
+	m.WanderDirZ = math.Sin(angle)
+	m.WanderTicksLeft = int32(40 + rand.Intn(80)) // 2-6 seconds at 20 ticks/sec
+}
+
 func (m *Mob) Move(w *World) {
-	if !m.HasTarget() {
+	if m.KnockbackTicks > 0 {
+		m.tickKnockback(w)
 		return
 	}
 
+	night := w.IsNight()
+
+	if night && !m.HasTarget() {
+		if pid, found := m.findNearbyPlayer(w); found {
+			m.SetTarget(pid)
+		}
+	}
+
+	if m.HasTarget() {
+		m.moveTowardTarget(w)
+		return
+	}
+
+	m.wander(w)
+}
+
+func (m *Mob) SetTargetForced(id int32) {
+	m.TargetId = id
+}
+
+func (m *Mob) tickKnockback(w *World) {
+	const drag = 0.91
+	const gravity = 0.08
+	const terminalVelocity = -3.92
+
+	mx, my, mz := m.GetPosition()
+
+	vx, vy, vz := m.Vx, m.Vy, m.Vz
+
+	if !m.OnGround {
+		vy -= gravity
+		if vy < terminalVelocity {
+			vy = terminalVelocity
+		}
+	}
+
+	newX := mx + vx
+	newY := my + vy
+	newZ := mz + vz
+
+	belowBlock := w.GetBlock(int32(math.Floor(newX)), byte(math.Floor(newY-0.01)), int32(math.Floor(newZ)), m.Dimension)
+	onGround := belowBlock.IsSolid() && vy <= 0
+	if onGround {
+		newY = math.Floor(newY)
+		vy = 0
+	}
+
+	vx *= drag
+	vz *= drag
+
+	yaw, pitch := float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
+
+	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+
+	m.OnGround = onGround
+	m.Vx, m.Vy, m.Vz = vx, vy, vz
+	m.SetPosition(newX, newY, newZ)
+	m.KnockbackTicks--
+}
+
+func (m *Mob) findNearbyPlayer(w *World) (int32, bool) {
+	const detectionRadius = 16.0
+
+	mx, my, mz := m.GetPosition()
+
+	var closestId int32 = -1
+	closestDist := math.MaxFloat64
+
+	for _, e := range w.Players {
+		if !e.GetLoggedIn() {
+			continue
+		}
+		if e.GetDim() != m.Dimension {
+			continue
+		}
+		px, py, pz := e.GetPosition()
+		dx := px - mx
+		dy := py - my
+		dz := pz - mz
+		dist := math.Sqrt(dx*dx + dy*dy + dz*dz)
+		if dist <= detectionRadius && dist < closestDist {
+			closestDist = dist
+			closestId = e.GetEntityId()
+		}
+	}
+
+	if closestId == -1 {
+		return 0, false
+	}
+	return closestId, true
+}
+
+func (m *Mob) moveTowardTarget(w *World) {
 	t, exists := w.GetEntity(m.TargetId)
 	if !exists {
 		m.UnsetTarget()
@@ -112,10 +283,13 @@ func (m *Mob) Move(w *World) {
 	yaw, pitch := computeYawPitch(dx, dy, dz)
 
 	if dist < m.StopDistance() {
-		w.BroadcastMobPositionAndRotation(m, mx, my, mz, yaw, pitch)
-		w.BroadcastEntityVelocity(m.EntityId, 0, 0, 0)
+		if m.AttackCooldown > 0 {
+			m.AttackCooldown--
+		} else {
+			m.performAttack(w, t, dx, dy, dz)
+			m.AttackCooldown = m.AttackSpeed()
+		}
 		m.SetYawPitch(yaw, pitch)
-		m.Vx, m.Vy, m.Vz = 0, 0, 0
 		return
 	}
 
@@ -128,6 +302,14 @@ func (m *Mob) Move(w *World) {
 		vz = (dz / horizDist) * speed
 	}
 
+	avoidX, avoidZ := m.adjustForOthers(w)
+	vx += avoidX * speed
+	vz += avoidZ * speed
+	if mag := math.Sqrt(vx*vx + vz*vz); mag > speed {
+		vx = (vx / mag) * speed
+		vz = (vz / mag) * speed
+	}
+
 	blockedX, blockedZ := m.checkObstacles(w, mx, my, mz, vx, vz)
 	if blockedX {
 		vx = 0
@@ -137,9 +319,6 @@ func (m *Mob) Move(w *World) {
 	}
 
 	vy := m.resolveVerticalVelocity(w, mx, my, mz, vx, vz, blockedX || blockedZ)
-
-	// log.Printf("Spider debug dx=%.3f dy=%.3f dz=%.3f dist=%.3f horizDist=%.3f blockedX=%v blockedZ=%v onGround=%v (id=%d)",
-	// 	dx, dy, dz, dist, horizDist, blockedX, blockedZ, m.OnGround, m.EntityId)
 
 	newX := mx + vx
 	newY := my + vy
@@ -159,6 +338,75 @@ func (m *Mob) Move(w *World) {
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.SetPosition(newX, newY, newZ)
 	m.SetYawPitch(yaw, pitch)
+}
+
+func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
+	const lungeSpeed = 0.55
+	const lungeUp = 0.50
+
+	mx, my, mz := m.GetPosition()
+	yaw, pitch := computeYawPitch(dx, dy, dz)
+
+	horizDist := math.Sqrt(dx*dx + dz*dz)
+	var vx, vz float64
+	if horizDist > 0.0001 {
+		vx = (dx / horizDist) * lungeSpeed
+		vz = (dz / horizDist) * lungeSpeed
+	}
+	vy := lungeUp
+	if m.OnGround {
+	} else {
+		vy = 0
+	}
+
+	newX := mx + vx
+	newY := my + vy
+	newZ := mz + vz
+
+	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+
+	m.Vx, m.Vy, m.Vz = vx, vy, vz
+	m.SetPosition(newX, newY, newZ)
+	m.OnGround = false
+
+	if pd, ok := t.(interface{ Damage(int16) }); ok {
+		pd.Damage(m.AttackDamage())
+	}
+
+	oldHP := t.GetHP()
+	newHP := oldHP - m.AttackDamage()
+	t.SetHP(newHP)
+
+	// if pl, ok := t.(*player.Player); ok {
+	// 	pl.Connection.Write()
+	// }
+}
+
+func (m *Mob) GetVelocity() (float64, float64, float64) {
+	return m.Vx, m.Vy, m.Vz
+}
+
+func (m *Mob) IsMob() bool {
+	return true
+}
+
+func (m *Mob) AttackSpeed() int32 {
+	switch m.MobType {
+	case 52:
+		return 20
+	default:
+		return 20
+	}
+}
+
+func (m *Mob) AttackDamage() int16 {
+	switch m.MobType {
+	case 52:
+		return 2
+	default:
+		return 1
+	}
 }
 
 func (m *Mob) checkObstacles(w *World, x, y, z float64, vx, vz float64) (blockedX, blockedZ bool) {
@@ -193,6 +441,10 @@ func (m *Mob) resolveVerticalVelocity(w *World, x, y, z float64, vx, vz float64,
 	const gravity = 0.08
 	const terminalVelocity = -3.92
 
+	if blockedAhead && m.MobType == 52 {
+		return climbSpeed
+	}
+
 	if m.OnGround {
 		if blockedAhead {
 			bx := int32(math.Floor(x + vx))
@@ -201,12 +453,9 @@ func (m *Mob) resolveVerticalVelocity(w *World, x, y, z float64, vx, vz float64,
 			b2 := w.GetBlock(bx, by+1, bz, m.Dimension)
 
 			if !b2.IsSolid() {
-				return jumpVelocity 
+				return jumpVelocity
 			}
-			if m.MobType == 52 { 
-				return climbSpeed
-			}
-			return 0 
+			return 0
 		}
 		return 0
 	}
@@ -217,7 +466,6 @@ func (m *Mob) resolveVerticalVelocity(w *World, x, y, z float64, vx, vz float64,
 	}
 	return vy
 }
-
 
 func computeYawPitch(dx, dy, dz float64) (yaw, pitch float64) {
 	horizDist := math.Sqrt(dx*dx + dz*dz)
@@ -233,8 +481,8 @@ func (m *Mob) SetYawPitch(yawDeg, pitchDeg float64) {
 
 func (m *Mob) StopDistance() float64 {
 	switch m.MobType {
-	case 52: 
-		return 2.0
+	case 52:
+		return 1.25
 	default:
 		return 1.5
 	}
@@ -250,9 +498,58 @@ func (m *Mob) Speed() float64 {
 }
 
 func (w *World) SpawnSpider(x, y, z, dim int32, target int32) {
-	log.Printf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z)
 	s := NewSpider(w, float64(x), float64(y), float64(z), dim)
 	s.SetTarget(target)
 	w.Entities[s.EntityId] = s
 	w.BroadcastMobSpawn(s.MobType, s.Metadata, x, y, z, s.Yaw, s.Pitch, s.Dimension, s.EntityId)
+}
+
+func (m *Mob) adjustForOthers(w *World) (avoidX, avoidZ float64) {
+	const minSeparation = 1.5
+	const maxCrowd = 16
+
+	mx, my, mz := m.GetPosition()
+
+	nearby := 0
+	for _, e := range w.Entities {
+		if e.GetEntityId() == m.EntityId || e.IsPlayer() {
+			continue
+		}
+		if e.GetDim() != m.Dimension {
+			continue
+		}
+
+		ex, ey, ez := e.GetPosition()
+
+		if math.Abs(ey-my) > 1.5 {
+			continue
+		}
+
+		dx := mx - ex
+		dz := mz - ez
+		dist := math.Sqrt(dx*dx + dz*dz)
+
+		if dist >= minSeparation {
+			continue
+		}
+
+		nearby++
+
+		if dist < 0.0001 {
+			angle := float64(m.EntityId%360) * (math.Pi / 180)
+			dx = math.Cos(angle)
+			dz = math.Sin(angle)
+			dist = 1
+		}
+
+		strength := (minSeparation - dist) / minSeparation
+		avoidX += (dx / dist) * strength
+		avoidZ += (dz / dist) * strength
+	}
+
+	if nearby >= maxCrowd {
+		return 0, 0
+	}
+
+	return avoidX, avoidZ
 }

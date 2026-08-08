@@ -312,7 +312,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				} 
 			}
 			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
-			world.SpawnSpider(x, y, z, pl.Dimension, pl.GetEntityId())
+			world.SpawnSpider(x, y, z, pl.Dimension, -1)
 		}
 
 		if strings.HasPrefix(message, "/time") {

@@ -57,7 +57,7 @@ func main() {
 	world.SetBroadcastMobSpawn(packets.BroadcastMobSpawn)
 	world.SetBroadcastMobPositionAndRotation(packets.BroadcastMobPositionAndRotation)
 
-	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.NewEntityDespawnPacket, packets.SetEquipment2)
+	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.SpawnMob, packets.NewEntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))

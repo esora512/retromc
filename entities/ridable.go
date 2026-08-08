@@ -27,8 +27,16 @@ type RideableEntity struct {
 	Yaw                byte
 	YawDegrees         float64
 
-	HP int16
+	HP        int16
 	Dimension int32
+}
+
+func (r *RideableEntity) GetVelocity() (float64, float64, float64) {
+	return r.VelocityX, r.VelocityY, r.VelocityZ
+}
+
+func (r *RideableEntity) IsMob() bool {
+	return false
 }
 
 func (r *RideableEntity) GetDim() int32 {

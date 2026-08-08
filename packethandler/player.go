@@ -655,9 +655,7 @@ func interactWithBed(oldExisting *level.Block, world *level.World, pl *player.Pl
 			}
 		}
 
-		timeTicks := world.TimeTick % 24000
-		canSleep := timeTicks >= 12541 && timeTicks < 23458
-		if canSleep {
+		if world.IsNight() {
 			p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
 			mP := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 1}
 			pl.Connection.Write(p)

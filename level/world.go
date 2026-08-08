@@ -43,6 +43,8 @@ type Entity interface {
 	GetHP() int16
 	GetLoggedIn() bool
 	GetDim() int32
+	IsMob() bool
+	GetVelocity() (float64, float64, float64)
 }
 
 func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
@@ -54,9 +56,15 @@ func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
 	return nil, false
 }
 
+func (w *World) IsNight() bool {
+	timeTicks := w.TimeTick % 24000
+	return timeTicks >= 12541 && timeTicks < 23458
+}
+
 type EntityTracker struct {
 	SpawnPlayer   func(pl *player.Player) []byte
 	SpawnObject   func(e Entity) []byte
+	SpawnMob func(m *Mob) []byte
 	DespawnEntity func(id int32) []byte
 	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
 	visible       map[int32]map[int32]bool
@@ -66,12 +74,14 @@ type EntityTracker struct {
 func NewEntityTracker(
 	spawnPlayer func(pl *player.Player) []byte,
 	spawnObject func(e Entity) []byte,
+	spawnMob func(m *Mob) []byte,
 	despawnEntity func(id int32) []byte,
 	setEquipment func(pl *player.Player, send func([]byte) (int, error)),
 ) *EntityTracker {
 	return &EntityTracker{
 		SpawnPlayer:   spawnPlayer,
 		SpawnObject:   spawnObject,
+		SpawnMob: spawnMob,
 		DespawnEntity: despawnEntity,
 		SetEquipment:  setEquipment,
 		visible:       make(map[int32]map[int32]bool),
@@ -145,8 +155,9 @@ func (et *EntityTracker) Manage(w *World) {
 					et.SetEquipment(t, viewer.Connection.Write)
 				} else if target.IsRideable() {
 					viewer.Connection.Write(et.SpawnObject(target))
-				} else {
-					// TODO: Add mobs
+				} else if target.IsMob() {
+					t, _ := target.(*Mob)
+					viewer.Connection.Write(et.SpawnMob(t))
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
@@ -388,7 +399,7 @@ func (w *World) RemoveSleeper(pl *player.Player) {
 }
 
 func (w *World) Sleep() {
-	for k, _ := range w.sleepers {
+	for k := range w.sleepers {
 		w.sleepers[k] += 1
 	}
 }

@@ -112,9 +112,11 @@ const (
 	knockbackVertical          = 0.4
 )
 
-func applyKnockback(w *level.World, attacker, victim *player.Player) {
-	dx := attacker.X - victim.X
-	dz := attacker.Z - victim.Z
+func applyKnockback(w *level.World, attacker, victim level.Entity) {
+	aX, _, aZ := attacker.GetPosition()
+	viX, _, viZ := victim.GetPosition()
+	dx := aX - viX
+	dz := aZ - viZ
 	dist := math.Sqrt(dx*dx + dz*dz)
 
 	if dist < 1e-4 {
@@ -125,7 +127,7 @@ func applyKnockback(w *level.World, attacker, victim *player.Player) {
 	dx /= dist
 	dz /= dist
 
-	vX, vY, vZ := victim.Vx, victim.Vy, victim.Vz
+	vX, vY, vZ := victim.GetVelocity()
 	vX *= knockbackVelocityDampening
 	vZ *= knockbackVelocityDampening
 	vX -= dx * knockbackHorizontal
@@ -137,6 +139,9 @@ func applyKnockback(w *level.World, attacker, victim *player.Player) {
 		Vx:       vX,
 		Vy:       vY,
 		Vz:       vZ,
+	}
+	if mob, ok := victim.(*level.Mob); ok {
+		mob.ApplyKnockback(vX, vY, vZ)
 	}
 	w.BroadcastPacket(ev.Serialize())
 }
@@ -163,13 +168,22 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				Action:   2,
 			}
 			world.BroadcastPacket(p.Serialize())
+		} else if other.IsMob() {
+			p := packets.EntityEventPacket{
+				EntityId: other.GetEntityId(),
+				Action:   2,
+			}
+			world.BroadcastPacket(p.Serialize())
+			if mob, ok := other.(*level.Mob); ok {
+				mob.SetTargetForced(pl.GetEntityId())
+			}
 		}
+
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
-		if other.IsPlayer() {
-			otherPl := world.Players[other.GetEntityId()]
-			applyKnockback(world, pl, otherPl)
+		if other.IsPlayer() || other.IsMob() {
+			applyKnockback(world, pl, other)
 
 		}
 
@@ -207,7 +221,6 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				}
 			}
 			tracker.Remove(other.GetEntityId())
-			//world.BroadcastDespawn(other.GetEntityId())
 		}
 		return
 	}

@@ -520,7 +520,7 @@ func (p *SpawnMobPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func NewSpawnMob(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) []byte {
+func NewSpawnMob(mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) []byte {
 	p := SpawnMobPacket{
 		EntityId: entityId,
 		MobType:  mobType,
@@ -535,6 +535,10 @@ func NewSpawnMob(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch b
 }
 
 func BroadcastMobSpawn(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) {
-	p := NewSpawnMob(w, mobType, meta, x, y, z, yaw, pitch, dim, entityId)
+	p := NewSpawnMob(mobType, meta, x, y, z, yaw, pitch, dim, entityId)
 	w.BroadcastPacket(p)
+}
+
+func SpawnMob(m *level.Mob) []byte {
+	return NewSpawnMob(m.MobType, m.Metadata, int32(m.X), int32(m.Y), int32(m.Z), m.Yaw, m.Pitch, m.Dimension, m.EntityId)
 }

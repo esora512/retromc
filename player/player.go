@@ -94,6 +94,15 @@ func (pl *Player) GetDim() int32 {
 	return pl.Dimension
 }
 
+func (pl *Player) IsMob() bool {
+	return false
+}
+
+func (pl *Player) GetVelocity() (float64, float64, float64) {
+	return pl.Vx, pl.Vy, pl.Vz
+}
+
+
 type Player struct {
 	FallDistance float64
 	Username     string
