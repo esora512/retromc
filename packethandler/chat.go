@@ -3,6 +3,7 @@ package packethandler
 import (
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"fmt"
@@ -298,8 +299,20 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		}
 
 		if strings.HasPrefix(message, "/summon") {
-			p := packets.NewSpawnMob(world, 52, 0, int32(pl.X), int32(pl.Y), int32(pl.Z), 0, 0, pl.Dimension)
-			world.BroadcastPacket(p)
+			parts := strings.Fields(message)
+			x, y, z := int32(pl.X), int32(pl.Y), int32(pl.Z)
+
+			if len(parts) >= 4 {
+				px, errX := strconv.Atoi(parts[1])
+				py, errY := strconv.Atoi(parts[2])
+				pz, errZ := strconv.Atoi(parts[3])
+
+				if errX == nil && errY == nil && errZ == nil {
+					x, y, z = int32(px), int32(py), int32(pz)
+				} 
+			}
+			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
+			world.SpawnSpider(x, y, z, pl.Dimension, pl.GetEntityId())
 		}
 
 		if strings.HasPrefix(message, "/time") {

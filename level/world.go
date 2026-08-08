@@ -143,8 +143,10 @@ func (et *EntityTracker) Manage(w *World) {
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
-				} else {
+				} else if target.IsRideable() {
 					viewer.Connection.Write(et.SpawnObject(target))
+				} else {
+					// TODO: Add mobs
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
@@ -188,20 +190,37 @@ type World struct {
 	noise           *PerlinNoise
 	sleepers        map[int32]int
 
-	broadcastRelativePosition func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
-	collectItem               func(itemId, collectorId int32) []byte
-	sendSetSlot               func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
-	broadcastEntityVelocity   func(w *World, entityId int32, vx, vy, vz float64)
-	broascastDespawn          func(w *World, id int32)
-	broadcastTeleport         func(w *World, c Entity, cx, cy, cz float64, yaw byte)
-	broadcastContainerData    func(w *World, windowId byte, itemType, itemValue int16)
-	broadcastSetSlot          func(w *World, windowId byte, slot int16, item inventory.Item)
-	broadcastMultiBlockChange func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
-	broadcastBlockChange      func(w *World, x, y, z int32, blockType, blockMeta byte)
-	broadcastTime             func(w *World, tick int64)
-	broadcastSpawnObject      func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
-	broadcastWakeUp           func(w *World, id int32)
-	broadcastWorldMsg         func(w *World, msg string)
+	broadcastRelativePosition       func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
+	collectItem                     func(itemId, collectorId int32) []byte
+	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
+	broadcastEntityVelocity         func(w *World, entityId int32, vx, vy, vz float64)
+	broascastDespawn                func(w *World, id int32)
+	broadcastTeleport               func(w *World, c Entity, cx, cy, cz float64, yaw byte)
+	broadcastContainerData          func(w *World, windowId byte, itemType, itemValue int16)
+	broadcastSetSlot                func(w *World, windowId byte, slot int16, item inventory.Item)
+	broadcastMultiBlockChange       func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
+	broadcastBlockChange            func(w *World, x, y, z int32, blockType, blockMeta byte)
+	broadcastTime                   func(w *World, tick int64)
+	broadcastSpawnObject            func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
+	broadcastWakeUp                 func(w *World, id int32)
+	broadcastWorldMsg               func(w *World, msg string)
+	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
+	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
+}
+
+func (w *World) BroadcastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
+	w.broadcastMobPositionAndRotation(w, m, nX, nY, nZ, yaw, pitch)
+}
+
+func (w *World) BroadcastMobSpawn(mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) {
+	w.broadcastMobSpawn(w, mobType, meta, x, y, z, yaw, pitch, dim, entityId)
+}
+
+func (w *World) GetEntity(id int32) (Entity, bool) {
+	if e, ok := w.Entities[id]; ok {
+		return e, ok
+	}
+	return nil, false
 }
 
 func (w *World) BroadcastWorldMsg(msg string) {
@@ -314,6 +333,14 @@ func (w *World) SetBroadcastWakeUp(f func(w *World, id int32)) {
 
 func (w *World) SetBroadcastWorldMsg(f func(w *World, msg string)) {
 	w.broadcastWorldMsg = f
+}
+
+func (w *World) SetBroadcastMobSpawn(f func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)) {
+	w.broadcastMobSpawn = f
+}
+
+func (w *World) SetBroadcastMobPositionAndRotation(f func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)) {
+	w.broadcastMobPositionAndRotation = f
 }
 
 func (w *World) LockSession(username string) func() {

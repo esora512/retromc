@@ -242,6 +242,10 @@ func (b *Block) IsAir() bool {
 	return b.TypeId == 0
 }
 
+func (b *Block) IsSolid () bool {
+	return !b.IsAir() && !b.IsFluid()
+}
+
 // ID 0 - Air
 func NewAirBlock() Block {
 	return Block{TypeId: 0x00, Metadata: 0x00, Light: 0x00, SkyLight: 0x0f}

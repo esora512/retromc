@@ -290,7 +290,7 @@ func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, pre
 		return
 	}
 
-	p := packets.EntityPositionAndLookPacket{
+	p := packets.EntityPositionAndRotationPacket{
 		EntityId: c.GetEntityId(),
 		X:        byte(dX),
 		Y:        byte(dY),

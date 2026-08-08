@@ -218,7 +218,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 		pl.BelowZeroHeightCount = 0
 	}
 
-	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch), world)
+	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch))
 	world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
@@ -665,7 +665,7 @@ func interactWithBed(oldExisting *level.Block, world *level.World, pl *player.Pl
 			world.AddSleeper(pl)
 			go func() { time.Sleep(time.Millisecond * 500); world.MulticastPacket(p, pl) }()
 		} else {
-			sendDebugMessage(pl, fmt.Sprintf("Can only sleep at night..."))
+			sendDebugMessage(pl, fmt.Sprintln("Can only sleep at night..."))
 		}
 		return true
 	}

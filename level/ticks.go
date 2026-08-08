@@ -286,6 +286,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()
+	w.TickMobs()
 }
 
 func (w *World) TickSleep() {
@@ -296,5 +297,13 @@ func (w *World) TickSleep() {
 func (w *World) TickPlayers() {
 	for _, pl := range w.Players {
 		pl.OnlineFor += 1
+	}
+}
+
+func (w *World) TickMobs() {
+	for _, e := range w.Entities {
+		if m, ok := e.(*Mob); ok {
+			m.Move(w)
+		}
 	}
 }

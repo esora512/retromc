@@ -47,7 +47,7 @@ type SpawnItemPacket struct {
 	Roll     byte
 }
 
-type EntityPositionAndLookPacket struct {
+type EntityPositionAndRotationPacket struct {
 	EntityId int32
 	X        byte
 	Y        byte
@@ -136,7 +136,7 @@ func (p *EntityVelocityPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func (p *EntityPositionAndLookPacket) Serialize() []byte {
+func (p *EntityPositionAndRotationPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.EntityPositionAndRotation)
 	writer.WriteInt32(p.EntityId)
@@ -243,7 +243,50 @@ func NewTeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, wor
 
 const maxRelDelta = 127
 
-func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch float64, world *level.World) []byte {
+func NewMobPositionAndRotationPacket(m *level.Mob, x, y, z, yaw, pitch float64) []byte {
+	//log.Printf("Spider Pos&Rot Pkt x=%f, y=%f, z=%f (Id=%d)", x, y, z, m.EntityId)
+	encX := int32(math.Floor(x * 32))
+	encY := int32(math.Floor(y * 32))
+	encZ := int32(math.Floor(z * 32))
+
+	dX := encX - int32(math.Floor(m.X*32))
+	dY := encY - int32(math.Floor(m.Y*32))
+	dZ := encZ - int32(math.Floor(m.Z*32))
+	dYaw := int32(math.Floor(yaw * 256 / 360))
+	dPitch := int32(math.Floor(pitch * 256 / 360))
+
+	if dX < -maxRelDelta || dX > maxRelDelta ||
+		dY < -maxRelDelta || dY > maxRelDelta ||
+		dZ < -maxRelDelta || dZ > maxRelDelta {
+
+		p := TeleportEntityPacket{
+			EntityId: m.EntityId,
+			X:        encX,
+			Y:        encY,
+			Z:        encZ,
+			Yaw:      byte(dYaw),
+			Pitch:    byte(dPitch),
+		}
+		return p.Serialize()
+	}
+
+	p := EntityPositionAndRotationPacket{
+		EntityId: m.EntityId,
+		X:        byte(dX),
+		Y:        byte(dY),
+		Z:        byte(dZ),
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
+	}
+	return p.Serialize()
+}
+
+func BroadcastMobPositionAndRotation(w *level.World, m *level.Mob, nX, nY, nZ, yaw, pitch float64) {
+	p := NewMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
+	w.BroadcastPacket(p)
+}
+
+func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch float64) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
 	encZ := int32(math.Floor(z * 32))
@@ -274,7 +317,7 @@ func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch f
 		return p.Serialize()
 	}
 
-	p := EntityPositionAndLookPacket{
+	p := EntityPositionAndRotationPacket{
 		EntityId: int32(pl.EntityId),
 		X:        byte(dX),
 		Y:        byte(dY),
@@ -477,8 +520,7 @@ func (p *SpawnMobPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func NewSpawnMob(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32) []byte {
-	entityId := w.NextEntityId()
+func NewSpawnMob(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) []byte {
 	p := SpawnMobPacket{
 		EntityId: entityId,
 		MobType:  mobType,
@@ -490,4 +532,9 @@ func NewSpawnMob(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch b
 		Pitch:    pitch,
 	}
 	return p.Serialize()
+}
+
+func BroadcastMobSpawn(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) {
+	p := NewSpawnMob(w, mobType, meta, x, y, z, yaw, pitch, dim, entityId)
+	w.BroadcastPacket(p)
 }
