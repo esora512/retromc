@@ -286,7 +286,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()
-	w.TickMobs()
+	w.TickMobs(tracker)
 }
 
 func (w *World) TickSleep() {
@@ -300,10 +300,21 @@ func (w *World) TickPlayers() {
 	}
 }
 
-func (w *World) TickMobs() {
+func (w *World) TickMobs(tracker *EntityTracker) {
+	var toRemove []int32
+
 	for _, e := range w.Entities {
 		if m, ok := e.(*Mob); ok {
+			if m.HP <= 0 {
+				toRemove = append(toRemove, m.EntityId)
+				continue
+			}
 			m.Move(w)
 		}
+	}
+
+	for _, id := range toRemove {
+		delete(w.Entities, id)
+		tracker.Remove(id)
 	}
 }

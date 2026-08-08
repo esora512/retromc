@@ -290,7 +290,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "/kill", "":
 				p.Message = "\u00A7c" + fmt.Sprintf("Server killed %s", pl.Username)
 				world.BroadcastPacket(p.Serialize())
-				sendSetHealth(pl.Connection, 0)
+				SendSetHealth(pl.Connection, 0)
 				pl.SetHP(0)
 			default:
 				sendUsage(pl, "/kill")
@@ -309,7 +309,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 				if errX == nil && errY == nil && errZ == nil {
 					x, y, z = int32(px), int32(py), int32(pz)
-				} 
+				}
 			}
 			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
 			world.SpawnSpider(x, y, z, pl.Dimension, -1)

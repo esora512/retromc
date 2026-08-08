@@ -3,6 +3,8 @@ package level
 import (
 	"math"
 	"math/rand"
+
+	"github.com/leNicDev/retromc/player"
 )
 
 type Mob struct {
@@ -80,7 +82,7 @@ func NewSpider(w *World, x, y, z float64, dim int32) *Mob {
 		MobType:   52,
 		Metadata:  0,
 		TargetId:  -1,
-		HP:        20,
+		HP:        10,
 		OnGround:  true,
 	}
 	return &m
@@ -150,8 +152,8 @@ func (m *Mob) wander(w *World) {
 		yaw, pitch = float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
 	}
 
-	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -224,8 +226,8 @@ func (m *Mob) tickKnockback(w *World) {
 
 	yaw, pitch := float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
 
-	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -331,8 +333,8 @@ func (m *Mob) moveTowardTarget(w *World) {
 		vy = 0
 	}
 
-	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -363,8 +365,8 @@ func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
 	newY := my + vy
 	newZ := mz + vz
 
-	w.BroadcastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.BroadcastEntityVelocity(m.EntityId, vx, vy, vz)
+	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.SetPosition(newX, newY, newZ)
@@ -378,9 +380,14 @@ func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
 	newHP := oldHP - m.AttackDamage()
 	t.SetHP(newHP)
 
-	// if pl, ok := t.(*player.Player); ok {
-	// 	pl.Connection.Write()
-	// }
+	if pl, ok := t.(*player.Player); ok {
+		w.SendSetHealth(pl.Connection, uint16(newHP))
+	}
+	w.BroadcastPain(t.GetEntityId())
+
+	if newHP <= 0 {
+		m.UnsetTarget()
+	}
 }
 
 func (m *Mob) GetVelocity() (float64, float64, float64) {

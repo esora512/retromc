@@ -162,18 +162,10 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		if other.IsPlayer() {
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
-			sendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
-			p := packets.EntityEventPacket{
-				EntityId: other.GetEntityId(),
-				Action:   2,
-			}
-			world.BroadcastPacket(p.Serialize())
+			SendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
+			BroadcastPain(world, other.GetEntityId())
 		} else if other.IsMob() {
-			p := packets.EntityEventPacket{
-				EntityId: other.GetEntityId(),
-				Action:   2,
-			}
-			world.BroadcastPacket(p.Serialize())
+			BroadcastPain(world, other.GetEntityId())
 			if mob, ok := other.(*level.Mob); ok {
 				mob.SetTargetForced(pl.GetEntityId())
 			}
@@ -220,6 +212,18 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 					world.BroadcastPacket(spawnPacket)
 				}
 			}
+
+			if other.IsMob() {
+				m, _ := other.(*level.Mob)
+				if m.MobType == 52 {
+					x, y, z := other.GetPosition()
+					spawnPacket := packets.NewSpawnDroppedItem(world, constants.String.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
+					world.BroadcastPacket(spawnPacket)
+					m.Vx, m.Vy, m.Vz = 0, 0, 0
+
+				}
+			}
+
 			tracker.Remove(other.GetEntityId())
 		}
 		return

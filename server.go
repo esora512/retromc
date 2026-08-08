@@ -56,6 +56,10 @@ func main() {
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetBroadcastMobSpawn(packets.BroadcastMobSpawn)
 	world.SetBroadcastMobPositionAndRotation(packets.BroadcastMobPositionAndRotation)
+	world.SetSendSetHealth(packethandler.SendSetHealth)
+	world.SetBroadcastPain(packethandler.BroadcastPain)
+	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
+	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
 
 	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.SpawnMob, packets.NewEntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)

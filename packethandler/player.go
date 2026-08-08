@@ -59,7 +59,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	sendRespawn(connection, byte(loc))
 
 	pl.SetHP(20)
-	sendSetHealth(connection, 20.0)
+	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
 	world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
@@ -72,11 +72,19 @@ func sendRespawn(connection net.Conn, world byte) {
 	connection.Write(respawnPacket.Serialize())
 }
 
-func sendSetHealth(connection net.Conn, health uint16) {
+func SendSetHealth(connection net.Conn, health uint16) {
 	setHealthPacket := packets.SetHealthPacket{
 		Health: health,
 	}
 	connection.Write(setHealthPacket.Serialize())
+}
+
+func BroadcastPain(w *level.World, entityId int32) {
+	p := packets.EntityEventPacket{
+		EntityId: entityId,
+		Action:   2,
+	}
+	w.BroadcastPacket(p.Serialize())
 }
 
 func outOfBounds(x, z float64) bool {
@@ -210,7 +218,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	if y < 0 {
 		pl.BelowZeroHeightCount++
 		if pl.BelowZeroHeightCount > 10 {
-			sendSetHealth(connection, 0)
+			SendSetHealth(connection, 0)
 			return
 		}
 	}

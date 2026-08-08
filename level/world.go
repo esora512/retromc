@@ -64,7 +64,7 @@ func (w *World) IsNight() bool {
 type EntityTracker struct {
 	SpawnPlayer   func(pl *player.Player) []byte
 	SpawnObject   func(e Entity) []byte
-	SpawnMob func(m *Mob) []byte
+	SpawnMob      func(m *Mob) []byte
 	DespawnEntity func(id int32) []byte
 	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
 	visible       map[int32]map[int32]bool
@@ -81,7 +81,7 @@ func NewEntityTracker(
 	return &EntityTracker{
 		SpawnPlayer:   spawnPlayer,
 		SpawnObject:   spawnObject,
-		SpawnMob: spawnMob,
+		SpawnMob:      spawnMob,
 		DespawnEntity: despawnEntity,
 		SetEquipment:  setEquipment,
 		visible:       make(map[int32]map[int32]bool),
@@ -104,6 +104,38 @@ func (et *EntityTracker) Add(playerId int32, otherId int32) {
 		et.visible[playerId] = make(map[int32]bool)
 	}
 	et.visible[playerId][otherId] = true
+}
+
+func (w *World) MulticastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
+	p := w.newMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
+	w.MulticastToInRange(m, p)
+}
+
+func (w *World) MulticastEntityVelocity(entityId int32, vx, vy, vz float64) {
+	if e, ok := w.Entities[entityId]; ok {
+		p := w.newEntityVelocityPacket(entityId, vx, vy, vz)
+		w.MulticastToInRange(e, p)
+	}
+}
+
+func (w *World) MulticastToInRange(source Entity, data []byte) {
+	const distance = VIEW_DISTANCE * 8
+	oX, _, oZ := source.GetPosition()
+	sDim := source.GetDim()
+
+	for _, pl := range w.Players {
+		x, _, z := pl.GetPosition()
+		dim := pl.GetDim()
+		sameDim := sDim == dim
+
+		dx := math.Abs(oX - x)
+		dz := math.Abs(oZ - z)
+		inRange := sameDim && dx <= distance && dz <= distance
+
+		if inRange {
+			pl.Connection.Write(data)
+		}
+	}
 }
 
 func (et *EntityTracker) Manage(w *World) {
@@ -131,7 +163,7 @@ func (et *EntityTracker) Manage(w *World) {
 				continue
 			}
 
-			if !target.GetLoggedIn() {
+			if target.IsPlayer() && !target.GetLoggedIn() {
 				continue
 			}
 
@@ -217,6 +249,28 @@ type World struct {
 	broadcastWorldMsg               func(w *World, msg string)
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
+	newMobPositionAndRotationPacket func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte
+	newEntityVelocityPacket func(entityId int32, vx, vy, vz float64) []byte 
+
+	sendSetHealth                   func(conn net.Conn, hp uint16)
+	broadcastPain                   func(w *World, entityId int32)
+}
+
+
+func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz float64) []byte ) {
+	w.newEntityVelocityPacket = f
+}
+
+func (w *World) SetNewMobPositionAndRotationPacket(f func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte) {
+	w.newMobPositionAndRotationPacket = f
+}
+
+func (w *World) BroadcastPain(entityId int32) {
+	w.broadcastPain(w, entityId)
+}
+
+func (w *World) SendSetHealth(conn net.Conn, health uint16) {
+	w.sendSetHealth(conn, health)
 }
 
 func (w *World) BroadcastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
@@ -352,6 +406,14 @@ func (w *World) SetBroadcastMobSpawn(f func(w *World, mobType, meta byte, x, y, 
 
 func (w *World) SetBroadcastMobPositionAndRotation(f func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)) {
 	w.broadcastMobPositionAndRotation = f
+}
+
+func (w *World) SetSendSetHealth(f func(connection net.Conn, health uint16)) {
+	w.sendSetHealth = f
+}
+
+func (w *World) SetBroadcastPain(f func(w *World, entityId int32)) {
+	w.broadcastPain = f
 }
 
 func (w *World) LockSession(username string) func() {

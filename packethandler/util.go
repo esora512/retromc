@@ -311,6 +311,16 @@ func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64)
 	w.BroadcastPacket(packet.Serialize())
 }
 
+func NewEntityVelocityPacket(entityId int32, vx, vy, vz float64) []byte {
+	p := packets.EntityVelocityPacket{
+		EntityId: entityId,
+		Vx:       vx,
+		Vy:       vy,
+		Vz:       vz,
+	}
+	return p.Serialize()
+}
+
 func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue int16) {
 	p := packets.ContainerDataPacket{
 		WindowID: windowId,
