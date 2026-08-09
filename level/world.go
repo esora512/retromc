@@ -235,6 +235,8 @@ type World struct {
 	WorldType   WorldType
 	Scheduler   BlockUpdateScheduler
 
+	OppedUsernames map[string]bool
+
 	TickSpeed       int64
 	Containers      Containers
 	ChestPlacements ChestPlacement
@@ -424,6 +426,10 @@ func (w *World) SetSendSetHealth(f func(connection net.Conn, health uint16)) {
 
 func (w *World) SetBroadcastPain(f func(w *World, entityId int32)) {
 	w.broadcastPain = f
+}
+
+func (w *World) SetOppedUsernames(names map[string]bool) {
+	w.OppedUsernames = names
 }
 
 func (w *World) LockSession(username string) func() {

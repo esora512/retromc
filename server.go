@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/leNicDev/retromc/level"
@@ -23,9 +24,28 @@ var (
 	BuildTime = "unknown"
 )
 
+type opUsernamesFlag map[string]bool
+
+func (o opUsernamesFlag) String() string {
+	names := make([]string, 0, len(o))
+	for name := range o {
+		names = append(names, name)
+	}
+	return strings.Join(names, ", ")
+}
+
+func (o opUsernamesFlag) Set(value string) error {
+	o[strings.ToLower(value)] = true
+	return nil
+}
+
 func main() {
 	host := flag.String("host", "localhost", "Address to bind the server to")
 	port := flag.String("port", "25565", "Port to bind the server to")
+
+	ops := make(opUsernamesFlag)
+	flag.Var(&ops, "op", "Username of a player to grant operator permissions to (repeatable, e.g. --op esora512 --op PixelBrush)")
+
 	flag.Parse()
 	l, err := net.Listen(CON_TYPE, *host+":"+*port)
 	if err != nil {
@@ -60,6 +80,8 @@ func main() {
 	world.SetBroadcastPain(packethandler.BroadcastPain)
 	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
 	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
+
+	world.SetOppedUsernames(ops)
 
 	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.SpawnMob, packets.NewEntityDespawnPacket, packets.SetEquipment2)
 	gameLoop(world, entityTracker)
@@ -102,7 +124,6 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
-
 	reader := bufio.NewReader(connection)
 	for {
 		err := packethandler.HandlePacket(connection, reader, world, pl, tracker)

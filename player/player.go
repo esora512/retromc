@@ -102,7 +102,6 @@ func (pl *Player) GetVelocity() (float64, float64, float64) {
 	return pl.Vx, pl.Vy, pl.Vz
 }
 
-
 type Player struct {
 	FallDistance float64
 	Username     string
@@ -141,6 +140,7 @@ type Player struct {
 
 	HP        int16
 	OnlineFor int64
+	IsOp      bool
 }
 
 func (pl *Player) SetHP(hp int16) {
@@ -194,6 +194,7 @@ func NewPlayer(conn net.Conn) *Player {
 		HP:                   20,
 		Dimension:            0,
 		OnlineFor:            0,
+		IsOp: false,
 	}
 }
 

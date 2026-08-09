@@ -26,9 +26,6 @@ func LogMemStats() (string, string, string, string) {
 		fmt.Sprintf("NumGC = %v", m.NumGC)
 }
 
-// commandHelp maps each command name to a short description and usage string.
-// Used by both /help (overview) and /help <command> (detail), and commands
-// fall back to their usage entry here when called with bad/missing args.
 var commandHelp = []struct {
 	Name  string
 	Usage string
@@ -45,6 +42,24 @@ var commandHelp = []struct {
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 	{"/size", "/size"},
 	{"/version", "/version"},
+	{"/summon", "/summon [x y z]"},
+}
+
+var opOnlyCommands = map[string]bool{
+	"/give":     true,
+	"/save":     true,
+	"/destroy":  true,
+	"/place":    true,
+	"/gamemode": true,
+	"/kill":     true,
+	"/time":     true,
+	"/summon":   true,
+	"/tp":       true,
+	"/dim":      true,
+}
+
+var debugSubcommandRequiresOp = map[string]bool{
+	"entities": true,
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -54,13 +69,15 @@ func sendDebugMessage(pl *player.Player, lines ...string) {
 	}
 }
 
+func sendNoPermission(pl *player.Player, name string) {
+	sendDebugMessage(pl, fmt.Sprintf("\u00A7cYou do not have permission to use %s.", name))
+}
+
 func BroadcastWorldMsg(w *level.World, msg string) {
 	p := packets.ChatMessagePacket{Message: "\u00A7e" + msg}
 	w.BroadcastPacket(p.Serialize())
 }
 
-// sendUsage looks up a command by name and prints its usage line.
-// If the command isn't found (shouldn't normally happen), it's a no-op.
 func sendUsage(pl *player.Player, name string) {
 	for _, c := range commandHelp {
 		if c.Name == name {
@@ -81,7 +98,6 @@ func handleHelpCommand(pl *player.Player, message string) {
 		return
 	}
 
-	// Allow looking up with or without the leading slash, e.g. "/help give" or "/help /give"
 	if !strings.HasPrefix(arg, "/") {
 		arg = "/" + arg
 	}
@@ -97,6 +113,14 @@ func handleHelpCommand(pl *player.Player, message string) {
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
+		// Determine the base command token (e.g. "/tp" from "/tp 1 2 3")
+		// and reject it up-front if it's op-only and the player isn't an op.
+		cmdName := strings.Fields(message)[0]
+		if opOnlyCommands[cmdName] && !pl.IsOp {
+			sendNoPermission(pl, cmdName)
+			return false
+		}
+
 		if strings.HasPrefix(message, "/tp") {
 			args := strings.Fields(strings.TrimPrefix(message, "/tp"))
 
@@ -131,16 +155,34 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 		}
 
-		if strings.HasPrefix(message, "/tp") {
-			var x, y, z float64
-			_, err := fmt.Sscanf(message, "/tp %f %f %f", &x, &y, &z)
-			if err != nil {
-				sendUsage(pl, "/tp")
-				return false
+		if strings.HasPrefix(message, "/dim") {
+			pl.X = player.SpawnX
+			pl.Y = player.SpawnY
+			pl.Z = player.SpawnZ
+			pl.Stance = player.SpawnStance
+			pl.Yaw = 0
+			pl.Pitch = 0
+			pl.OnGround = true
+			loc := int32(0)
+			if pl.Dimension == loc {
+				loc = -1
+				pl.Dimension = -1
+			} else {
+				pl.Dimension = loc
 			}
-			pl.SetPosition(x, y, z)
-			BroadcastTeleport(world, pl, x, y, z, byte(pl.Yaw))
-			return false
+
+			pl.SentChunks = make(player.ChunkSet)
+			pl.HasInitializedChunks = false
+
+			pl.OnlineFor = 0
+
+			sendRespawn(pl.Connection, byte(loc))
+
+			pl.SetHP(20)
+			SendSetHealth(pl.Connection, 20.0)
+			sendPlayerPositionAndLook(pl.Connection, 0, 0, 80)
+			world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
+			world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 		}
 
 		if strings.HasPrefix(message, "/place") {
@@ -183,7 +225,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		if strings.HasPrefix(message, "/size") {
 			sendDebugMessage(pl, fmt.Sprintf("World size = %s", world.SizeString()))
 			sendDebugMessage(pl, fmt.Sprintf("OChunks = %d", len(world.LoadChunks(0))))
-			sendDebugMessage(pl, fmt.Sprintf("OChunks = %d", len(world.LoadChunks(-1))))
+			sendDebugMessage(pl, fmt.Sprintf("NChunks = %d", len(world.LoadChunks(-1))))
 
 			alloc, sys, totalAlloc, numGC := LogMemStats()
 			sendDebugMessage(pl, alloc)
@@ -339,6 +381,18 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/debug") {
 			command := strings.TrimPrefix(message, "/debug ")
+			// Extract the subcommand token (ignore any trailing args) so we
+			// can check permissions even if a subcommand ever takes args.
+			subcommand := strings.Fields(command)
+			sub := ""
+			if len(subcommand) > 0 {
+				sub = subcommand[0]
+			}
+			if debugSubcommandRequiresOp[sub] && !pl.IsOp {
+				sendNoPermission(pl, "/debug "+sub)
+				return false
+			}
+
 			switch command {
 			case "players":
 				entities := world.SnapshotEntities()

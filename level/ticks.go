@@ -2,6 +2,7 @@ package level
 
 import (
 	"math"
+	"math/rand"
 	"time"
 
 	"github.com/leNicDev/retromc/entities"
@@ -288,6 +289,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.TickSleep()
 	w.TickPlayers()
 	w.TickMobs(tracker)
+	w.SpawnSpiders(tracker)
 }
 
 func (w *World) TickSleep() {
@@ -318,4 +320,62 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 		tracker.Remove(id)
 		go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
 	}
+}
+
+func (w *World) SpawnSpiders(tracker *EntityTracker) {
+	if !w.IsNight() {
+		return
+	}
+	count := 0
+	for _, e := range w.Entities {
+		if _, ok := e.(*Mob); ok {
+			count++
+		}
+	}
+
+	if count >= 16 {
+		return
+	}
+
+	for _, pl := range w.Players {
+		if count >= 16 {
+			break
+		}
+
+		px, py, pz := pl.GetPosition()
+		dim := pl.GetDim()
+
+		spawnX, spawnZ := randomPointOnRing(px, pz, 48)
+		spawnY, ok := w.findGroundY(int32(spawnX), int32(spawnZ), int32(py), dim)
+		if !ok {
+			return
+		}
+
+		w.SpawnSpider(int32(spawnX), spawnY, int32(spawnZ), dim, -1)
+		count++
+	}
+}
+
+func randomPointOnRing(px, pz float64, dist float64) (x, z float64) {
+	angle := rand.Float64() * 2 * math.Pi
+	baseX := px + math.Cos(angle)*dist
+	baseZ := pz + math.Sin(angle)*dist
+
+	jitterX := rand.Float64()*16 - 8
+	jitterZ := rand.Float64()*16 - 8
+
+	return baseX + jitterX, baseZ + jitterZ
+}
+
+func (w *World) findGroundY(x, z, startY, dim int32) (int32, bool) {
+	const searchRange = 32
+	for y := startY; y > startY-searchRange && y > 0; y-- {
+		b := w.GetBlock(x, byte(y), z, dim)
+		if b.IsSolid() {
+			return y + 1, true
+		} else {
+			return 0, false
+		}
+	}
+	return startY, true
 }

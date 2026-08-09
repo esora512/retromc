@@ -44,15 +44,9 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.Yaw = 0
 	pl.Pitch = 0
 	pl.OnGround = true
+	pl.OnlineFor = 0
 
 	loc := int32(0)
-	if pl.Dimension == loc {
-		loc = -1
-		pl.Dimension = -1
-	} else {
-		pl.Dimension = loc
-	}
-
 	pl.SentChunks = make(player.ChunkSet)
 	pl.HasInitializedChunks = false
 
