@@ -94,7 +94,7 @@ func handleHelpCommand(pl *player.Player, message string) {
 	sendDebugMessage(pl, fmt.Sprintf("Unknown command: %s", arg))
 }
 
-func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World) bool {
+func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
 		if strings.HasPrefix(message, "/tp") {
@@ -312,7 +312,8 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 			}
 			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
-			world.SpawnSpider(x, y, z, pl.Dimension, -1)
+			s := world.SpawnSpider(x, y, z, pl.Dimension, -1)
+			tracker.AddForAll(world, s)
 		}
 
 		if strings.HasPrefix(message, "/time") {

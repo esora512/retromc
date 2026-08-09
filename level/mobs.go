@@ -522,11 +522,12 @@ func (m *Mob) Speed() float64 {
 	}
 }
 
-func (w *World) SpawnSpider(x, y, z, dim int32, target int32) {
+func (w *World) SpawnSpider(x, y, z, dim int32, target int32) int32 {
 	s := NewSpider(w, float64(x), float64(y), float64(z), dim)
 	s.SetTarget(target)
 	w.Entities[s.EntityId] = s
 	w.BroadcastMobSpawn(s.MobType, s.Metadata, x, y, z, s.Yaw, s.Pitch, s.Dimension, s.EntityId)
+	return s.EntityId
 }
 
 func (m *Mob) adjustForOthers(w *World) (avoidX, avoidZ float64) {

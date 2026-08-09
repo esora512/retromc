@@ -91,7 +91,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleDisconnectPacket(connection, p, world, pl)
 	case packet.ChatMessage:
 		p := packets.ReadChatMessagePacket(packetReader)
-		isCommand := handleChatMessageInPacket(p, pl, world)
+		isCommand := handleChatMessageInPacket(p, pl, world, tracker)
 		if isCommand {
 			NewFillContainerPacket(connection, pl)
 		}

@@ -106,6 +106,17 @@ func (et *EntityTracker) Add(playerId int32, otherId int32) {
 	et.visible[playerId][otherId] = true
 }
 
+func (et *EntityTracker) AddForAll(w *World, otherId int32) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	for p := range w.Players {
+		if et.visible[p] == nil {
+			et.visible[p] = make(map[int32]bool)
+		}
+		et.visible[p][otherId] = true
+	}
+}
+
 func (w *World) MulticastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
 	p := w.newMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
 	w.MulticastToInRange(m, p)
@@ -250,14 +261,13 @@ type World struct {
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
 	newMobPositionAndRotationPacket func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte
-	newEntityVelocityPacket func(entityId int32, vx, vy, vz float64) []byte 
+	newEntityVelocityPacket         func(entityId int32, vx, vy, vz float64) []byte
 
-	sendSetHealth                   func(conn net.Conn, hp uint16)
-	broadcastPain                   func(w *World, entityId int32)
+	sendSetHealth func(conn net.Conn, hp uint16)
+	broadcastPain func(w *World, entityId int32)
 }
 
-
-func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz float64) []byte ) {
+func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz float64) []byte) {
 	w.newEntityVelocityPacket = f
 }
 

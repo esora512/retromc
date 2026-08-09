@@ -2,6 +2,7 @@ package level
 
 import (
 	"math"
+	"time"
 
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -302,7 +303,6 @@ func (w *World) TickPlayers() {
 
 func (w *World) TickMobs(tracker *EntityTracker) {
 	var toRemove []int32
-
 	for _, e := range w.Entities {
 		if m, ok := e.(*Mob); ok {
 			if m.HP <= 0 {
@@ -316,5 +316,6 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 	for _, id := range toRemove {
 		delete(w.Entities, id)
 		tracker.Remove(id)
+		go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
 	}
 }
