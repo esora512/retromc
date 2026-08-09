@@ -13,69 +13,69 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func dmgGiven(typeId int16) int16 {
+func dmgGiven(typeId int16) (int16, bool) {
 	if typeId == constants.WoodenAxe.Value || typeId == constants.GoldAxe.Value {
-		return 3
+		return 3, true
 	}
 	if typeId == constants.WoodenShovel.Value || typeId == constants.GoldShovel.Value {
-		return 1
+		return 1, true
 	}
 	if typeId == constants.WoodenSword.Value || typeId == constants.GoldSword.Value {
-		return 4
+		return 4, true
 	}
 	if typeId == constants.WoodenPickaxe.Value || typeId == constants.GoldPickaxe.Value {
-		return 2
+		return 2, true
 	}
 
 	if typeId == constants.StoneSword.Value {
-		return 6
+		return 6, true
 	}
 
 	if typeId == constants.IronSword.Value {
-		return 8
+		return 8, true
 	}
 
 	if typeId == constants.DiamondSword.Value {
-		return 10
+		return 10, true
 	}
 
 	if typeId == constants.StoneAxe.Value {
-		return 5
+		return 5, true
 	}
 
 	if typeId == constants.IronAxe.Value {
-		return 8
+		return 8, true
 	}
 
 	if typeId == constants.DiamondAxe.Value {
-		return 9
+		return 9, true
 	}
 
 	if typeId == constants.StonePickaxe.Value {
-		return 4
+		return 4, true
 	}
 
 	if typeId == constants.IronPickaxe.Value {
-		return 6
+		return 6, true
 	}
 
 	if typeId == constants.DiamondPickaxe.Value {
-		return 8
+		return 8, true
 	}
 
 	if typeId == constants.StoneShovel.Value {
-		return 3
+		return 3, true
 	}
 
 	if typeId == constants.IronShovel.Value {
-		return 5
+		return 5, true
 	}
 
 	if typeId == constants.DiamondShovel.Value {
-		return 7
+		return 7, true
 	}
 
-	return 1
+	return 1, false
 }
 
 func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, dmg int16) int16 {
@@ -159,8 +159,18 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		item := pl.Inventory.Items[pl.HotbarSlot]
 		//log.Printf("%s has %d in hand", pl.Username, item.TypeId)
 		dmg := int16(1)
+		given := false
 		if item.TypeId != -1 {
-			dmg = dmgGiven(item.TypeId)
+			dmg, given = dmgGiven(item.TypeId)
+			if given {
+				item.Metadata++
+				SendSetSlot(pl.Connection, 0, pl.HotbarSlot, item)
+				if crafting.Durability(item.TypeId) <= item.Metadata {
+					item = inventory.EmptyItem()
+					SendSetSlot(pl.Connection, 0, pl.HotbarSlot, item)
+				}
+				pl.Inventory.Items[pl.HotbarSlot] = item
+			}
 		}
 		if other.IsPlayer() {
 			otherPlayer := world.Players[other.GetEntityId()]
