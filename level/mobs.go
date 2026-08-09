@@ -1,11 +1,14 @@
 package level
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
 	"github.com/leNicDev/retromc/player"
 )
+
+const groundFeetOffset = 0.75
 
 type Mob struct {
 	EntityId   int32
@@ -34,7 +37,7 @@ func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
 }
 
 func (m *Mob) GetName() string {
-	return "Mob"
+	return fmt.Sprintf("Entity %d", m.EntityId)
 }
 
 func (m *Mob) GetPosition() (float64, float64, float64) {
@@ -142,10 +145,7 @@ func (m *Mob) wander(w *World) {
 
 	belowBlock := w.GetBlock(int32(math.Floor(newX)), byte(math.Floor(newY-0.01)), int32(math.Floor(newZ)), m.Dimension)
 	onGround := belowBlock.IsSolid() && vy <= 0
-	if onGround {
-		newY = math.Floor(newY)
-		vy = 0
-	}
+	newY, vy, onGround = m.resolveGroundCollision(w, newX, newY, newZ, vy)
 
 	yaw, pitch := computeYawPitch(vx, 0, vz)
 	if vx == 0 && vz == 0 {
@@ -153,7 +153,7 @@ func (m *Mob) wander(w *World) {
 	}
 
 	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
+	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -216,10 +216,7 @@ func (m *Mob) tickKnockback(w *World) {
 
 	belowBlock := w.GetBlock(int32(math.Floor(newX)), byte(math.Floor(newY-0.01)), int32(math.Floor(newZ)), m.Dimension)
 	onGround := belowBlock.IsSolid() && vy <= 0
-	if onGround {
-		newY = math.Floor(newY)
-		vy = 0
-	}
+	newY, vy, onGround = m.resolveGroundCollision(w, newX, newY, newZ, vy)
 
 	vx *= drag
 	vz *= drag
@@ -227,7 +224,7 @@ func (m *Mob) tickKnockback(w *World) {
 	yaw, pitch := float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
 
 	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
+	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -265,6 +262,30 @@ func (m *Mob) findNearbyPlayer(w *World) (int32, bool) {
 		return 0, false
 	}
 	return closestId, true
+}
+
+
+func (m *Mob) resolveGroundCollision(w *World, newX, newY, newZ, vy float64) (float64, float64, bool) {
+	if vy > 0 {
+		return newY, vy, false
+	}
+
+	bx := int32(math.Floor(newX))
+	bz := int32(math.Floor(newZ))
+
+	feetBlockY := int32(math.Floor(newY))
+	b := w.GetBlock(bx, byte(feetBlockY), bz, m.Dimension)
+	if b.IsSolid() {
+		return float64(feetBlockY) + groundFeetOffset, 0, true
+	}
+
+	supportBlockY := int32(math.Floor(newY - 0.01))
+	b = w.GetBlock(bx, byte(supportBlockY), bz, m.Dimension)
+	if b.IsSolid() {
+		return float64(supportBlockY) + groundFeetOffset, 0, true
+	}
+
+	return newY, vy, false
 }
 
 func (m *Mob) moveTowardTarget(w *World) {
@@ -328,13 +349,10 @@ func (m *Mob) moveTowardTarget(w *World) {
 
 	belowBlock := w.GetBlock(int32(math.Floor(newX)), byte(math.Floor(newY-0.01)), int32(math.Floor(newZ)), m.Dimension)
 	onGround := belowBlock.IsSolid() && vy <= 0
-	if onGround {
-		newY = math.Floor(newY)
-		vy = 0
-	}
+	newY, vy, onGround = m.resolveGroundCollision(w, newX, newY, newZ, vy)
 
 	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
+	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz

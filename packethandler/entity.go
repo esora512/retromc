@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"math"
 	"math/rand"
 
@@ -147,14 +146,18 @@ func applyKnockback(w *level.World, attacker, victim level.Entity) {
 }
 
 func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
-	player := world.Players[p.PlayerId]
-	other := world.Entities[p.EntityId]
-	log.Printf("%s interacted with %s", player.Username, other.GetName())
+	var ok bool
+	player, ok := world.Players[p.PlayerId]
+	other, ok := world.Entities[p.EntityId]
+	if !ok {
+		return
+	}
+	//log.Printf("%s interacted with %s", player.Username, other.GetName())
 
 	if p.Attack {
 		oldHP := other.GetHP()
 		item := pl.Inventory.Items[pl.HotbarSlot]
-		log.Printf("%s has %d in hand", pl.Username, item.TypeId)
+		//log.Printf("%s has %d in hand", pl.Username, item.TypeId)
 		dmg := int16(1)
 		if item.TypeId != -1 {
 			dmg = dmgGiven(item.TypeId)
@@ -173,7 +176,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
-		log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
+		//log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
 		if other.IsPlayer() || other.IsMob() {
 			applyKnockback(world, pl, other)
 
