@@ -164,7 +164,7 @@ func (b *Block) GetDirections() BlockDirections {
 		}
 	}
 
-	if b.TypeId == byte(constants.Torch.Value) || b.TypeId == byte(constants.RedstoneTorchOn.Value) || b.TypeId == byte(constants.RedstoneTorchOff.Value) || b.TypeId == byte(constants.Lever.Value) {
+	if b.TypeId == byte(constants.Torch.Value) || b.TypeId == byte(constants.RedstoneTorchOn.Value) || b.TypeId == byte(constants.RedstoneTorchOff.Value) || b.TypeId == byte(constants.Lever.Value)  {
 		return BlockDirections{
 			North: 2,
 			South: 1,

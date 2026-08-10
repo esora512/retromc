@@ -46,7 +46,8 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		p := packets.ReadPlayerPositionPacket(packetReader)
 		handlePlayerPositionPacket(connection, p, pl, world)
 	case packet.PlayerMovement:
-		packets.ReadPlayerMovementPacket(packetReader)
+		p := packets.ReadPlayerMovementPacket(packetReader)
+		pl.OnGround = p.OnGround
 		// TODO: Unhandled, should broadcast player movement to other players
 	case packet.PlayerRotation:
 		p := packets.ReadPlayerRotationPacket(packetReader)

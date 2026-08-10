@@ -131,10 +131,18 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
 
-func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGround bool) {
+func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
 	if pl.OnlineFor < 30 {
 		return
 	}
+	x := int32(math.Floor(pl.X))
+	y := byte(math.Floor(newY - 0.01))
+	z := int32(math.Floor(pl.Z))
+
+	block := world.GetBlock(x, y, z, pl.Dimension)
+
+	inWater := block.IsWater()
+	onSolidGround := block.IsSolid() && !inWater
 
 	diff := pl.Y - newY
 
@@ -142,16 +150,27 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGrou
 		pl.FallDistance += diff
 	}
 
-	if onGround && !pl.OnGround {
+	if inWater {
+		pl.FallDistance = 0
+		pl.OnGround = false
+		pl.Y = newY
+		return
+	}
+
+	if onSolidGround && !pl.OnGround {
 		if pl.FallDistance > 3 {
 			dmg := int16(math.Ceil(pl.FallDistance - 3))
+
 			newHP := pl.HP - dmg
 			if newHP < 0 {
 				newHP = 0
 			}
+
 			pl.SetHP(newHP)
 
-			p := packets.SetHealthPacket{Health: uint16(pl.HP)}
+			p := packets.SetHealthPacket{
+				Health: uint16(pl.HP),
+			}
 			pl.Connection.Write(p.Serialize())
 
 			if pl.HP == 0 {
@@ -159,6 +178,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGrou
 					Message: pl.GetName() + " was killed by gravity",
 				}
 				world.BroadcastPacket(cMsgPkt.Serialize())
+
 				p := packets.EntityEventPacket{
 					EntityId: pl.GetEntityId(),
 					Action:   3,
@@ -166,10 +186,11 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, onGrou
 				world.BroadcastPacket(p.Serialize())
 			}
 		}
+
 		pl.FallDistance = 0
 	}
 
-	pl.OnGround = onGround
+	pl.OnGround = onSolidGround
 	pl.Y = newY
 }
 
@@ -1115,7 +1136,8 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *lev
 	var face byte
 	face = p.Face
 	log.Printf("Face %d", face)
-	if face == 1 {
+	// TODO: Remember for which blocks face=1 is spammed; furnace was one of them...
+	if face == 1 && block.TypeId != byte(constants.Torch.Value) {
 		face = yawToFace(pl.Yaw)
 	}
 	switch face {
