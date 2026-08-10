@@ -1,5 +1,10 @@
 # retromc
+![Go](https://img.shields.io/badge/Language-Go1.25-5E96CF)
+![Issues](https://img.shields.io/github/issues/esora512/retromc)
+![Pull requests](https://img.shields.io/github/issues-pr/esora512/retromc)
+
 A Mincraft Beta 1.7.3 server written in Go I [forked](https://github.com/leNicDev/retromc).
+
 
 ## Goal
 * Create a functional Minecraft Beta 1.7.3 server 
