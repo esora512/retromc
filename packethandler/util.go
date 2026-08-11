@@ -99,7 +99,7 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 // 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 // }
 
-const VIEW_DISTANCE = 2
+const VIEW_DISTANCE = 12
 
 func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	cx := level.WorldToChunkCoord(int32(x))

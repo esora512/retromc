@@ -537,6 +537,8 @@ func (w *World) ChunkExists(cx, cz, dim int32) bool {
 func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	key := ChunkCoord{cx, cz}
 	chunks := w.chunksFor(dim)
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
 	ch, ok := chunks[key]
 	if ok {
 		return ch

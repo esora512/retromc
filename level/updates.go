@@ -216,7 +216,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	air := NewAirBlock()
 	u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
 
-	if !w.areaLoaded(u.X, u.Z, 32, u.Dimension) {
+	if !w.areaLoaded(u.X, u.Z, fallingBlockSafeRadius, u.Dimension) {
 		w.instaFallAt(u.X, u.Z, u.Y, int16(b.TypeId), byte(b.Metadata), u.Dimension)
 		notifyFallableNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 		return

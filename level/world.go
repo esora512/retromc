@@ -14,7 +14,7 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-const VIEW_DISTANCE = 4
+const VIEW_DISTANCE = 12
 
 // ChunkCoord is the map key for a chunk's position in the world.
 type ChunkCoord struct {

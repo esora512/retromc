@@ -44,7 +44,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.Yaw = 0
 	pl.Pitch = 0
 	pl.OnGround = true
-	pl.OnlineFor = 0
+	pl.Immune = 0
 
 	loc := int32(0)
 	pl.SentChunks = make(player.ChunkSet)
@@ -132,7 +132,8 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 }
 
 func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
-	if pl.OnlineFor < 30 {
+	if pl.Immune < 200 {
+		// 10s spawn immunity
 		return
 	}
 	x := int32(math.Floor(pl.X))

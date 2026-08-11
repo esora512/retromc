@@ -81,6 +81,8 @@ func (world *World) CollectNearbyItems() {
 	}
 }
 
+var fallingBlockSafeRadius = int32(VIEW_DISTANCE * 16 / 2)
+
 func (world *World) FallingBlocksPhysics() {
 	toRemove := []int32{}
 	allEntities := world.SnapshotEntities()
@@ -94,15 +96,7 @@ func (world *World) FallingBlocksPhysics() {
 			continue
 		}
 
-		if !falling.IsFalling {
-			if world.areaLoaded(falling.X, falling.Z, 32, falling.Dimension) {
-				falling.IsFalling = true
-			} else {
-				world.instaFall(falling, falling.Dimension)
-				toRemove = append(toRemove, falling.EntityId)
-				continue
-			}
-		}
+		falling.IsFalling = true
 
 		if !falling.VelocitySent {
 			world.BroadcastEntityVelocity(falling.EntityId, 0, falling.VelocityY, 0)
@@ -299,7 +293,7 @@ func (w *World) TickSleep() {
 
 func (w *World) TickPlayers() {
 	for _, pl := range w.Players {
-		pl.OnlineFor += 1
+		pl.Immune += 1
 	}
 }
 

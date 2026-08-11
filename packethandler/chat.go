@@ -133,7 +133,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					return false
 				}
 				pl.SetPosition(x, y, z)
-				pl.OnlineFor = 0
+				pl.Immune = 0
 				BroadcastTeleportPlayer(world, pl, x, y, z, byte(pl.Yaw))
 				return false
 
@@ -147,7 +147,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 				x, y, z := pl2.GetPosition()
 				pl1.SetPosition(x, y, z)
-				pl.OnlineFor = 0
+				pl.Immune = 0
 				BroadcastTeleportPlayer(world, pl1, x, y, z, byte(pl1.Yaw))
 				return false
 
@@ -176,7 +176,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			pl.SentChunks = make(player.ChunkSet)
 			pl.HasInitializedChunks = false
 
-			pl.OnlineFor = 0
+			pl.Immune = 0
 
 			sendRespawn(pl.Connection, byte(loc))
 
