@@ -488,7 +488,7 @@ func applySnowToTrees(chunk *Chunk, anchors []chunkAnchor) {
 	}
 }
 
-func (c *Chunk) GenerateIslandBiomes(seed uint32, cx, cz int32) {
+func (c *Chunk) GenerateBareironBiomes(seed uint32, cx, cz int32) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 

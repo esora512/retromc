@@ -131,7 +131,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 				handleWorkbench(p, pl, shift, rightClick)
 			}
 			acceptTransaction(connection, p)
-			pl.Workbench.Print()
+			//pl.Workbench.Print()
 			return
 		}
 	}
@@ -166,25 +166,44 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 }
 
 func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
-	hasHeld := pl.SelectedItem.Selected
-	if hasHeld && !shift {
-		// noop if item in hand
+	result := crafting.Craft3x3(pl.Workbench.GetGrid())
+
+	if result.TypeId == -1 {
 		return
 	}
 
-	// stateless conditional crafting
-	result := crafting.Craft3x3(pl.Workbench.GetGrid())
-	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
-	if result.TypeId != -1 {
-		// Consume one item from each occupied grid slot.
-		for slot := int16(1); slot <= 9; slot++ {
-			pl.Workbench.RemoveOne(slot)
+	held := pl.SelectedItem
+	hasHeld := held.Selected
+
+	if hasHeld && !shift {
+		heldItem := held.Item
+		sameItem := heldItem.TypeId == result.TypeId && heldItem.Metadata == result.Metadata
+
+		var maxStack int
+		if inventory.IsStackable(result.TypeId) {
+			maxStack = 64
+		} else {
+			maxStack = 1
 		}
-		if shift {
-			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
-			if !res {
-				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
-			}
+		hasRoom := sameItem && heldItem.Count+result.Count <= byte(maxStack)
+
+		if !sameItem || !hasRoom {
+			return
+		}
+	}
+
+	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
+
+	for slot := int16(1); slot <= 9; slot++ {
+		pl.Workbench.RemoveOne(slot)
+	}
+
+	if shift {
+		pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
+	} else {
+		if hasHeld {
+			merged := inventory.NewItem(result.TypeId, held.Item.Count+result.Count, result.Metadata)
+			pl.SelectedItem.SetItem(merged, 0, 0, rightClick)
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
@@ -192,27 +211,47 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 }
 
 func craftInInventory(pl *player.Player, shift, rightClick bool) {
-	hasHeld := pl.SelectedItem.Selected
-	if hasHeld && !shift {
-		// noop if item in hand
-		return
-	}
 	inv := pl.Inventory
 	result := crafting.Craft2x2(inv.GetCrafting2x2())
 
-	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
-	if result.TypeId != -1 {
-		for slot := int16(1); slot <= 4; slot++ {
-			if inv.PeekItem(slot).TypeId != -1 {
-				inv.RemoveOne(slot)
-			}
-		}
+	if result.TypeId == -1 {
+		return
+	}
 
-		if shift {
-			res := pl.Inventory.AddItemHotbarFromRightToLeft(resultItem.TypeId, result.Metadata, resultItem.Count)
-			if !res {
-				pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
-			}
+	held := pl.SelectedItem
+	hasHeld := held.Selected
+
+	if hasHeld && !shift {
+		heldItem := held.Item
+		sameItem := heldItem.TypeId == result.TypeId && heldItem.Metadata == result.Metadata
+
+		var maxStack int
+		if inventory.IsStackable(result.TypeId) {
+			maxStack = 64
+		} else {
+			maxStack = 1
+		}
+		hasRoom := sameItem && heldItem.Count+result.Count <= byte(maxStack)
+
+		if !sameItem || !hasRoom {
+			return
+		}
+	}
+
+	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
+
+	for slot := int16(1); slot <= 4; slot++ {
+		if inv.PeekItem(slot).TypeId != -1 {
+			inv.RemoveOne(slot)
+		}
+	}
+
+	if shift {
+		pl.Inventory.AddItem(result.TypeId, result.Metadata, result.Count)
+	} else {
+		if hasHeld {
+			merged := inventory.NewItem(result.TypeId, held.Item.Count+result.Count, result.Metadata)
+			pl.SelectedItem.SetItem(merged, 0, 0, rightClick)
 		} else {
 			pl.SelectedItem.SetItem(resultItem, 0, 0, rightClick)
 		}
@@ -231,7 +270,7 @@ func shiftClickFurnace(pl *player.Player, slot int16, world *level.World) {
 	var sourceContainer inventory.ItemContainer = furnace
 	var targetContainer inventory.ItemContainer = &pl.Inventory
 	shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
-	furnace.Print()
+	//furnace.Print()
 }
 
 func shiftClickChest(pl *player.Player, slot int16, world *level.World) {
@@ -250,7 +289,7 @@ func shiftClickChest(pl *player.Player, slot int16, world *level.World) {
 	if !check {
 		inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
 	}
-	chest.Print()
+	//chest.Print()
 }
 
 func shiftClickWorkbench(pl *player.Player, slot int16) {
@@ -451,13 +490,13 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
 	guiClick(pl, &pl.Workbench, slot, rightClick)
 	result := crafting.Craft3x3(pl.Workbench.GetGrid())
 	if result.TypeId != -1 {
+		log.Printf("DEBUG: Clicking Result Slot")
 		SendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
 	}
 }
 
 func normalClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
 	guiClick(pl, &pl.Inventory, slot, rightClick)
-	log.Printf("Slot %d", slot)
 	if slot >= 5 && slot <= 8 {
 		item := pl.Inventory.PeekItem(slot)
 		sendSetEquipment(world, slot, item.TypeId, pl.GetEntityId())
@@ -474,7 +513,7 @@ func chestClick(pl *player.Player, slot int16, rightClick bool, world *level.Wor
 		return
 	}
 	guiClick(pl, chest, slot, rightClick)
-	chest.Print()
+	//chest.Print()
 }
 
 func dispenserClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
@@ -483,7 +522,7 @@ func dispenserClick(pl *player.Player, slot int16, rightClick bool, world *level
 		return
 	}
 	guiClick(pl, dispenser, slot, rightClick)
-	dispenser.Print()
+	//dispenser.Print()
 }
 
 func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
@@ -492,7 +531,7 @@ func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.W
 		return
 	}
 	guiClick(pl, furnace, slot, rightClick)
-	furnace.Print()
+	//furnace.Print()
 }
 
 func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {

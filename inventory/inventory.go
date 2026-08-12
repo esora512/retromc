@@ -65,7 +65,7 @@ func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContai
 }
 func (inv *Inventory) AddCount(slot int16, amount byte) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
-		log.Printf("ChangeAmount: slot %d out of range", slot)
+		//log.Printf("ChangeAmount: slot %d out of range", slot)
 		return
 	}
 	inv.Items[slot].Count += amount
@@ -73,7 +73,7 @@ func (inv *Inventory) AddCount(slot int16, amount byte) {
 
 func (inv *Inventory) SetEmpty(slot int16) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
-		log.Printf("SetEmpty: slot %d out of range", slot)
+		//log.Printf("SetEmpty: slot %d out of range", slot)
 		return
 	}
 	inv.Items[slot] = NewItem(-1, 0, 0)
@@ -105,7 +105,7 @@ func (inv *Inventory) Serialize() []byte {
 // SetItem places an item directly into a slot, ignoring stack limits.
 func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	if slot < 0 || int(slot) >= len(inv.Items) {
-		log.Printf("SetItem: slot %d out of range", slot)
+		//log.Printf("SetItem: slot %d out of range", slot)
 		return
 	}
 	inv.Items[slot] = NewItem(typeId, count, metadata)
@@ -153,7 +153,7 @@ func (inv *Inventory) AddItem(typeId int16, metadata uint16, count byte) int16 {
 		}
 	}
 	// No partial stack found or non-stackable — claim the first empty slot.
-	for i := HotbarStart; i <= HotbarEnd; i++ {
+	for i := HotbarEnd; i >= HotbarStart; i-- {
 		if inv.Items[i].TypeId == -1 {
 			inv.Items[i] = NewItem(typeId, count, metadata)
 			return int16(i)

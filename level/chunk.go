@@ -272,8 +272,12 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		}
 	case Maze:
 		chunk.GenerateMaze(w.Seed, cx, cz)
+	case Default:
+		chunk.GenerateBareironBiomes(uint32(w.Seed), cx, cz)
+
 	default:
-		chunk.GenerateIslandBiomes(uint32(w.Seed), cx, cz)
+		log.Println("Entering wrong branch, defaulting to default")
+		chunk.GenerateBareironBiomes(uint32(w.Seed), cx, cz)
 	}
 
 	return chunk
@@ -404,6 +408,8 @@ func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {
 
 func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 	wanted := w.wantedChunks(dim)
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	src := w.chunksFor(dim)
 	chunks := make([]*Chunk, 0, len(wanted))
 	for wa := range wanted {
@@ -413,8 +419,6 @@ func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 	}
 	return chunks
 }
-
-
 
 func (w *World) PlayerActiveChunks(radius, dim int32) []*Chunk {
 	seen := make(map[ChunkCoord]struct{})
@@ -460,7 +464,7 @@ func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
 		}
 	}
 	if len(removed) > 0 {
-		log.Printf("Popping %d chunks (dim %d)", len(removed), dim)
+		//log.Printf("Popping %d chunks (dim %d)", len(removed), dim)
 	}
 	return removed
 }
@@ -471,7 +475,6 @@ func (w *World) IsLoaded(x, z, dim int32) bool {
 	_, ok := w.chunksFor(dim)[ChunkCoord{cx, cz}]
 	return ok
 }
-
 
 func (w *World) Size() int64 {
 	w.Mu.RLock()

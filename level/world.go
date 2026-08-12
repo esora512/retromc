@@ -243,7 +243,6 @@ type World struct {
 	WorldDir        string
 	CommitHash      string
 	Seed            int64
-	noise           *PerlinNoise
 	sleepers        map[int32]int
 
 	broadcastRelativePosition       func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
@@ -443,7 +442,6 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	return &World{
 		//Mu:          *dlock.NewDebugRWMutex("World"),
 		Seed:        seed,
-		noise:       NewPerlinNoise(seed),
 		CommitHash:  commitHash,
 		WorldDir:    "saves",
 		WorldType:   worldType,

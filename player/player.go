@@ -71,6 +71,14 @@ func (si *SelectedItem) SetItem(item inventory.Item, slot int16, actionNumber in
 	si.Selected = true
 }
 
+func (si *SelectedItem) SetItemV2(item inventory.Item, slot int16, actionNumber int16, rightClick bool) {
+	si.Item.Count += item.Count
+	si.Slot = slot
+	si.ActionNumber = actionNumber
+	si.RightClick = rightClick
+	si.Selected = true
+}
+
 type ChunkCoord struct {
 	X, Z int32
 }
