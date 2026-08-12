@@ -57,7 +57,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	world.AddPlayer(pl)
 
 	sendLoginResponse(connection, world, pl)
-	updateChunks(world, pl.X, pl.Z, pl)
+	initialUpdateChunks(world, pl.X, pl.Z, pl)
 	sendInventory(connection, pl, world)
 	if pl.Y <= -1000000 {
 		pl.Y = 80

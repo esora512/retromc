@@ -99,7 +99,82 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 // 	// inv.SetItem(39, constants.DiamondPickaxe.Value, 1, 0)
 // }
 
-const VIEW_DISTANCE = 12
+const VIEW_DISTANCE = 15
+
+func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
+	const VIEW_DISTANCE = 3
+	cx := level.WorldToChunkCoord(int32(x))
+	cz := level.WorldToChunkCoord(int32(z))
+
+	// Nothing to do if we haven't crossed a chunk boundary
+	if cx == pl.LastChunkX && cz == pl.LastChunkZ && pl.HasInitializedChunks {
+		return
+	}
+
+	wanted := make(map[string]level.ChunkCoord)
+	for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
+		for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+			coord := level.ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}
+			wanted[coord.String()] = coord
+		}
+	}
+
+	for _, off := range spiralOffsets(VIEW_DISTANCE) {
+		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
+		key := coord.String()
+
+		if pl.SentChunks.Has(key) {
+			continue
+		}
+
+		chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
+
+		pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
+		pl.Connection.Write(pre.Serialize())
+
+		mapChunk := packets.ChunkBlockRegionPacket{}
+		mapChunk.Apply(*chunk)
+		pl.Connection.Write(mapChunk.Serialize())
+
+		pl.SentChunks.Set(key, coord.X, coord.Z)
+	}
+
+	// Unload chunks that fell out of range
+	for key, coord := range pl.SentChunks {
+		if _, ok := wanted[key]; !ok {
+			unload := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: false}
+			pl.Connection.Write(unload.Serialize())
+			delete(pl.SentChunks, key)
+		}
+	}
+	pl.LastChunkX = cx
+	pl.LastChunkZ = cz
+	pl.HasInitializedChunks = true
+}
+
+func spiralOffsets(radius int32) []level.ChunkCoord {
+	size := 2*radius + 1
+	total := size * size
+	offsets := make([]level.ChunkCoord, 0, total)
+
+	var x, z int32 = 0, 0
+	var dx, dz int32 = 0, -1
+
+	for i := int32(0); i < total*4; i++ { // upper bound; we break once we have enough
+		if x >= -radius && x <= radius && z >= -radius && z <= radius {
+			offsets = append(offsets, level.ChunkCoord{X: x, Z: z})
+			if int32(len(offsets)) == total {
+				break
+			}
+		}
+		if x == z || (x < 0 && x == -z) || (x > 0 && x == 1-z) {
+			dx, dz = -dz, dx
+		}
+		x, z = x+dx, z+dz
+	}
+
+	return offsets
+}
 
 func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	cx := level.WorldToChunkCoord(int32(x))
@@ -118,20 +193,24 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 		}
 	}
 
-	// Send any chunk in range that hasn't been sent yet
-	for key, coord := range wanted {
-		if !pl.SentChunks.Has(key) {
-			chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
+	for _, off := range spiralOffsets(VIEW_DISTANCE) {
+		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
+		key := coord.String()
 
-			pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
-			pl.Connection.Write(pre.Serialize())
-
-			mapChunk := packets.ChunkBlockRegionPacket{}
-			mapChunk.Apply(*chunk)
-			pl.Connection.Write(mapChunk.Serialize())
-
-			pl.SentChunks.Set(key, coord.X, coord.Z)
+		if pl.SentChunks.Has(key) {
+			continue
 		}
+
+		chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
+
+		pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
+		pl.Connection.Write(pre.Serialize())
+
+		mapChunk := packets.ChunkBlockRegionPacket{}
+		mapChunk.Apply(*chunk)
+		pl.Connection.Write(mapChunk.Serialize())
+
+		pl.SentChunks.Set(key, coord.X, coord.Z)
 	}
 
 	// Unload chunks that fell out of range
