@@ -3,6 +3,7 @@ package inventory
 import (
 	"log"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/packet"
 )
 
@@ -11,7 +12,6 @@ const (
 	// Slots 9-35 are the main inventory; 36-44 are the hotbar.
 	StorageStart       = 9
 	StorageEnd         = 44
-	MaxStack           = 64
 	HotbarStart        = 36
 	HotbarEnd          = 44
 	MainInventoryStart = 9
@@ -20,6 +20,15 @@ const (
 	ChestStart = 0
 	ChestEnd   = 26
 )
+
+func MaxStack(typeId int16) int {
+	switch typeId {
+	case constants.Snowball.Value:
+		return 16
+	default:
+		return 64
+	}
+}
 
 type ContainerPosition struct {
 	X, Y, Z int32
@@ -114,7 +123,8 @@ func (inv *Inventory) SetItem(slot int16, typeId int16, count byte, metadata uin
 func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata uint16, count byte) bool {
 	for i := HotbarEnd; i >= HotbarStart; i-- {
 		item := &inv.Items[i]
-		if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+		maxStack := MaxStack(item.TypeId)
+		if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
 			item.Count += count
 			return true
 		}
@@ -138,7 +148,8 @@ func (inv *Inventory) AddItem(typeId int16, metadata uint16, count byte) int16 {
 		// Try to increment an existing partial stack.
 		for i := HotbarStart; i <= HotbarEnd; i++ {
 			item := &inv.Items[i]
-			if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+			maxStack := MaxStack(item.TypeId)
+			if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
 				item.Count += count
 				return int16(i)
 			}
@@ -146,7 +157,8 @@ func (inv *Inventory) AddItem(typeId int16, metadata uint16, count byte) int16 {
 
 		for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
 			item := &inv.Items[i]
-			if item.TypeId == typeId && item.Metadata == metadata && item.Count < MaxStack {
+			maxStack := MaxStack(item.TypeId)
+			if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
 				item.Count += count
 				return int16(i)
 			}
@@ -216,10 +228,11 @@ func (inv *Inventory) Hold(slot int16) Item {
 // TODO: Handle case where item count exceeds max stack size; leads to place & hold behaviour
 func (inv *Inventory) Place(item Item, slot int16) {
 	if inv.Items[slot].TypeId == item.TypeId {
+		maxStack := byte(MaxStack(item.TypeId))
 		newCount := inv.Items[slot].Count + item.Count
-		if newCount > MaxStack {
-			item.Count = newCount - MaxStack
-			inv.Items[slot].Count = MaxStack
+		if newCount > maxStack {
+			item.Count = newCount - maxStack
+			inv.Items[slot].Count = maxStack
 		} else {
 			inv.Items[slot].Count = newCount
 		}

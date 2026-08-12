@@ -19,14 +19,15 @@ const (
 )
 
 type Chunk struct {
-	X     int32
-	Y     int16
-	Z     int32
-	SizeX byte
-	SizeY byte
-	SizeZ byte
-	Data  []byte
-	Logic *ChunkLogic
+	X          int32
+	Y          int16
+	Z          int32
+	SizeX      byte
+	SizeY      byte
+	SizeZ      byte
+	Data       []byte
+	Logic      *ChunkLogic
+	HasChanged bool
 }
 
 func (c *Chunk) Size() int64 {
@@ -99,6 +100,7 @@ func (c *Chunk) GenerateTemplate() {
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
 	c.relightAll()
+	c.HasChanged = false
 }
 
 func (c *Chunk) GenerateEmpty() {
@@ -124,6 +126,8 @@ func (c *Chunk) GenerateEmpty() {
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
 	c.relightAll()
+	c.HasChanged = false
+
 }
 
 // relightColumn recalculates skylight for a single (lx, lz) column using a
@@ -226,6 +230,7 @@ func NewChunk() Chunk {
 		Logic: NewChunkLogic(),
 	}
 	chunk.GenerateEmpty()
+	chunk.HasChanged = false
 	return chunk
 }
 
@@ -279,7 +284,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		log.Println("Entering wrong branch, defaulting to default")
 		chunk.GenerateBareironBiomes(uint32(w.Seed), cx, cz)
 	}
-
+	chunk.HasChanged = false
 	return chunk
 }
 

@@ -694,6 +694,47 @@ func interactWithBed(oldExisting *level.Block, world *level.World, pl *player.Pl
 	return false
 }
 
+type AABB struct {
+	MinX, MinY, MinZ float64
+	MaxX, MaxY, MaxZ float64
+}
+
+func (a AABB) Intersects(b AABB) bool {
+	return a.MinX < b.MaxX && a.MaxX > b.MinX &&
+		a.MinY < b.MaxY && a.MaxY > b.MinY &&
+		a.MinZ < b.MaxZ && a.MaxZ > b.MinZ
+}
+
+func playerAABB(pl *player.Player) AABB {
+	const halfWidth = 0.3
+	const height = 1.8
+	return AABB{
+		MinX: pl.X - halfWidth,
+		MaxX: pl.X + halfWidth,
+		MinY: pl.Y,
+		MaxY: pl.Y + height,
+		MinZ: pl.Z - halfWidth,
+		MaxZ: pl.Z + halfWidth,
+	}
+}
+
+func blockAABB(x, y, z int, margin float64) AABB {
+	return AABB{
+		MinX: float64(x) - margin,
+		MaxX: float64(x+1) + margin,
+		MinY: float64(y) - margin,
+		MaxY: float64(y+1) + margin,
+		MinZ: float64(z) - margin,
+		MaxZ: float64(z+1) + margin,
+	}
+}
+
+func placementCollidesWithPlayer(pl *player.Player, x, y, z int32) bool {
+	block := blockAABB(int(x), int(y), int(z), 0.05)
+	player := playerAABB(pl)
+	return block.Intersects(player)
+}
+
 func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
@@ -741,6 +782,10 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if placementCollidesWithPlayer(pl, newX, int32(newY), newZ) {
+		return
+	}
+
 	// Reject placement into a chunk that was never sent to the client.
 	// cx := level.WorldToChunkCoord(newX)
 	// cz := level.WorldToChunkCoord(newZ)
@@ -773,7 +818,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
 	block := level.NewBlockById(p.ItemId, byte(item.Metadata))
-	log.Printf("Placing block: TypeId=%d Meta=%d at (%d, %d, %d)", block.TypeId, block.Metadata, newX, newY, newZ)
+	//log.Printf("Placing block: TypeId=%d Meta=%d at (%d, %d, %d)", block.TypeId, block.Metadata, newX, newY, newZ)
 	if heldItem.TypeId == -1 {
 		return
 	}

@@ -571,6 +571,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block, d
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, dim)
+	chunk.HasChanged = true
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)

@@ -221,6 +221,10 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick
 		if ch == nil {
 			continue
 		}
+
+		if !ch.HasChanged {
+			continue
+		}
 		rx, rz := coord.X>>5, coord.Z>>5
 		lx, lz := coord.X&31, coord.Z&31
 		rkey := [2]int32{rx, rz}

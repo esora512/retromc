@@ -160,8 +160,8 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 		}
 
 		acceptTransaction(connection, p)
-		pl.SelectedItem.Print()
-		pl.Inventory.Print()
+		//pl.SelectedItem.Print()
+		//pl.Inventory.Print()
 	}
 }
 
@@ -344,8 +344,9 @@ func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceConta
 		for i := regionStart; i <= regionEnd && sourceContainer.PeekItem(sourceSlot).TypeId != -1; i++ {
 			target := targetContainer.PeekItem(int16(i))
 			source := sourceContainer.PeekItem(sourceSlot)
-			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < inventory.MaxStack {
-				room := inventory.MaxStack - int(target.Count)
+			maxStack := inventory.MaxStack(target.TypeId)
+			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < byte(maxStack){
+				room := maxStack - int(target.Count)
 				move := int(source.Count)
 				if move > room {
 					move = room
@@ -464,7 +465,8 @@ func guiClick(pl *player.Player, container inventory.ItemContainer, slot int16, 
 			if rightClick {
 				addCount = 1
 			}
-			room := inventory.MaxStack - int(slotItem.Count)
+			maxStack := inventory.MaxStack(heldItem.TypeId)
+			room := maxStack - int(slotItem.Count)
 			if int(addCount) > room {
 				addCount = byte(room)
 			}
@@ -477,7 +479,8 @@ func guiClick(pl *player.Player, container inventory.ItemContainer, slot int16, 
 			}
 			container.AddCount(slot, addCount)
 		} else {
-			if int(heldItem.Count) <= inventory.MaxStack {
+			maxStack := inventory.MaxStack(heldItem.TypeId)
+			if int(heldItem.Count) <= maxStack {
 				swapped := inventory.NewItem(slotItem.TypeId, slotItem.Count, slotItem.Metadata)
 				container.SetItem(slot, heldItem.TypeId, heldItem.Count, heldItem.Metadata)
 				pl.SelectedItem.SetItem(swapped, slot, 0, rightClick)
