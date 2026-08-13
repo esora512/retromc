@@ -387,6 +387,21 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		world.SetBlockInQueue(hX, int32(p.Y), hZ, air, pl.Dimension)
 	}
 
+	if oldBlock.TypeId == byte(constants.WoodenDoor.Value) || oldBlock.TypeId == byte(constants.IronDoor.Value) {
+		target := oldBlock.TypeId
+		var neighbours = []int{1, -1}
+		var hY int32
+		for _, n := range neighbours {
+			topOrbot := world.GetBlock(p.X, p.Y+byte(n), p.Z, pl.Dimension)
+			if topOrbot.TypeId == target {
+				hY = int32(p.Y) + int32(n)
+				break
+			}
+		}
+		world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
+		world.SetBlockInQueue(p.X, hY, p.Z, air, pl.Dimension)
+	}
+
 	if oldBlock.TypeId == byte(constants.Log.Value) {
 		world.TriggerLeafUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 	}
@@ -597,6 +612,14 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 		delete(chunk.Logic.Growables, bk)
 	}
 
+	if blockItem == constants.WoodenDoor.Value {
+		return constants.WoodenDoorItem.Value, 0, 1
+	}
+
+	if blockItem == constants.IronDoor.Value {
+		return constants.IronDoor.Value, 0, 1
+	}
+
 	return blockItem, blockMeta, count
 }
 
@@ -747,9 +770,14 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if oldExisting.IsDoor() {
+		interactWithDoor(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		return
+	}
+
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if p.X == -1 && p.Y == 255 && p.Z == -1 && heldItem.TypeId == constants.Boat.Value {
-		log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
+		//log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
 		if tryPlaceBoatNoTarget(connection, world, pl, tracker) {
 			return
 		}
@@ -758,7 +786,6 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 
 	if !canPlaceHeldItem(heldItem) {
 		// Only place blocks if block is in hotbar slot
-		log.Println("Early return....")
 		return
 	}
 
@@ -795,13 +822,17 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 
 	// Only place into air — don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ, pl.Dimension)
-	//log.Printf("Existing id %d", existing.TypeId)
 	if !existing.IsAir() && !existing.IsLiquid() && !existing.IsSnowLayer() {
 		return
 	}
 
 	if heldItem.TypeId == constants.BedItem.Value {
 		handleBedPlacement(world, p, pl)
+		return
+	}
+
+	if heldItem.TypeId == constants.WoodenDoorItem.Value || heldItem.TypeId == constants.IronDoorItem.Value {
+		handleDoorPlacement(world, p, pl, int32(heldItem.TypeId), int32(p.Face))
 		return
 	}
 
@@ -926,10 +957,161 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 		heldItem.TypeId != constants.SugarcaneItem.Value &&
 		heldItem.TypeId != constants.Sapling.Value &&
 		heldItem.TypeId != constants.FlintAndSteel.Value &&
-		heldItem.TypeId != constants.BedItem.Value {
+		heldItem.TypeId != constants.BedItem.Value &&
+		heldItem.TypeId != constants.IronDoorItem.Value &&
+		heldItem.TypeId != constants.WoodenDoorItem.Value {
 		return false
 	}
 	return true
+}
+
+type Facing byte
+
+const (
+	FacingNorth Facing = iota // -X
+	FacingSouth               // +X
+	FacingEast                // +Z
+	FacingWest                // -Z
+)
+
+func facingFromFace(face int32) Facing {
+	switch face {
+	case 3:
+		log.Println("West")
+		return FacingWest
+	case 2:
+		log.Println("East")
+		return FacingEast
+	case 4:
+		log.Println("North")
+		return FacingNorth
+	case 5:
+		log.Println("South")
+		return FacingSouth
+	default:
+		return FacingSouth
+	}
+}
+
+func doorMeta(top, open bool, facing Facing) byte {
+	switch {
+	case !top && !open:
+		return bottomClosedByFacing[facing]
+	case !top && open:
+		return bottomOpenByFacing[facing]
+	case top && !open:
+		return topClosedByFacing[facing]
+	default:
+		return topOpenByFacing[facing]
+	}
+}
+
+type doorState struct {
+	top    bool
+	open   bool
+	facing Facing
+}
+
+var bottomClosedByFacing = map[Facing]byte{
+	FacingSouth: 0, // -X
+	FacingEast:  1, // +Z
+	FacingNorth: 2, // +X
+	FacingWest:  3, // -Z
+}
+
+var bottomOpenByFacing = map[Facing]byte{
+	FacingSouth: 4, // +X
+	FacingEast:  5, // +Z
+	FacingNorth: 6, // -X
+	FacingWest:  7, // -Z
+}
+
+var topClosedByFacing = map[Facing]byte{
+	FacingSouth: 8,  // +X
+	FacingEast:  9,  // +Z
+	FacingNorth: 10, // -X
+	FacingWest:  11, // -Z
+}
+
+var topOpenByFacing = map[Facing]byte{
+	FacingSouth: 12, // +X
+	FacingEast:  13, // +Z
+	FacingNorth: 14, // -X
+	FacingWest:  15, // -Z
+}
+
+var doorStates = [16]doorState{
+	{false, false, FacingSouth}, // 0
+	{false, false, FacingEast},  // 1
+	{false, false, FacingNorth}, // 2
+	{false, false, FacingWest},  // 3
+
+	{false, true, FacingSouth},  // 4
+	{false, true, FacingEast},   // 5
+	{false, true, FacingNorth},  // 6
+	{false, true, FacingWest},   // 7
+
+	{true, false, FacingSouth},  // 8
+	{true, false, FacingEast},   // 9
+	{true, false, FacingNorth},  // 10
+	{true, false, FacingWest},   // 11
+
+	{true, true, FacingSouth},   // 12
+	{true, true, FacingEast},    // 13
+	{true, true, FacingNorth},   // 14
+	{true, true, FacingWest},    // 15
+}
+
+func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, typeId int32, face int32) {
+	face = int32(yawToFace(pl.Yaw))
+	var y int32 = int32(p.Y + 1)
+	maybeSnow := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
+	if maybeSnow.IsSnowLayer() {
+		y = int32(p.Y)
+	}
+
+	var bottomDoor, topDoor level.Block
+	if typeId == int32(constants.WoodenDoorItem.Value) {
+		bottomDoor = level.NewWoodenDoorBlock()
+		topDoor = level.NewWoodenDoorBlock()
+	} else {
+		bottomDoor = level.NewIronDoorBlock()
+		topDoor = level.NewIronDoorBlock()
+	}
+
+	facing := facingFromFace(face)
+	bottomDoor.Metadata = doorMeta(false, false, facing)
+	topDoor.Metadata = doorMeta(true, false, facing)
+
+	world.SetBlockInQueue(p.X, y, p.Z, bottomDoor, pl.Dimension)
+	world.SetBlockInQueue(p.X, y+1, p.Z, topDoor, pl.Dimension)
+
+	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	sendEquipmentChangeForHotbarSlot(world, pl)
+}
+
+func interactWithDoor(world *level.World, x, y, z int32, dimension int32) {
+	block := world.GetBlock(x, byte(y), z, dimension)
+	if int(block.Metadata) >= len(doorStates) {
+		return
+	}
+	state := doorStates[block.Metadata]
+
+	otherY := y + 1
+	if state.top {
+		otherY = y - 1
+	}
+	other := world.GetBlock(x, byte(otherY), z, dimension)
+	otherState := doorStates[other.Metadata]
+
+	newOpen := !state.open
+
+	block.Metadata = doorMeta(state.top, newOpen, state.facing)
+	other.Metadata = doorMeta(otherState.top, newOpen, otherState.facing)
+
+	world.SetBlockInQueue(x, y, z, block, dimension)
+	world.SetBlockInQueue(x, otherY, z, other, dimension)
 }
 
 func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {

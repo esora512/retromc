@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"net"
 
 	"github.com/leNicDev/retromc/crafting"
@@ -345,7 +344,7 @@ func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceConta
 			target := targetContainer.PeekItem(int16(i))
 			source := sourceContainer.PeekItem(sourceSlot)
 			maxStack := inventory.MaxStack(target.TypeId)
-			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < byte(maxStack){
+			if target.TypeId == source.TypeId && target.Metadata == source.Metadata && target.Count < byte(maxStack) {
 				room := maxStack - int(target.Count)
 				move := int(source.Count)
 				if move > room {
@@ -493,7 +492,6 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
 	guiClick(pl, &pl.Workbench, slot, rightClick)
 	result := crafting.Craft3x3(pl.Workbench.GetGrid())
 	if result.TypeId != -1 {
-		log.Printf("DEBUG: Clicking Result Slot")
 		SendSetSlot(pl.Connection, 1, 0, inventory.NewItem(result.TypeId, result.Count, result.Metadata))
 	}
 }

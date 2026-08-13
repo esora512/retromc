@@ -589,10 +589,10 @@ func Craft3x3(grid [9]int16) Result {
 			}
 			if same && firstColumn != 2 && grid[location+1] == itemId && grid[location+3] == itemId && grid[location+4] == itemId && grid[location+6] == itemId && grid[location+7] == itemId {
 				if itemId == constants.Planks.Value {
-					return Result{constants.WoodenDoor.Value, 0, 1}
+					return Result{constants.WoodenDoorItem.Value, 0, 1}
 				}
 				if itemId == constants.Iron.Value {
-					return Result{constants.IronDoor.Value, 0, 1}
+					return Result{constants.IronDoorItem.Value, 0, 1}
 				}
 			}
 			if grid[1] == constants.Stick.Value && grid[3] == constants.Stick.Value && grid[7] == constants.Stick.Value {

@@ -242,6 +242,10 @@ func (b *Block) IsAir() bool {
 	return b.TypeId == 0
 }
 
+func (b *Block) IsDoor() bool {
+	return b.TypeId == byte(constants.WoodenDoor.Value) || b.TypeId == byte(constants.IronDoor.Value)
+}
+
 func (b *Block) IsSolid () bool {
 	return !b.IsAir() && !b.IsFluid() && !b.IsSnowLayer()
 }
