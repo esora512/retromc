@@ -1068,9 +1068,9 @@ var bottomClosedByFacing = map[Facing]byte{
 }
 
 var bottomOpenByFacing = map[Facing]byte{
-	FacingSouth: 4, // +X
+	FacingSouth: 6, // +X
 	FacingEast:  5, // +Z
-	FacingNorth: 6, // -X
+	FacingNorth: 4, // -X
 	FacingWest:  7, // -Z
 }
 
@@ -1082,9 +1082,9 @@ var topClosedByFacing = map[Facing]byte{
 }
 
 var topOpenByFacing = map[Facing]byte{
-	FacingSouth: 12, // +X
+	FacingSouth: 14, // +X
 	FacingEast:  13, // +Z
-	FacingNorth: 14, // -X
+	FacingNorth: 12, // -X
 	FacingWest:  15, // -Z
 }
 
@@ -1094,9 +1094,9 @@ var doorStates = [16]doorState{
 	{false, false, FacingSouth}, // 2
 	{false, false, FacingWest},  // 3
 
-	{false, true, FacingSouth}, // 4
+	{false, true, FacingNorth}, // 4
 	{false, true, FacingEast},  // 5
-	{false, true, FacingNorth}, // 6
+	{false, true, FacingSouth}, // 6
 	{false, true, FacingWest},  // 7
 
 	{true, false, FacingNorth}, // 8
@@ -1104,14 +1104,15 @@ var doorStates = [16]doorState{
 	{true, false, FacingSouth}, // 10
 	{true, false, FacingWest},  // 11
 
-	{true, true, FacingSouth}, // 12
+	{true, true, FacingNorth}, // 12
 	{true, true, FacingEast},  // 13
-	{true, true, FacingNorth}, // 14
+	{true, true, FacingSouth}, // 14
 	{true, true, FacingWest},  // 15
 }
 
 func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {
 	face := int32(yawToFace(pl.Yaw))
+	log.Printf("Face %d %d", face, p.Face)
 	var y int32 = int32(p.Y + 1)
 	maybeSnow := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
 	if maybeSnow.IsSnowLayer() {
