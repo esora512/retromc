@@ -770,6 +770,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if oldExisting.IsTrapdoor() {
+		interactWithTrapDoor(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		return
+	}
+
 	if oldExisting.IsDoor() {
 		interactWithDoor(world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
@@ -829,6 +834,10 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	if heldItem.TypeId == constants.BedItem.Value {
 		handleBedPlacement(world, p, pl)
 		return
+	}
+
+	if heldItem.TypeId == constants.Trapdoor.Value {
+		handleTrapDoor(world, p, pl)
 	}
 
 	if heldItem.TypeId == constants.WoodenDoorItem.Value || heldItem.TypeId == constants.IronDoorItem.Value {
@@ -993,6 +1002,14 @@ func facingFromFace(face int32) Facing {
 	}
 }
 
+func trapDoorMeta(open bool, facing Facing) byte {
+	if open {
+		return trapDoorOpen[facing]
+	} else {
+		return trapDoorClosed[facing]
+	}
+}
+
 func doorMeta(top, open bool, facing Facing) byte {
 	switch {
 	case !top && !open:
@@ -1012,10 +1029,41 @@ type doorState struct {
 	facing Facing
 }
 
-var bottomClosedByFacing = map[Facing]byte{
-	FacingSouth: 0, // -X
-	FacingEast:  1, // +Z
+type trapDoorState struct {
+	open   bool
+	facing Facing
+}
+
+var trapDoorClosed = map[Facing]byte{
+	FacingSouth: 3, // -X
+	FacingEast:  0, // +Z
 	FacingNorth: 2, // +X
+	FacingWest:  1, // -Z
+}
+
+var trapDoorOpen = map[Facing]byte{
+	FacingSouth: 7, // -X
+	FacingEast:  4, // +Z
+	FacingNorth: 6, // +X
+	FacingWest:  5, // -Z
+}
+
+var trapDoorStates = [8]trapDoorState{
+	{false, FacingEast},
+	{false, FacingWest},
+	{false, FacingSouth},
+	{false, FacingNorth},
+
+	{true, FacingEast},
+	{true, FacingWest},
+	{true, FacingNorth},
+	{true, FacingSouth},
+}
+
+var bottomClosedByFacing = map[Facing]byte{
+	FacingSouth: 2, // +X
+	FacingEast:  1, // +Z
+	FacingNorth: 0, // -X
 	FacingWest:  3, // -Z
 }
 
@@ -1027,9 +1075,9 @@ var bottomOpenByFacing = map[Facing]byte{
 }
 
 var topClosedByFacing = map[Facing]byte{
-	FacingSouth: 8,  // +X
+	FacingSouth: 10, // +X
 	FacingEast:  9,  // +Z
-	FacingNorth: 10, // -X
+	FacingNorth: 8,  // -X
 	FacingWest:  11, // -Z
 }
 
@@ -1041,25 +1089,43 @@ var topOpenByFacing = map[Facing]byte{
 }
 
 var doorStates = [16]doorState{
-	{false, false, FacingSouth}, // 0
+	{false, false, FacingNorth}, // 0
 	{false, false, FacingEast},  // 1
-	{false, false, FacingNorth}, // 2
+	{false, false, FacingSouth}, // 2
 	{false, false, FacingWest},  // 3
 
-	{false, true, FacingSouth},  // 4
-	{false, true, FacingEast},   // 5
-	{false, true, FacingNorth},  // 6
-	{false, true, FacingWest},   // 7
+	{false, true, FacingSouth}, // 4
+	{false, true, FacingEast},  // 5
+	{false, true, FacingNorth}, // 6
+	{false, true, FacingWest},  // 7
 
-	{true, false, FacingSouth},  // 8
-	{true, false, FacingEast},   // 9
-	{true, false, FacingNorth},  // 10
-	{true, false, FacingWest},   // 11
+	{true, false, FacingNorth}, // 8
+	{true, false, FacingEast},  // 9
+	{true, false, FacingSouth}, // 10
+	{true, false, FacingWest},  // 11
 
-	{true, true, FacingSouth},   // 12
-	{true, true, FacingEast},    // 13
-	{true, true, FacingNorth},   // 14
-	{true, true, FacingWest},    // 15
+	{true, true, FacingSouth}, // 12
+	{true, true, FacingEast},  // 13
+	{true, true, FacingNorth}, // 14
+	{true, true, FacingWest},  // 15
+}
+
+func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {
+	face := int32(yawToFace(pl.Yaw))
+	var y int32 = int32(p.Y + 1)
+	maybeSnow := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
+	if maybeSnow.IsSnowLayer() {
+		y = int32(p.Y)
+	}
+
+	trapDoor := level.NewTrapdoorBlock(0)
+	facing := facingFromFace(face)
+	trapDoor.Metadata = trapDoorMeta(true, facing)
+	world.SetBlockInQueue(p.X, y, p.Z, trapDoor, pl.Dimension)
+
+	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
 func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, typeId int32, face int32) {
@@ -1089,6 +1155,16 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
 	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
 	sendEquipmentChangeForHotbarSlot(world, pl)
+}
+
+func interactWithTrapDoor(world *level.World, x, y, z int32, dimension int32) {
+	block := world.GetBlock(x, byte(y), z, dimension)
+	state := trapDoorStates[block.Metadata]
+
+	newOpen := !state.open
+	block.Metadata = trapDoorMeta(newOpen, state.facing)
+	world.SetBlockInQueue(x, y, z, block, dimension)
+
 }
 
 func interactWithDoor(world *level.World, x, y, z int32, dimension int32) {
