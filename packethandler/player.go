@@ -411,7 +411,8 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	spawnMinedDrop(world, p, blockItem, blockMeta, count, pl.Dimension)
+	BroadcastDroppedItem(world, p.X, int32(p.Y), p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
+	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
 func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player) {
@@ -623,13 +624,12 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	return blockItem, blockMeta, count
 }
 
-func spawnMinedDrop(world *level.World, p packets.MineBlockPacket, blockItem int16, blockMeta byte, count byte, dim int32) {
-	dropX := int32(p.X)
-	dropY := int32(p.Y)
-	dropZ := int32(p.Z)
-	spawnPacket := packets.NewSpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, 0, dim)
+func BroadcastDroppedItem(world *level.World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+	dropX := x
+	dropY := y
+	dropZ := z
+	spawnPacket := packets.NewSpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, delay, dim)
 	world.BroadcastPacket(spawnPacket)
-	world.TriggerFluidUpdate(dropX, dropY, dropZ, world.SetBlockInQueue, dim)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {

@@ -74,10 +74,12 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
 	pl.LoggedIn = true
+	// TODO: Figure out a better way to op players
+	pl.IsOp = true
 
-	if world.OppedUsernames[pl.Username] {
-		pl.IsOp = true
-	}
+	// if world.OppedUsernames[pl.Username] {
+	// 	pl.IsOp = true
+	// }
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {

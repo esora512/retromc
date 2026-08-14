@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"math"
 	"math/rand"
 
@@ -206,6 +207,20 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 					Message: other.GetName() + " was killed by " + player.Username,
 				}
 				world.BroadcastPacket(cMsgPkt.Serialize())
+
+				xf, yf, zf := other.GetPosition()
+				x, y, z := int32(xf), int32(yf), int32(zf)
+				otherPl, _ := world.Players[other.GetEntityId()]
+				for _, item := range otherPl.Inventory.Items {
+					if item.TypeId != -1 {
+						log.Printf("Sending %d", item.TypeId)
+						world.BroadcastDroppedItem(x, y, z, item.TypeId, byte(item.Metadata), item.Count, pl.Dimension, 60)
+					}
+				}
+
+				for i := range otherPl.Inventory.Items {
+					otherPl.Inventory.Items[i] = inventory.EmptyItem()
+				}
 			}
 			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),

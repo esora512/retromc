@@ -58,6 +58,9 @@ func (world *World) CollectNearbyItems() {
 			itemZ := float64(dropped.Z)
 
 			for _, pl := range world.Players {
+				if pl.HP <= 0 {
+					continue
+				}
 				dx := pl.X - itemX
 				dy := pl.Y - itemY
 				dz := pl.Z - itemZ
