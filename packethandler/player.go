@@ -762,6 +762,10 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
 
+	if oldExisting.IsSnowLayer() {
+		return
+	}
+
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
 	}
@@ -837,7 +841,8 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 
 	if heldItem.TypeId == constants.Trapdoor.Value {
-		handleTrapDoor(world, p, pl)
+		handleTrapDoor(world, p, pl, newX, int32(newY), newZ)
+		return
 	}
 
 	if heldItem.TypeId == constants.WoodenDoorItem.Value || heldItem.TypeId == constants.IronDoorItem.Value {
@@ -1035,24 +1040,24 @@ type trapDoorState struct {
 }
 
 var trapDoorClosed = map[Facing]byte{
-	FacingSouth: 3, // -X
-	FacingEast:  0, // +Z
-	FacingNorth: 2, // +X
-	FacingWest:  1, // -Z
+	FacingEast:  0,
+	FacingWest:  1,
+	FacingNorth: 2,
+	FacingSouth: 3,
 }
 
 var trapDoorOpen = map[Facing]byte{
-	FacingSouth: 7, // -X
-	FacingEast:  4, // +Z
-	FacingNorth: 6, // +X
-	FacingWest:  5, // -Z
+	FacingEast:  4,
+	FacingWest:  5,
+	FacingNorth: 6,
+	FacingSouth: 7,
 }
 
 var trapDoorStates = [8]trapDoorState{
 	{false, FacingEast},
 	{false, FacingWest},
-	{false, FacingSouth},
 	{false, FacingNorth},
+	{false, FacingSouth},
 
 	{true, FacingEast},
 	{true, FacingWest},
@@ -1110,22 +1115,18 @@ var doorStates = [16]doorState{
 	{true, true, FacingWest},  // 15
 }
 
-func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {
-	face := int32(yawToFace(pl.Yaw))
-	log.Printf("Face %d %d", face, p.Face)
-	var y int32 = int32(p.Y + 1)
-	maybeSnow := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
-	if maybeSnow.IsSnowLayer() {
-		y = int32(p.Y)
+func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, x, y, z int32) {
+	if p.Face == 1 {
+		return
 	}
-
+	face := int32(p.Face)
 	trapDoor := level.NewTrapdoorBlock(0)
 	facing := facingFromFace(face)
-	trapDoor.Metadata = trapDoorMeta(true, facing)
-	world.SetBlockInQueue(p.X, y, p.Z, trapDoor, pl.Dimension)
+	trapDoor.Metadata = trapDoorMeta(false, facing)
+	world.SetBlockInQueue(x, y, z, trapDoor, pl.Dimension)
 
-	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
-	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
@@ -1153,8 +1154,8 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 	world.SetBlockInQueue(p.X, y, p.Z, bottomDoor, pl.Dimension)
 	world.SetBlockInQueue(p.X, y+1, p.Z, topDoor, pl.Dimension)
 
-	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
-	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
@@ -1440,7 +1441,6 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *lev
 	directions := block.GetDirections()
 	var face byte
 	face = p.Face
-	log.Printf("Face %d", face)
 	// TODO: Remember for which blocks face=1 is spammed; furnace was one of them...
 	if face == 1 && block.TypeId != byte(constants.Torch.Value) {
 		face = yawToFace(pl.Yaw)
@@ -1569,11 +1569,6 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 }
 
 func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlaceBlockPacket, slot int16) {
-	// below := world.GetBlock(newX, byte(newY-1), newZ)
-	// if below.TypeId == byte(constants.SnowLayer.Value) {
-	// 	newY = newY - 1
-	// }
-
 	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)

@@ -25,6 +25,8 @@ func MaxStack(typeId int16) int {
 	switch typeId {
 	case constants.Snowball.Value:
 		return 16
+	case constants.IronDoorItem.Value, constants.WoodenDoorItem.Value:
+		return 1
 	default:
 		return 64
 	}
