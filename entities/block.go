@@ -18,6 +18,10 @@ type BlockEntity struct {
 	Dimension int32
 }
 
+
+func (b *BlockEntity) IsItem() bool {return  false}
+
+
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32) *BlockEntity {
 	return &BlockEntity{
 		EntityId:     entityId,

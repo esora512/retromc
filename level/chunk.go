@@ -367,7 +367,44 @@ type DroppedItem struct {
 	Metadata    byte
 	X, Y, Z     int32
 	PickupDelay int32
+	Dim         int32
+
+	VelX, VelY, VelZ float64
 }
+
+func (d *DroppedItem) GetEntityId() int32 {
+	return d.EntityId
+}
+
+func (d *DroppedItem) GetHP() int16 {
+	return 20
+}
+
+func (d *DroppedItem) SetHP(hp int16) {}
+
+func (d *DroppedItem) GetName() string {
+	return fmt.Sprintf("Entity %d", d.EntityId)
+}
+
+func (d *DroppedItem) GetPosition() (float64, float64, float64) {
+	return float64(d.X), float64(d.Y), float64(d.Z)
+}
+
+func (d *DroppedItem) SetPosition(x, y, z float64) {}
+
+func (d *DroppedItem) IsRideable() bool { return false }
+
+func (d *DroppedItem) IsPlayer() bool { return false }
+
+func (d *DroppedItem) IsMob() bool { return false }
+
+func (d *DroppedItem) GetLoggedIn() bool { return false }
+
+func (d *DroppedItem) GetDim() int32 { return d.Dim }
+
+func (d *DroppedItem) GetVelocity() (float64, float64, float64) {return d.VelX, d.VelY, d.VelZ}
+
+func (d *DroppedItem) IsItem() bool {return  true}
 
 type ChunkLogic struct {
 	Growables    map[BlockKey]Growable
@@ -545,12 +582,38 @@ func (w *World) ChunkExists(cx, cz, dim int32) bool {
 func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	key := ChunkCoord{cx, cz}
 	chunks := w.chunksFor(dim)
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
+
+	w.Mu.RLock()
 	ch, ok := chunks[key]
+	w.Mu.RUnlock()
 	if ok {
 		return ch
 	}
+
+	sfKey := fmt.Sprintf("%d|%d|%d", dim, cx, cz)
+	v, err, _ := w.chunkLoadGroup.Do(sfKey, func() (interface{}, error) {
+		w.Mu.RLock()
+		if ch, ok := chunks[key]; ok {
+			w.Mu.RUnlock()
+			return ch, nil
+		}
+		w.Mu.RUnlock()
+
+		c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
+
+		w.Mu.Lock()
+		chunks[key] = c
+		w.Mu.Unlock()
+
+		return c, nil
+	})
+	if err != nil {
+		return nil
+	}
+	return v.(*Chunk)
+}
+
+func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 	if w.WorldDir != "" {
 		dir := w.WorldDir
 		if dim == -1 {
@@ -568,11 +631,11 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 			if err != nil {
 				log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
 			} else {
-				chunks[key] = c
 				return c
 			}
 		}
 	}
+
 	worldType := w.WorldType
 	if dim == -1 {
 		worldType = Maze
@@ -580,8 +643,6 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	c := w.generateChunk(cx, cz, worldType)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
-
-	chunks[key] = c
 	return c
 }
 

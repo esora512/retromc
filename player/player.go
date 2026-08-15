@@ -110,6 +110,9 @@ func (pl *Player) GetVelocity() (float64, float64, float64) {
 	return pl.Vx, pl.Vy, pl.Vz
 }
 
+func (pl *Player) IsItem() bool {return  false}
+
+
 type Player struct {
 	FallDistance float64
 	Username     string

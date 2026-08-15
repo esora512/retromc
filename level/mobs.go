@@ -31,6 +31,9 @@ type Mob struct {
 	KnockbackTicks         int32
 }
 
+func (m *Mob) IsItem() bool {return  false}
+
+
 func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.KnockbackTicks = 6

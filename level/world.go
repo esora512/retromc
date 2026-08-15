@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/player"
@@ -45,6 +47,7 @@ type Entity interface {
 	GetDim() int32
 	IsMob() bool
 	GetVelocity() (float64, float64, float64)
+	IsItem() bool
 }
 
 func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
@@ -222,18 +225,19 @@ func (w *World) SnapshotEntities() []Entity {
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	//Mu         dlock.DebugRWMutex
-	Mu          sync.RWMutex
-	sessionMu   sync.Map
-	blockQueue  map[[4]int32]QueueBlock
-	oChunks     map[ChunkCoord]*Chunk
-	nChunks     map[ChunkCoord]*Chunk
-	Tick        int64
-	TimeTick    int64
-	Players     map[int32]*player.Player
-	Entities    map[int32]Entity
-	EntityCount int32
-	WorldType   WorldType
-	Scheduler   BlockUpdateScheduler
+	Mu             sync.RWMutex
+	chunkLoadGroup singleflight.Group
+	sessionMu      sync.Map
+	blockQueue     map[[4]int32]QueueBlock
+	oChunks        map[ChunkCoord]*Chunk
+	nChunks        map[ChunkCoord]*Chunk
+	Tick           int64
+	TimeTick       int64
+	Players        map[int32]*player.Player
+	Entities       map[int32]Entity
+	EntityCount    int32
+	WorldType      WorldType
+	Scheduler      BlockUpdateScheduler
 
 	OppedUsernames map[string]bool
 
@@ -524,27 +528,13 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 
 func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay, dim int32) int32 {
 	entityId := w.NextEntityId()
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	chunk := w.GetOrCreateChunk(cx, cz, dim)
-	logic := chunk.Logic
-	logic.DroppedItems[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
+	w.Mu.Lock()
+	defer w.Mu.Unlock()
+	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
 }
 
-func (w *World) RemoveDroppedItem(entityId int32, x, z int32) {
-	cx := WorldToChunkCoord(x)
-	cz := WorldToChunkCoord(z)
-	chunk, ok := w.oChunks[ChunkCoord{X: cx, Z: cz}]
-	if ok {
-		delete(chunk.Logic.DroppedItems, entityId)
-	}
-	nchunk, ok := w.nChunks[ChunkCoord{X: cx, Z: cz}]
-	if ok {
-		delete(nchunk.Logic.DroppedItems, entityId)
-	}
 
-}
 
 func printCallStack() {
 	const depth = 32

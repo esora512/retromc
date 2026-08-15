@@ -31,6 +31,9 @@ type RideableEntity struct {
 	Dimension int32
 }
 
+func (r *RideableEntity) IsItem() bool {return  false}
+
+
 func (r *RideableEntity) GetVelocity() (float64, float64, float64) {
 	return r.VelocityX, r.VelocityY, r.VelocityZ
 }

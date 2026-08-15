@@ -19,69 +19,57 @@ func (w *World) DroppedItemPhysics() {
 }
 
 func (w *World) GravityOnItems() {
-	chunks := w.PlayerActiveChunks(1, 0)
-	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for _, dropped := range logic.DroppedItems {
-			below := w.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z), 0)
+	for _, e := range w.Entities {
+		if e.IsItem() {
+			d, _ := e.(*DroppedItem)
+			below := w.GetBlock(int32(d.X), byte(d.Y)-1, int32(d.Z), 0)
 			if below.IsAir() || below.IsLiquid() {
-				dropped.Y--
+				d.Y--
 			}
 		}
 	}
-
-	nchunks := w.PlayerActiveChunks(1, -1)
-	for _, chunk := range nchunks {
-		logic := chunk.Logic
-		for _, dropped := range logic.DroppedItems {
-			below := w.GetBlock(int32(dropped.X), byte(dropped.Y)-1, int32(dropped.Z), -1)
-			if below.IsAir() || below.IsLiquid() {
-				dropped.Y--
-			}
-		}
-	}
-
 }
 
-func (world *World) CollectNearbyItems() {
-	chunks := world.PlayerActiveChunks(1, 0) // 3x3 chunks around each player
-	chunks = append(chunks, world.PlayerActiveChunks(1, -1)...)
-	for _, chunk := range chunks {
-		logic := chunk.Logic
-		for entityId, dropped := range logic.DroppedItems {
-			if dropped.PickupDelay > 0 {
-				dropped.PickupDelay--
+func (w *World) CollectNearbyItems() {
+	for _, e := range w.Entities {
+		if e.IsItem() {
+			d, _ := e.(*DroppedItem)
+
+			if d.PickupDelay > 0 {
+				d.PickupDelay--
 				continue
 			}
-			itemX := float64(dropped.X)
-			itemY := float64(dropped.Y)
-			itemZ := float64(dropped.Z)
 
-			for _, pl := range world.Players {
+			x, y, z := d.GetPosition()
+
+			for _, pl := range w.Players {
 				if pl.HP <= 0 {
 					continue
 				}
-				dx := pl.X - itemX
-				dy := pl.Y - itemY
-				dz := pl.Z - itemZ
+
+				dx := pl.X - x
+				dy := pl.Y - y
+				dz := pl.Z - z
+
 				if dx*dx+dy*dy+dz*dz > pickupRangeSq {
 					continue
 				}
 
-				slot := pl.Inventory.AddItem(int16(dropped.ItemId), uint16(dropped.Metadata), dropped.Amount)
+				slot := pl.Inventory.AddItem(int16(d.ItemId), uint16(d.Metadata), d.Amount)
 				if slot < 0 {
 					continue
 				}
 				t := pl.Inventory.Items[slot]
-				world.SendSetSlot(pl.Connection, 0, slot, t)
+				w.SendSetSlot(pl.Connection, 0, slot, t)
 
-				collect := world.CollectItem(entityId, int32(pl.GetEntityId()))
-				world.BroadcastPacket(collect)
-				world.RemoveDroppedItem(entityId, dropped.X, dropped.Z)
+				collect := w.CollectItem(d.EntityId, int32(pl.GetEntityId()))
+				w.BroadcastPacket(collect)
+				w.RemoveEntity(d.EntityId)
 				break
 			}
 		}
 	}
+
 }
 
 var fallingBlockSafeRadius = int32(VIEW_DISTANCE * 16 / 2)
