@@ -130,6 +130,22 @@ func ArmSwing(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
+func NewSpawnItem(d *level.DroppedItem) []byte {
+	p := SpawnItemPacket{
+		EntityId: d.EntityId,
+		ItemId: int16(d.ItemId),
+		Amount: d.Amount,
+		Metadata: d.Metadata,
+		X: int32(d.X),
+		Y: int32(d.Y),
+		Z: int32(d.Z),
+		Yaw: 0,
+		Pitch: 0,
+		Roll: 0,
+	}
+	return p.Serialize()
+}
+
 func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	// The protocol encodes positions in entity space: 1 block = 32 units.
 	//log.Printf("Spawn %s at x=%f, y=%f, z=%f", pl.Username, pl.X, pl.Y, pl.Z)

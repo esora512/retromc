@@ -10,66 +10,116 @@ import (
 )
 
 const (
-	pickupRangeSq = 1.5 * 1.5
+	pickupRangeSq   = 1.5 * 1.5
+	pickupRangeY    = 2.5
+	gravity         = 0.04
+	airDrag         = 0.98
+	groundDragBase  = 0.58800006
+	lavaBounceY     = 0.2
+	lavaJitterScale = 0.2
+	bounceFactor    = -0.5
 )
+
+func (w *World) ItemPhysicsTick() {
+	for _, e := range w.Entities {
+		d, ok := e.(*DroppedItem)
+		if !ok {
+			continue
+		}
+		w.tickDroppedItem(d)
+	}
+}
+
+func (w *World) tickDroppedItem(d *DroppedItem) {
+	if d.PickupDelay > 0 {
+		d.PickupDelay--
+	}
+
+	d.VelY -= gravity
+
+	feetBlock := w.GetBlock(int32(math.Floor(d.X)), byte(math.Floor(d.Y)), int32(math.Floor(d.Z)), d.Dim)
+	if feetBlock.IsLava() {
+		d.VelY = lavaBounceY
+		d.VelX = float64(rand.Float32()-rand.Float32()) * lavaJitterScale
+		d.VelZ = float64(rand.Float32()-rand.Float32()) * lavaJitterScale
+	}
+
+	d.X += d.VelX
+	d.Y += d.VelY
+	d.Z += d.VelZ
+
+	blockAtFeet := w.GetBlock(int32(math.Floor(d.X)), byte(math.Floor(d.Y)), int32(math.Floor(d.Z)), d.Dim)
+	onGround := false
+	if !blockAtFeet.IsAir() && !blockAtFeet.IsLiquid() && d.VelY <= 0 {
+		onGround = true
+		d.Y = math.Floor(d.Y) + 1 
+	}
+
+	drag := float64(airDrag)
+	if onGround {
+		// TODO: swap in real slipperiness
+		drag = groundDragBase
+		d.VelY *= bounceFactor
+	}
+
+	d.VelX *= drag
+	d.VelZ *= drag
+	d.VelY *= 0.9800000190734863
+}
+
 
 func (w *World) DroppedItemPhysics() {
 	w.CollectNearbyItems()
-	w.GravityOnItems()
-}
-
-func (w *World) GravityOnItems() {
-	for _, e := range w.Entities {
-		if e.IsItem() {
-			d, _ := e.(*DroppedItem)
-			below := w.GetBlock(int32(d.X), byte(d.Y)-1, int32(d.Z), 0)
-			if below.IsAir() || below.IsLiquid() {
-				d.Y--
-			}
-		}
-	}
+	w.ItemPhysicsTick()
 }
 
 func (w *World) CollectNearbyItems() {
 	for _, e := range w.Entities {
-		if e.IsItem() {
-			d, _ := e.(*DroppedItem)
+		d, ok := e.(*DroppedItem)
+		if !ok {
+			continue
+		}
 
-			if d.PickupDelay > 0 {
-				d.PickupDelay--
+		if d.PickupDelay > 0 {
+			d.PickupDelay--
+			continue
+		}
+
+		x, y, z := d.GetPosition()
+
+		for _, pl := range w.Players {
+			if pl.HP <= 0 {
 				continue
 			}
 
-			x, y, z := d.GetPosition()
+			dx := pl.X - x
+			dz := pl.Z - z
+			dy := pl.Y - y
 
-			for _, pl := range w.Players {
-				if pl.HP <= 0 {
-					continue
-				}
-
-				dx := pl.X - x
-				dy := pl.Y - y
-				dz := pl.Z - z
-
-				if dx*dx+dy*dy+dz*dz > pickupRangeSq {
-					continue
-				}
-
-				slot := pl.Inventory.AddItem(int16(d.ItemId), uint16(d.Metadata), d.Amount)
-				if slot < 0 {
-					continue
-				}
-				t := pl.Inventory.Items[slot]
-				w.SendSetSlot(pl.Connection, 0, slot, t)
-
-				collect := w.CollectItem(d.EntityId, int32(pl.GetEntityId()))
-				w.BroadcastPacket(collect)
-				w.RemoveEntity(d.EntityId)
-				break
+			if dx*dx+dz*dz > pickupRangeSq {
+				continue
 			}
+			if dy < 0 {
+				dy = -dy
+			}
+			if dy > pickupRangeY {
+				continue
+			}
+
+			slot := pl.Inventory.AddItem(int16(d.ItemId), uint16(d.Metadata), d.Amount)
+			if slot < 0 {
+				continue
+			}
+			t := pl.Inventory.Items[slot]
+			w.SendSetSlot(pl.Connection, 0, slot, t)
+
+			collect := w.CollectItem(d.EntityId, int32(pl.GetEntityId()))
+			w.BroadcastPacket(collect)
+			w.RemoveEntity(d.EntityId)
+			//tracker.Remove(d.EntityId)
+			break
 		}
 	}
-
 }
 
 var fallingBlockSafeRadius = int32(VIEW_DISTANCE * 16 / 2)

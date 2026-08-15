@@ -314,30 +314,32 @@ func High8Bits(n uint16) byte {
 	return byte(n >> 8)
 }
 
-func dropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {
+const dropInitVelocity = 0.3
+const dropRandomVelocity = 0.02
+const playerEyeHeight = 1.62
+
+func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {
 	if count == 0 {
 		return
 	}
 
-	const dropDistance = 2.0
 	yawRad := float64(pl.Yaw) * (math.Pi / 180)
-	dirX := -math.Sin(yawRad)
-	dirZ := math.Cos(yawRad)
-	dropX := pl.X + dirX*dropDistance
-	dropZ := pl.Z + dirZ*dropDistance
+	pitchRad := float64(pl.Pitch) * (math.Pi / 180)
 
-	spawnDroppedItemPacket := packets.NewSpawnDroppedItem(
-		world,
-		typeId,
-		count,
-		byte(metadata),
-		int32(dropX),
-		int32(pl.Y),
-		int32(dropZ),
-		0, 0, 0, 40,
-		pl.Dimension,
-	)
-	world.BroadcastPacket(spawnDroppedItemPacket)
+	x := pl.X
+	y := pl.Y + playerEyeHeight
+	z := pl.Z
+
+	velX := -math.Sin(yawRad) * math.Cos(pitchRad) * dropInitVelocity
+	velZ := math.Cos(yawRad) * math.Cos(pitchRad) * dropInitVelocity
+	velY := -math.Sin(pitchRad)*dropInitVelocity + 0.1
+
+	angle := float64(rand.Float32()) * math.Pi * 2
+	speed := float64(rand.Float32()) * dropRandomVelocity
+	velX += math.Cos(angle) * speed
+	velZ += math.Sin(angle) * speed
+	velY += float64(rand.Float32()-rand.Float32()) * 0.1
+	CreateDroppedItem(world, int32(x), int32(y), int32(z), int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
 }
 
 func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player) {
@@ -424,7 +426,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	metadata := item.Metadata
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
 	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
-	dropItemFromPlayer(world, pl, typeId, metadata, 1)
+	DropItemFromPlayer(world, pl, typeId, metadata, 1)
 }
 
 func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock level.Block) bool {
@@ -625,11 +627,10 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 }
 
 func BroadcastDroppedItem(world *level.World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
-	dropX := x
-	dropY := y
-	dropZ := z
-	spawnPacket := packets.NewSpawnDroppedItem(world, blockItem, count, blockMeta, dropX, dropY, dropZ, 0, 0, 0, delay, dim)
-	world.BroadcastPacket(spawnPacket)
+	velX := float64(rand.Float32()-rand.Float32()) * 0.1
+	velY := float64(rand.Float32()) * 0.2
+	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
+	CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {

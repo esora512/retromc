@@ -108,9 +108,9 @@ func (p *SpawnItemPacket) Serialize() []byte {
 	w.WriteShort(uint16(p.ItemId))
 	w.WriteByte(p.Amount)
 	w.WriteShort(uint16(p.Metadata))
-	w.WriteInt32(p.X)
-	w.WriteInt32(p.Y)
-	w.WriteInt32(p.Z)
+	w.WriteInt32(p.X*32 + 16)
+	w.WriteInt32(p.Y*32 + 16)
+	w.WriteInt32(p.Z*32 + 16)
 	w.WriteByte(p.Yaw)
 	w.WriteByte(p.Pitch)
 	w.WriteByte(p.Roll)
@@ -478,22 +478,22 @@ func CollectItem(itemId, collectorId int32) []byte {
 	return p.Serialize()
 }
 
-func NewSpawnDroppedItem(w *level.World, itemId int16, amount, meta byte, x, y, z int32, yaw, pitch, roll byte, pickupDelay int32, dim int32) []byte {
-	entityId := w.AddDroppedItem(x, y, z, int32(itemId), amount, meta, pickupDelay, dim)
-	p := SpawnItemPacket{
-		EntityId: entityId,
-		ItemId:   itemId,
-		Amount:   amount,
-		Metadata: meta,
-		X:        x*32 + 16,
-		Y:        y*32 + 16,
-		Z:        z*32 + 16,
-		Yaw:      yaw,
-		Pitch:    pitch,
-		Roll:     roll,
-	}
-	return p.Serialize()
-}
+// func NewSpawnDroppedItem(w *level.World, itemId int16, amount, meta byte, x, y, z int32, yaw, pitch, roll byte, pickupDelay int32, dim int32) []byte {
+// 	entityId := w.AddDroppedItem(x, y, z, int32(itemId), amount, meta, pickupDelay, dim)
+// 	p := SpawnItemPacket{
+// 		EntityId: entityId,
+// 		ItemId:   itemId,
+// 		Amount:   amount,
+// 		Metadata: meta,
+// 		X:        x,
+// 		Y:        y,
+// 		Z:        z,
+// 		Yaw:      yaw,
+// 		Pitch:    pitch,
+// 		Roll:     roll,
+// 	}
+// 	return p.Serialize()
+// }
 
 type SpawnMobPacket struct {
 	EntityId int32

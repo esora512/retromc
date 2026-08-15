@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"net"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 
@@ -69,6 +71,7 @@ type EntityTracker struct {
 	SpawnObject   func(e Entity) []byte
 	SpawnMob      func(m *Mob) []byte
 	DespawnEntity func(id int32) []byte
+	SpawnItem     func(d *DroppedItem) []byte
 	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
 	visible       map[int32]map[int32]bool
 	Mu            sync.Mutex
@@ -78,6 +81,7 @@ func NewEntityTracker(
 	spawnPlayer func(pl *player.Player) []byte,
 	spawnObject func(e Entity) []byte,
 	spawnMob func(m *Mob) []byte,
+	spawnItem func(d *DroppedItem) []byte,
 	despawnEntity func(id int32) []byte,
 	setEquipment func(pl *player.Player, send func([]byte) (int, error)),
 ) *EntityTracker {
@@ -85,6 +89,7 @@ func NewEntityTracker(
 		SpawnPlayer:   spawnPlayer,
 		SpawnObject:   spawnObject,
 		SpawnMob:      spawnMob,
+		SpawnItem:     spawnItem,
 		DespawnEntity: despawnEntity,
 		SetEquipment:  setEquipment,
 		visible:       make(map[int32]map[int32]bool),
@@ -204,6 +209,9 @@ func (et *EntityTracker) Manage(w *World) {
 				} else if target.IsMob() {
 					t, _ := target.(*Mob)
 					viewer.Connection.Write(et.SpawnMob(t))
+				} else if target.IsItem() {
+					t, _ := target.(*DroppedItem)
+					viewer.Connection.Write(et.SpawnItem(t))
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
@@ -226,6 +234,7 @@ func (w *World) SnapshotEntities() []Entity {
 type World struct {
 	//Mu         dlock.DebugRWMutex
 	Mu             sync.RWMutex
+	Rand           *rand.Rand
 	chunkLoadGroup singleflight.Group
 	sessionMu      sync.Map
 	blockQueue     map[[4]int32]QueueBlock
@@ -476,6 +485,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		Scheduler:  NewBlockUpdateScheduler(),
 		blockQueue: make(map[[4]int32]QueueBlock),
 		sleepers:   make(map[int32]int),
+		Rand:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -530,11 +540,9 @@ func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, p
 	entityId := w.NextEntityId()
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
+	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: float64(x), Y: float64(y), Z: float64(z), PickupDelay: pickupDelay}
 	return entityId
 }
-
-
 
 func printCallStack() {
 	const depth = 32

@@ -40,7 +40,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 		}
 
 		acceptTransaction(connection, p)
-		dropItemFromPlayer(world, pl, typeId, metadata, dropCount)
+		DropItemFromPlayer(world, pl, typeId, metadata, dropCount)
 		return
 	}
 

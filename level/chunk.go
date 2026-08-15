@@ -365,7 +365,7 @@ type DroppedItem struct {
 	ItemId      int32
 	Amount      byte
 	Metadata    byte
-	X, Y, Z     int32
+	X, Y, Z     float64
 	PickupDelay int32
 	Dim         int32
 

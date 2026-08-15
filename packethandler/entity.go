@@ -14,6 +14,33 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
+func CreateDroppedItem(w *level.World, x, y, z int32, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
+	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim)
+
+	if item, ok := w.Entities[entityId].(*level.DroppedItem); ok {
+		item.VelX = velX
+		item.VelY = velY
+		item.VelZ = velZ
+	}
+
+	spawn := packets.SpawnItemPacket{
+		EntityId: entityId,
+		ItemId:   int16(itemId),
+		Amount:   amount,
+		Metadata: meta,
+		X:        x,
+		Y:        y,
+		Z:        z,
+		Yaw:      0,
+		Pitch:    0,
+		Roll:     0,
+	}
+	w.BroadcastPacket(spawn.Serialize())
+	velocityPacket := packets.EntityVelocityPacket{EntityId: entityId, Vx: velX, Vy: velY, Vz: velZ}
+	w.BroadcastPacket(velocityPacket.Serialize())
+	return entityId
+}
+
 func dmgGiven(typeId int16) (int16, bool) {
 	if typeId == constants.WoodenAxe.Value || typeId == constants.GoldAxe.Value {
 		return 3, true
@@ -232,14 +259,13 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					spawnPacket := packets.NewSpawnDroppedItem(world, constants.Boat.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
-					world.BroadcastPacket(spawnPacket)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Boat.Value, 0, 1, other.GetDim(), 5)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					spawnPacket := packets.NewSpawnDroppedItem(world, constants.Minecart.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
-					world.BroadcastPacket(spawnPacket)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Minecart.Value, 0, 1, other.GetDim(), 5)
+
 				}
 			}
 
@@ -247,10 +273,8 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				m, _ := other.(*level.Mob)
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
-					spawnPacket := packets.NewSpawnDroppedItem(world, constants.String.Value, 1, 0, int32(x), int32(y), int32(z), 0, 0, 0, 5, other.GetDim())
-					world.BroadcastPacket(spawnPacket)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.String.Value, 0, 1, other.GetDim(), 5)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
-
 				}
 			}
 
