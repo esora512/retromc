@@ -318,7 +318,7 @@ const dropInitVelocity = 0.3
 const dropRandomVelocity = 0.02
 const playerEyeHeight = 1.62
 
-func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {
+func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte, tracker *level.EntityTracker) {
 	if count == 0 {
 		return
 	}
@@ -339,12 +339,13 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velX += math.Cos(angle) * speed
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
-	CreateDroppedItem(world, int32(x), int32(y), int32(z), int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	eId := CreateDroppedItem(world, int32(x), int32(y), int32(z), int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	tracker.AddForAll(world, eId)
 }
 
-func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player) {
+func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	if p.Status == 4 {
-		dropHeldItemStack(connection, world, pl)
+		dropHeldItemStack(connection, world, pl, tracker)
 		return
 	}
 	if pl.IsRiding != -1 {
@@ -413,11 +414,11 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	BroadcastDroppedItem(world, p.X, int32(p.Y), p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
+	BroadcastDroppedItem(world, p.X, int32(p.Y), p.Z, blockItem, blockMeta, count, pl.Dimension, 10, tracker)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
-func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player) {
+func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	item := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if item.TypeId == -1 {
 		return
@@ -426,7 +427,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	metadata := item.Metadata
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
 	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
-	DropItemFromPlayer(world, pl, typeId, metadata, 1)
+	DropItemFromPlayer(world, pl, typeId, metadata, 1, tracker)
 }
 
 func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock level.Block) bool {
@@ -626,11 +627,12 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	return blockItem, blockMeta, count
 }
 
-func BroadcastDroppedItem(world *level.World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+func BroadcastDroppedItem(world *level.World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
-	CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+	eId := CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+	tracker.AddForAll(world, eId)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {

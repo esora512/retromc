@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"math"
 	"math/rand"
 
@@ -13,6 +12,71 @@ import (
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
+
+func DropInventory(
+	world *level.World,
+	inv *inventory.Inventory,
+	x, y, z int32,
+	dim int32,
+) {
+	for i := range inv.Items {
+		stack := &inv.Items[i]
+
+		if stack.TypeId == -1 {
+			continue
+		}
+
+		// Same as:
+		// rand.NextFloat() * 0.8f + 0.1f
+		offsetX := rand.Float64()*0.8 + 0.1
+		offsetY := rand.Float64()*0.8 + 0.1
+		offsetZ := rand.Float64()*0.8 + 0.1
+
+		// Work with the stack count until it has all been dropped.
+		remaining := int(stack.Count)
+
+		for remaining > 0 {
+			// C++: rand.NextInt(21) + 10
+			// => 10..30 inclusive
+			countDecrement := rand.Intn(21) + 10
+
+			if countDecrement > remaining {
+				countDecrement = remaining
+			}
+
+			remaining -= countDecrement
+
+			spawnX := float64(x) + offsetX
+			spawnY := float64(y) + offsetY
+			spawnZ := float64(z) + offsetZ
+
+			// Same general velocity as the C++ code.
+			velocity := 0.05
+
+			velX := rand.Float64() * velocity
+			velY := rand.Float64()*velocity + 0.2
+			velZ := rand.Float64() * velocity
+
+			CreateDroppedItem(
+				world,
+				int32(spawnX),
+				int32(spawnY),
+				int32(spawnZ),
+				int32(stack.TypeId),
+				byte(countDecrement),
+				byte(stack.Metadata),
+				velX,
+				velY,
+				velZ,
+				60,
+				dim,
+			)
+		}
+
+		// Clear the original stack.
+		inv.Items[i] = inventory.EmptyItem()
+	}
+}
 
 func CreateDroppedItem(w *level.World, x, y, z int32, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim)
@@ -238,16 +302,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				xf, yf, zf := other.GetPosition()
 				x, y, z := int32(xf), int32(yf), int32(zf)
 				otherPl, _ := world.Players[other.GetEntityId()]
-				for _, item := range otherPl.Inventory.Items {
-					if item.TypeId != -1 {
-						log.Printf("Sending %d", item.TypeId)
-						world.BroadcastDroppedItem(x, y, z, item.TypeId, byte(item.Metadata), item.Count, pl.Dimension, 60)
-					}
-				}
-
-				for i := range otherPl.Inventory.Items {
-					otherPl.Inventory.Items[i] = inventory.EmptyItem()
-				}
+				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
 			}
 			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),
@@ -259,12 +314,12 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Boat.Value, 0, 1, other.GetDim(), 5)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Minecart.Value, 0, 1, other.GetDim(), 5)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
 
 				}
 			}
@@ -273,7 +328,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				m, _ := other.(*level.Mob)
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.String.Value, 0, 1, other.GetDim(), 5)
+					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}

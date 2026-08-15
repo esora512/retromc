@@ -12,7 +12,7 @@ import (
 
 // Refer to method: func_27085_a in Container.java in decompiled Minecraft Beta 1.7.3 server
 // Refer to method: func_20007_a in NetServerHandler.java in decompiled Minecraft Beta 1.7.3 server
-func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world *level.World, pl *player.Player) {
+func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
 	rightClick := p.RightClick == 1
 	shift := p.Shift
 	slot := p.Slot
@@ -40,7 +40,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 		}
 
 		acceptTransaction(connection, p)
-		DropItemFromPlayer(world, pl, typeId, metadata, dropCount)
+		DropItemFromPlayer(world, pl, typeId, metadata, dropCount, tracker)
 		return
 	}
 
