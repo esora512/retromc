@@ -59,9 +59,9 @@ func DropInventory(
 
 			CreateDroppedItem(
 				world,
-				int32(spawnX),
-				int32(spawnY),
-				int32(spawnZ),
+				spawnX,
+				spawnY,
+				spawnZ,
 				int32(stack.TypeId),
 				byte(countDecrement),
 				byte(stack.Metadata),
@@ -78,7 +78,11 @@ func DropInventory(
 	}
 }
 
-func CreateDroppedItem(w *level.World, x, y, z int32, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
+func quantizeSpawnVelocity(v float64) int8 {
+	return int8(v * 128.0)
+}
+
+func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim)
 
 	if item, ok := w.Entities[entityId].(*level.DroppedItem); ok {
@@ -92,12 +96,12 @@ func CreateDroppedItem(w *level.World, x, y, z int32, itemId int32, amount, meta
 		ItemId:   int16(itemId),
 		Amount:   amount,
 		Metadata: meta,
-		X:        x,
-		Y:        y,
-		Z:        z,
-		Yaw:      0,
-		Pitch:    0,
-		Roll:     0,
+		X:        int32(math.Floor(x * 32)),
+		Y:        int32(math.Floor(y * 32)),
+		Z:        int32(math.Floor(z * 32)),
+		Pitch:    byte(quantizeSpawnVelocity(velX)),
+		Yaw:      byte(quantizeSpawnVelocity(velY)),
+		Roll:     byte(quantizeSpawnVelocity(velZ)),
 	}
 	w.BroadcastPacket(spawn.Serialize())
 	velocityPacket := packets.EntityVelocityPacket{EntityId: entityId, Vx: velX, Vy: velY, Vz: velZ}
@@ -314,12 +318,12 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.BroadcastDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.BroadcastDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
 
 				}
 			}
@@ -328,7 +332,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				m, _ := other.(*level.Mob)
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(int32(x), int32(y), int32(z), constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.BroadcastDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}

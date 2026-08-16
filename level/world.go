@@ -276,17 +276,17 @@ type World struct {
 	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
 	newMobPositionAndRotationPacket func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte
 	newEntityVelocityPacket         func(entityId int32, vx, vy, vz float64) []byte
-	broadcastDroppedItem            func(world *World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)
+	broadcastDroppedItem            func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
 	broadcastPain func(w *World, entityId int32)
 }
 
-func (w *World) SetBroadcastDroppedItem(f func(world *World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)) {
+func (w *World) SetBroadcastDroppedItem(f func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)) {
 	w.broadcastDroppedItem = f
 }
 
-func (w *World) BroadcastDroppedItem(x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker) {
+func (w *World) BroadcastDroppedItem(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker) {
 	w.broadcastDroppedItem(w, x, y, z, blockItem, blockMeta, count, dim, delay, tracker)
 }
 
@@ -536,11 +536,11 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 	return nil
 }
 
-func (w *World) AddDroppedItem(x, y, z int32, itemId int32, amount, meta byte, pickupDelay, dim int32) int32 {
+func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte, pickupDelay, dim int32) int32 {
 	entityId := w.NextEntityId()
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: float64(x), Y: float64(y), Z: float64(z), PickupDelay: pickupDelay}
+	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay}
 	return entityId
 }
 

@@ -317,14 +317,15 @@ func High8Bits(n uint16) byte {
 const dropInitVelocity = 0.3
 const dropRandomVelocity = 0.02
 const playerEyeHeight = 1.62
+const JavaPI = 3.141592653589793
 
 func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte, tracker *level.EntityTracker) {
 	if count == 0 {
 		return
 	}
 
-	yawRad := float64(pl.Yaw) * (math.Pi / 180)
-	pitchRad := float64(pl.Pitch) * (math.Pi / 180)
+	yawRad := float64(pl.Yaw) * (JavaPI / 180)
+	pitchRad := float64(pl.Pitch) * (JavaPI / 180)
 
 	x := pl.X
 	y := pl.Y + playerEyeHeight
@@ -334,12 +335,12 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ := math.Cos(yawRad) * math.Cos(pitchRad) * dropInitVelocity
 	velY := -math.Sin(pitchRad)*dropInitVelocity + 0.1
 
-	angle := float64(rand.Float32()) * math.Pi * 2
+	angle := float64(rand.Float32()) * JavaPI * 2
 	speed := float64(rand.Float32()) * dropRandomVelocity
 	velX += math.Cos(angle) * speed
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
-	eId := CreateDroppedItem(world, int32(x), int32(y), int32(z), int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	eId := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
 	tracker.AddForAll(world, eId)
 }
 
@@ -414,7 +415,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	BroadcastDroppedItem(world, p.X, int32(p.Y), p.Z, blockItem, blockMeta, count, pl.Dimension, 10, tracker)
+	BroadcastDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -627,7 +628,7 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	return blockItem, blockMeta, count
 }
 
-func BroadcastDroppedItem(world *level.World, x, y, z int32, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
+func BroadcastDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
