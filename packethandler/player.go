@@ -341,6 +341,7 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
 	eId := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	sendEquipmentChangeForHotbarSlot(world, pl)
 	tracker.AddForAll(world, eId)
 }
 

@@ -57,7 +57,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit, 0, level.Default)
+	world := level.NewWorld(GitCommit, 0, level.Template)
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetBroadcastRelativePosition(packethandler.BroadcastRelativePosition)
@@ -141,7 +141,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 					}
 					world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 					world.RemovePlayer(pl)
-					tracker.Remove(pl.GetEntityId())
+					tracker.ResetEntity(pl.GetEntityId())
 				}
 			}
 			close(done)

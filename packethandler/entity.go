@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"math"
 	"math/rand"
 
@@ -16,7 +17,7 @@ import (
 func DropInventory(
 	world *level.World,
 	inv *inventory.Inventory,
-	x, y, z int32,
+	x, y, z float64,
 	dim int32,
 ) {
 	for i := range inv.Items {
@@ -32,12 +33,9 @@ func DropInventory(
 		offsetY := rand.Float64()*0.8 + 0.1
 		offsetZ := rand.Float64()*0.8 + 0.1
 
-		// Work with the stack count until it has all been dropped.
 		remaining := int(stack.Count)
 
 		for remaining > 0 {
-			// C++: rand.NextInt(21) + 10
-			// => 10..30 inclusive
 			countDecrement := rand.Intn(21) + 10
 
 			if countDecrement > remaining {
@@ -46,11 +44,10 @@ func DropInventory(
 
 			remaining -= countDecrement
 
-			spawnX := float64(x) + offsetX
-			spawnY := float64(y) + offsetY
-			spawnZ := float64(z) + offsetZ
+			spawnX := x + offsetX
+			spawnY := y + offsetY
+			spawnZ := z + offsetZ
 
-			// Same general velocity as the C++ code.
 			velocity := 0.05
 
 			velX := rand.Float64() * velocity
@@ -72,8 +69,6 @@ func DropInventory(
 				dim,
 			)
 		}
-
-		// Clear the original stack.
 		inv.Items[i] = inventory.EmptyItem()
 	}
 }
@@ -243,6 +238,7 @@ func applyKnockback(w *level.World, attacker, victim level.Entity) {
 
 func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
 	var ok bool
+	log.Printf("%d attacks %d", p.PlayerId, p.EntityId)
 	player, ok := world.Players[p.PlayerId]
 	other, ok := world.Entities[p.EntityId]
 	if !ok {
@@ -253,7 +249,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	if p.Attack {
 		oldHP := other.GetHP()
 		item := pl.Inventory.Items[pl.HotbarSlot]
-		//log.Printf("%s has %d in hand", pl.Username, item.TypeId)
+		log.Printf("%s attacks %s", player.GetName(), other.GetName())
 		dmg := int16(1)
 		given := false
 		if item.TypeId != -1 {
@@ -303,10 +299,11 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				}
 				world.BroadcastPacket(cMsgPkt.Serialize())
 
-				xf, yf, zf := other.GetPosition()
-				x, y, z := int32(xf), int32(yf), int32(zf)
+				x, y, z := other.GetPosition()
 				otherPl, _ := world.Players[other.GetEntityId()]
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
+
+				tracker.ResetViewer(other.GetEntityId())
 			}
 			p := packets.EntityEventPacket{
 				EntityId: other.GetEntityId(),
@@ -336,8 +333,6 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}
-
-			tracker.Remove(other.GetEntityId())
 		}
 		return
 	}

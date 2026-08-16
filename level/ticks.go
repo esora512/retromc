@@ -20,39 +20,49 @@ const (
 	bounceFactor    = -0.5
 )
 
-func (w *World) ItemPhysicsTick() {
+func (w *World) ItemPhysicsTick(tracker *EntityTracker) {
 	for _, e := range w.Entities {
 		d, ok := e.(*DroppedItem)
 		if !ok {
 			continue
 		}
-		w.tickDroppedItem(d)
+		w.tickDroppedItem(d, tracker)
 	}
 }
 
-func (w *World) tickDroppedItem(d *DroppedItem) {
+func (w *World) tickDroppedItem(d *DroppedItem, tracker *EntityTracker) {
 	if d.PickupDelay > 0 {
 		d.PickupDelay--
 	}
 
 	d.VelY -= gravity
 
-	feetBlock := w.GetBlock(int32(math.Floor(d.X)), byte(math.Floor(d.Y)), int32(math.Floor(d.Z)), d.Dim)
-	if feetBlock.IsLava() {
-		d.VelY = lavaBounceY
-		d.VelX = float64(rand.Float32()-rand.Float32()) * lavaJitterScale
-		d.VelZ = float64(rand.Float32()-rand.Float32()) * lavaJitterScale
-	}
-
 	d.X += d.VelX
 	d.Y += d.VelY
 	d.Z += d.VelZ
 
-	blockAtFeet := w.GetBlock(int32(math.Floor(d.X)), byte(math.Floor(d.Y)), int32(math.Floor(d.Z)), d.Dim)
+	// Check the block the item has moved into.
+	blockAtFeet := w.GetBlock(
+		int32(math.Floor(d.X)),
+		byte(math.Floor(d.Y)),
+		int32(math.Floor(d.Z)),
+		d.Dim,
+	)
+
+	if blockAtFeet.IsLava() {
+		delete(w.Entities, d.EntityId)
+		w.BroadcastDespawn(d.EntityId)
+		tracker.ResetEntity(d.EntityId)
+		d.VelX = 0
+		d.VelY = 0
+		d.VelZ = 0
+		return
+	}
+
 	onGround := false
 	if !blockAtFeet.IsAir() && !blockAtFeet.IsLiquid() && d.VelY <= 0 {
 		onGround = true
-		d.Y = math.Floor(d.Y) + 1 
+		d.Y = math.Floor(d.Y) + 1
 	}
 
 	drag := float64(airDrag)
@@ -67,10 +77,9 @@ func (w *World) tickDroppedItem(d *DroppedItem) {
 	d.VelY *= 0.9800000190734863
 }
 
-
-func (w *World) DroppedItemPhysics() {
+func (w *World) DroppedItemPhysics(tracker *EntityTracker) {
 	w.CollectNearbyItems()
-	w.ItemPhysicsTick()
+	w.ItemPhysicsTick(tracker)
 }
 
 func (w *World) CollectNearbyItems() {
@@ -273,7 +282,7 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 
 	for _, id := range toRemove {
 		world.RemoveEntity(id)
-		tacker.Remove(id)
+		tacker.ResetEntity(id)
 	}
 }
 
@@ -319,7 +328,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
 	w.FallingBlocksPhysics()
 	w.RidablePhysics(tracker)
 	w.GrowPhysics()
-	w.DroppedItemPhysics()
+	w.DroppedItemPhysics(tracker)
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()
@@ -352,7 +361,7 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 
 	for _, id := range toRemove {
 		delete(w.Entities, id)
-		tracker.Remove(id)
+		tracker.ResetEntity(id)
 		go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
 	}
 }

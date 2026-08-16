@@ -336,6 +336,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				world.BroadcastPacket(p.Serialize())
 				SendSetHealth(pl.Connection, 0)
 				pl.SetHP(0)
+				DropInventory(world, &pl.Inventory, pl.X, pl.Y, pl.Z, pl.GetDim())
 			default:
 				sendUsage(pl, "/kill")
 				return false

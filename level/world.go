@@ -96,7 +96,13 @@ func NewEntityTracker(
 	}
 }
 
-func (et *EntityTracker) Remove(id int32) {
+func (et *EntityTracker) ResetViewer(playerID int32) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	delete(et.visible, playerID)
+}
+
+func (et *EntityTracker) ResetEntity(id int32) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	delete(et.visible, id)
@@ -173,6 +179,10 @@ func (et *EntityTracker) Manage(w *World) {
 			continue
 		}
 
+		if viewer.IsPlayer() && viewer.HP <= 0 {
+			continue
+		}
+
 		x1, _, z1 := viewer.GetPosition()
 
 		for _, target := range w.Entities {
@@ -204,6 +214,7 @@ func (et *EntityTracker) Manage(w *World) {
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
+					log.Printf("Spawning %s for %s", target.GetName(), viewer.GetName())
 				} else if target.IsRideable() {
 					viewer.Connection.Write(et.SpawnObject(target))
 				} else if target.IsMob() {
@@ -217,6 +228,7 @@ func (et *EntityTracker) Manage(w *World) {
 			} else if isVisible && (!inRange || !alive) {
 				viewer.Connection.Write(et.DespawnEntity(targetID))
 				delete(et.visible[viewerID], targetID)
+				log.Printf("Despawning %s for %s", target.GetName(), viewer.GetName())
 			}
 		}
 	}

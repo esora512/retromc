@@ -45,7 +45,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
 		world.BroadcastPacket(packets.NewEntityDespawnPacket(old.GetEntityId()))
 		world.RemovePlayer(old)
-		tracker.Remove(old.GetEntityId())
+		tracker.ResetEntity(old.GetEntityId())
 		old.Connection.Close()
 	}
 
