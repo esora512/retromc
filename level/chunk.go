@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/mcregion"
 )
 
@@ -360,7 +361,7 @@ const (
 	Maze
 )
 
-func (d *DroppedItem) IsBlock() bool {return false}
+func (d *DroppedItem) IsBlock() bool { return false }
 
 type DroppedItem struct {
 	EntityId    int32
@@ -373,7 +374,8 @@ type DroppedItem struct {
 
 	VelX, VelY, VelZ float64
 
-	DespawnIn int
+	DespawnIn     int
+	MovementState constants.MovementState
 }
 
 func (d *DroppedItem) Despawn() bool {

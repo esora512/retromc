@@ -140,12 +140,12 @@ func NewSpawnItem(d *level.DroppedItem) []byte {
 		ItemId:   int16(d.ItemId),
 		Amount:   d.Amount,
 		Metadata: d.Metadata,
-		X:        int32(math.Floor(d.X * 32)),
-		Y:        int32(math.Floor(d.Y * 32)),
-		Z:        int32(math.Floor(d.Z * 32)),
-		Pitch:    byte(quantizeSpawnVelocity(d.VelX)),
-		Yaw:      byte(quantizeSpawnVelocity(d.VelY)),
-		Roll:     byte(quantizeSpawnVelocity(d.VelZ)),
+		X:        int32(math.Floor(d.MovementState.X * 32)),
+		Y:        int32(math.Floor(d.MovementState.Y * 32)),
+		Z:        int32(math.Floor(d.MovementState.Z * 32)),
+		Pitch:    byte(quantizeSpawnVelocity(d.MovementState.VelocityX)),
+		Yaw:      byte(quantizeSpawnVelocity(d.MovementState.VelocityY)),
+		Roll:     byte(quantizeSpawnVelocity(d.MovementState.VelocityZ)),
 	}
 	return p.Serialize()
 }

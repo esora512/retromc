@@ -75,154 +75,166 @@ func (et *EntityTracker) AddForAll(w *World, otherId int32) {
 }
 
 func (et *EntityTracker) Manage(w *World) {
-    et.Mu.Lock()
-    defer et.Mu.Unlock()
-    const distance = VIEW_DISTANCE * 8
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	const distance = VIEW_DISTANCE * 8
 
-    despawnResults := make(map[int32]bool)
-    shouldDespawn := func(target Entity) bool {
-        id := target.GetEntityId()
-        if res, ok := despawnResults[id]; ok {
-            return res
-        }
-        res := target.Despawn()
-        despawnResults[id] = res
-        return res
-    }
+	despawnResults := make(map[int32]bool)
+	shouldDespawn := func(target Entity) bool {
+		id := target.GetEntityId()
+		if res, ok := despawnResults[id]; ok {
+			return res
+		}
+		res := target.Despawn()
+		despawnResults[id] = res
+		return res
+	}
 
-    for _, viewer := range w.Players {
-        viewerID := viewer.GetEntityId()
+	for _, viewer := range w.Players {
+		viewerID := viewer.GetEntityId()
 
-        if et.visible[viewerID] == nil {
-            et.visible[viewerID] = make(map[int32]bool)
-        }
+		if et.visible[viewerID] == nil {
+			et.visible[viewerID] = make(map[int32]bool)
+		}
 
-        if !viewer.LoggedIn {
-            continue
-        }
+		if !viewer.LoggedIn {
+			continue
+		}
 
-        if viewer.IsPlayer() && viewer.HP <= 0 {
-            continue
-        }
+		if viewer.IsPlayer() && viewer.HP <= 0 {
+			continue
+		}
 
-        x1, _, z1 := viewer.GetPosition()
+		x1, _, z1 := viewer.GetPosition()
 
-        for _, target := range w.Entities {
-            targetID := target.GetEntityId()
+		for _, target := range w.Entities {
+			targetID := target.GetEntityId()
 
-            if viewerID == targetID {
-                continue
-            }
+			if viewerID == targetID {
+				continue
+			}
 
-            if target.IsPlayer() && !target.GetLoggedIn() {
-                continue
-            }
+			if target.IsPlayer() && !target.GetLoggedIn() {
+				continue
+			}
 
-            x2, _, z2 := target.GetPosition()
+			x2, _, z2 := target.GetPosition()
 
-            dx := math.Abs(x1 - x2)
-            dz := math.Abs(z1 - z2)
+			dx := math.Abs(x1 - x2)
+			dz := math.Abs(z1 - z2)
 
-            isVisible := et.visible[viewerID][targetID]
-            sameDim := viewer.GetDim() == target.GetDim()
-            inRange := sameDim && dx <= distance && dz <= distance
-            alive := target.IsBlock() || target.GetHP() > 0
+			isVisible := et.visible[viewerID][targetID]
+			sameDim := viewer.GetDim() == target.GetDim()
+			inRange := sameDim && dx <= distance && dz <= distance
+			alive := target.IsBlock() || target.GetHP() > 0
 
-            if isVisible && alive {
-                if target.IsBlock() {
-                    t, _ := target.(*entities.BlockEntity)
-                    if t.MovementState.VelocityChanged {
-                        w.BroadcastEntityVelocity(
-                            t.EntityId,
-                            t.MovementState.VelocityX,
-                            t.MovementState.VelocityY,
-                            t.MovementState.VelocityZ,
-                        )
-                        t.MovementState.VelocityChanged = false
-                    }
-                }
+			if isVisible && alive {
+				if target.IsItem() {
+					t, _ := target.(*DroppedItem)
+					if t.MovementState.VelocityChanged {
+						w.BroadcastEntityVelocity(
+							t.EntityId,
+							t.MovementState.VelocityX,
+							t.MovementState.VelocityY,
+							t.MovementState.VelocityZ,
+						)
+						t.MovementState.VelocityChanged = false
+					}
+				}
 
-                if target.IsRideable() {
-                    t, _ := target.(*entities.RideableEntity)
-                    if t.MovementState.PositionChanged {
-                        w.BroadcastPositionAndRotation(
-                            t,
-                            t.MovementState.PrevX,
-                            t.MovementState.PrevY,
-                            t.MovementState.PrevZ,
-                            t.MovementState.X,
-                            t.MovementState.Y,
-                            t.MovementState.Z,
-                            t.Yaw,
-                        )
-                        t.MovementState.PositionChanged = false
-                    }
+				if target.IsBlock() {
+					t, _ := target.(*entities.BlockEntity)
+					if t.MovementState.VelocityChanged {
+						w.BroadcastEntityVelocity(
+							t.EntityId,
+							t.MovementState.VelocityX,
+							t.MovementState.VelocityY,
+							t.MovementState.VelocityZ,
+						)
+						t.MovementState.VelocityChanged = false
+					}
+				}
 
-                    if t.MovementState.VelocityChanged {
-                        w.BroadcastEntityVelocity(
-                            t.EntityId,
-                            t.MovementState.VelocityX,
-                            t.MovementState.VelocityY,
-                            t.MovementState.VelocityZ,
-                        )
-                        t.MovementState.VelocityChanged = false
-                    }
+				if target.IsRideable() {
+					t, _ := target.(*entities.RideableEntity)
+					if t.MovementState.PositionChanged {
+						w.BroadcastPositionAndRotation(
+							t,
+							t.MovementState.PrevX,
+							t.MovementState.PrevY,
+							t.MovementState.PrevZ,
+							t.MovementState.X,
+							t.MovementState.Y,
+							t.MovementState.Z,
+							t.Yaw,
+						)
+						t.MovementState.PositionChanged = false
+					}
 
-                    if t.MovementState.Teleported {
-                        w.BroadcastTeleport(
-                            t,
-                            t.MovementState.X,
-                            t.MovementState.Y,
-                            t.MovementState.Z,
-                            t.Yaw)
-                        t.MovementState.Teleported = false
-                    }
-                }
-            }
+					if t.MovementState.VelocityChanged {
+						w.BroadcastEntityVelocity(
+							t.EntityId,
+							t.MovementState.VelocityX,
+							t.MovementState.VelocityY,
+							t.MovementState.VelocityZ,
+						)
+						t.MovementState.VelocityChanged = false
+					}
 
-            if !isVisible && inRange && alive {
-                if target.IsPlayer() {
-                    if target.GetName() == viewer.Username {
-                        continue
-                    }
-                    t, _ := target.(*player.Player)
-                    viewer.Connection.Write(et.SpawnPlayer(t))
-                    et.SetEquipment(t, viewer.Connection.Write)
-                    log.Printf("Spawning %s for %s", target.GetName(), viewer.GetName())
-                } else if target.IsRideable() {
-                    viewer.Connection.Write(et.SpawnObject(target))
-                } else if target.IsMob() {
-                    t, _ := target.(*Mob)
-                    viewer.Connection.Write(et.SpawnMob(t))
-                } else if target.IsItem() {
-                    t, _ := target.(*DroppedItem)
-                    viewer.Connection.Write(et.SpawnItem(t))
-                }
-                et.visible[viewerID][targetID] = true
-            } else if isVisible && (!inRange || !alive || (target.IsBlock() && shouldDespawn(target))) {
-                if target.IsPlayer() || target.IsMob() || target.IsRideable() || target.IsBlock() {
-                    despawn := !inRange || !alive || shouldDespawn(target)
-                    if despawn {
-                        log.Println("Despawning Living Entity")
-                        viewer.Connection.Write(et.DespawnEntity(targetID))
-                        delete(et.visible[viewerID], targetID)
+					if t.MovementState.Teleported {
+						w.BroadcastTeleport(
+							t,
+							t.MovementState.X,
+							t.MovementState.Y,
+							t.MovementState.Z,
+							t.Yaw)
+						t.MovementState.Teleported = false
+					}
+				}
+			}
 
-                        if target.IsMob() || target.IsRideable() || target.IsBlock() {
-                            w.RemoveEntity(targetID)
-                        }
-                    }
-                    continue
-                } else {
-                    viewer.Connection.Write(et.DespawnEntity(targetID))
-                    delete(et.visible[viewerID], targetID)
-                    log.Printf("Despawning %s for %s", target.GetName(), viewer.GetName())
-                    w.RemoveEntity(targetID)
-                }
-            }
-        }
-    }
+			if !isVisible && inRange && alive {
+				if target.IsPlayer() {
+					if target.GetName() == viewer.Username {
+						continue
+					}
+					t, _ := target.(*player.Player)
+					viewer.Connection.Write(et.SpawnPlayer(t))
+					et.SetEquipment(t, viewer.Connection.Write)
+					log.Printf("Spawning %s for %s", target.GetName(), viewer.GetName())
+				} else if target.IsRideable() {
+					viewer.Connection.Write(et.SpawnObject(target))
+				} else if target.IsMob() {
+					t, _ := target.(*Mob)
+					viewer.Connection.Write(et.SpawnMob(t))
+				} else if target.IsItem() {
+					t, _ := target.(*DroppedItem)
+					viewer.Connection.Write(et.SpawnItem(t))
+				}
+				et.visible[viewerID][targetID] = true
+			} else if isVisible && (!inRange || !alive || (target.IsBlock() && shouldDespawn(target))) {
+				if target.IsPlayer() || target.IsMob() || target.IsRideable() || target.IsBlock() {
+					despawn := !inRange || !alive || shouldDespawn(target)
+					if despawn {
+						log.Println("Despawning Living Entity")
+						viewer.Connection.Write(et.DespawnEntity(targetID))
+						delete(et.visible[viewerID], targetID)
+
+						if target.IsMob() || target.IsRideable() || target.IsBlock() {
+							w.RemoveEntity(targetID)
+						}
+					}
+					continue
+				} else {
+					viewer.Connection.Write(et.DespawnEntity(targetID))
+					delete(et.visible[viewerID], targetID)
+					log.Printf("Despawning %s for %s", target.GetName(), viewer.GetName())
+					w.RemoveEntity(targetID)
+				}
+			}
+		}
+	}
 }
-
 
 func (et *EntityTracker) Despawn(w *World, id int32) {
 	et.Mu.Lock()

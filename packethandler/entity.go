@@ -55,7 +55,7 @@ func DropInventory(
 			velY := rand.Float64()*velocity + 0.2
 			velZ := rand.Float64() * velocity
 
-			eId := CreateDroppedItem(
+			e := CreateDroppedItem(
 				world,
 				spawnX,
 				spawnY,
@@ -69,7 +69,7 @@ func DropInventory(
 				60,
 				dim,
 			)
-			BroadcastDroppedItem(world, tracker, eId)
+			BroadcastDroppedItem(world, tracker, e.EntityId)
 		}
 		inv.Items[i] = inventory.EmptyItem()
 	}
@@ -79,9 +79,11 @@ func quantizeSpawnVelocity(v float64) int8 {
 	return int8(v * 128.0)
 }
 
-func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
+func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) *level.DroppedItem {
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim, velX, velY, velZ)
-	return entityId
+	e, _ := w.Entities[entityId]
+	d, _ := e.(*level.DroppedItem)
+	return d
 }
 
 func dmgGiven(typeId int16) (int16, bool) {

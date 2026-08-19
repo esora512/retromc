@@ -90,8 +90,6 @@ func BroadcastDeath(w *level.World, entityId int32) {
 	log.Printf("Entity %d died", entityId)
 }
 
-
-
 func outOfBounds(x, z float64) bool {
 	return x < worldMinX || x >= worldMaxX || z < worldMinZ || z >= worldMaxZ
 }
@@ -352,11 +350,11 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
 
-	eId := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
-	BroadcastDroppedItem(world, tracker, eId)
+	e := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	BroadcastDroppedItem(world, tracker, e.EntityId)
 
 	sendEquipmentChangeForHotbarSlot(world, pl)
-	tracker.AddForAll(world, eId)
+	tracker.AddForAll(world, e.EntityId)
 }
 
 func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
@@ -430,7 +428,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	CreateAndBroadcastDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
+	CreateAndSetMovementDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -673,31 +671,18 @@ func BroadcastDroppedItem(world *level.World, tracker *level.EntityTracker, eId 
 	tracker.AddForAll(world, eId)
 }
 
-func CreateAndBroadcastDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
+func CreateAndSetMovementDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
-
-	// Item is set into world
-	eId := CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
-
-	// Item is spawned
-	spawn := packets.SpawnItemPacket{
-		EntityId: eId,
-		ItemId:   int16(blockItem),
-		Amount:   count,
-		Metadata: blockMeta,
-		X:        int32(math.Floor(x * 32)),
-		Y:        int32(math.Floor(y * 32)),
-		Z:        int32(math.Floor(z * 32)),
-		Pitch:    byte(quantizeSpawnVelocity(velX)),
-		Yaw:      byte(quantizeSpawnVelocity(velY)),
-		Roll:     byte(quantizeSpawnVelocity(velZ)),
-	}
-	world.BroadcastPacket(spawn.Serialize())
-	velocityPacket := packets.EntityVelocityPacket{EntityId: eId, Vx: velX, Vy: velY, Vz: velZ}
-	world.BroadcastPacket(velocityPacket.Serialize())
-	tracker.AddForAll(world, eId)
+	d := CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+	d.MovementState.VelocityX = velX
+	d.MovementState.VelocityX = velY
+	d.MovementState.VelocityX = velZ
+	d.MovementState.X = x
+	d.MovementState.Y = y
+	d.MovementState.Z = z
+	d.MovementState.VelocityChanged = true
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {

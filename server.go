@@ -80,7 +80,7 @@ func main() {
 	world.SetBroadcastPain(packethandler.BroadcastPain)
 	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
 	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
-	world.SetAndCreateBroadcastDroppedItem(packethandler.CreateAndBroadcastDroppedItem)
+	world.SetAndCreateBroadcastDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
 
 	world.SetOppedUsernames(ops)
 
