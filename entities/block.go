@@ -125,7 +125,7 @@ func (b *BlockEntity) SetHP(hp int16) {
 }
 
 func (b *BlockEntity) GetHP() int16 {
-	return 0
+	return -1
 }
 
 func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) BlockInfo) {

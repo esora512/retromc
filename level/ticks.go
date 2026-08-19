@@ -197,10 +197,6 @@ func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte,
 	world.SetBlockInQueue(x, y, z, block, dim)
 }
 
-func (world *World) instaFall(falling *entities.BlockEntity, dim int32) {
-	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata, dim)
-}
-
 func maybeSetVelocityMovement(ridable *entities.RideableEntity, vx, vy, vz float64) {
 	const epsilon = 0.02
 
