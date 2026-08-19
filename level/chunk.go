@@ -370,6 +370,16 @@ type DroppedItem struct {
 	Dim         int32
 
 	VelX, VelY, VelZ float64
+
+	DespawnIn int
+}
+
+func (d *DroppedItem) Despawn() bool {
+	if d.DespawnIn <= 0 {
+		return true
+	}
+	d.DespawnIn -= 1
+	return false
 }
 
 func (d *DroppedItem) GetEntityId() int32 {
@@ -402,9 +412,9 @@ func (d *DroppedItem) GetLoggedIn() bool { return false }
 
 func (d *DroppedItem) GetDim() int32 { return d.Dim }
 
-func (d *DroppedItem) GetVelocity() (float64, float64, float64) {return d.VelX, d.VelY, d.VelZ}
+func (d *DroppedItem) GetVelocity() (float64, float64, float64) { return d.VelX, d.VelY, d.VelZ }
 
-func (d *DroppedItem) IsItem() bool {return  true}
+func (d *DroppedItem) IsItem() bool { return true }
 
 type ChunkLogic struct {
 	Growables    map[BlockKey]Growable

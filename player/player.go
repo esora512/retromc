@@ -110,8 +110,7 @@ func (pl *Player) GetVelocity() (float64, float64, float64) {
 	return pl.Vx, pl.Vy, pl.Vz
 }
 
-func (pl *Player) IsItem() bool {return  false}
-
+func (pl *Player) IsItem() bool { return false }
 
 type Player struct {
 	FallDistance float64
@@ -152,6 +151,8 @@ type Player struct {
 	HP     int16
 	Immune int64
 	IsOp   bool
+
+	DespawnIn int
 }
 
 func (pl *Player) SetHP(hp int16) {
@@ -206,6 +207,7 @@ func NewPlayer(conn net.Conn) *Player {
 		Dimension:            0,
 		Immune:               0,
 		IsOp:                 false,
+		DespawnIn: -1,
 	}
 }
 
@@ -231,6 +233,20 @@ func (pl *Player) GetName() string {
 
 func (pl *Player) GetPosition() (float64, float64, float64) {
 	return pl.X, pl.Y, pl.Z
+}
+
+func (pl *Player) Despawn() bool {
+	if pl.DespawnIn < 0 {
+		return false
+	}
+
+	if pl.DespawnIn == 0 {
+		pl.DespawnIn = -1
+		return true
+	}
+
+	pl.DespawnIn -= 1
+	return false
 }
 
 func (pl *Player) GivePlayer(input string) {

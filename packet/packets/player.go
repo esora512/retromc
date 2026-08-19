@@ -130,21 +130,19 @@ func ArmSwing(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
-
 func quantizeSpawnVelocity(v float64) int8 {
 	return int8(v * 128.0)
 }
 
-
 func NewSpawnItem(d *level.DroppedItem) []byte {
 	p := SpawnItemPacket{
 		EntityId: d.EntityId,
-		ItemId: int16(d.ItemId),
-		Amount: d.Amount,
+		ItemId:   int16(d.ItemId),
+		Amount:   d.Amount,
 		Metadata: d.Metadata,
-		X: int32(math.Floor(d.X * 32)),
-		Y: int32(math.Floor(d.Y * 32)),
-		Z: int32(math.Floor(d.Z * 32)),
+		X:        int32(math.Floor(d.X * 32)),
+		Y:        int32(math.Floor(d.Y * 32)),
+		Z:        int32(math.Floor(d.Z * 32)),
 		Pitch:    byte(quantizeSpawnVelocity(d.VelX)),
 		Yaw:      byte(quantizeSpawnVelocity(d.VelY)),
 		Roll:     byte(quantizeSpawnVelocity(d.VelZ)),

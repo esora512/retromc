@@ -3,7 +3,6 @@ package level
 import (
 	"math"
 	"math/rand"
-	"time"
 
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -359,11 +358,11 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 		}
 	}
 
-	for _, id := range toRemove {
-		delete(w.Entities, id)
-		tracker.ResetEntity(id)
-		go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
-	}
+	// for _, id := range toRemove {
+	// 	//delete(w.Entities, id)
+	// 	// tracker.ResetEntity(id)
+	// 	// go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
+	// }
 }
 
 func (w *World) SpawnSpiders(tracker *EntityTracker) {

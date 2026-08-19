@@ -29,6 +29,16 @@ type RideableEntity struct {
 
 	HP        int16
 	Dimension int32
+
+	ShouldDespawn bool
+}
+
+func (r *RideableEntity) Despawn() bool {
+	if r.ShouldDespawn {
+		r.ShouldDespawn = false
+		return true
+	}
+	return false
 }
 
 func (r *RideableEntity) IsItem() bool {return  false}

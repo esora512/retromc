@@ -56,7 +56,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
-	world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
+	//world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -80,6 +80,17 @@ func BroadcastPain(w *level.World, entityId int32) {
 	}
 	w.BroadcastPacket(p.Serialize())
 }
+
+func BroadcastDeath(w *level.World, entityId int32) {
+	p := packets.EntityEventPacket{
+		EntityId: entityId,
+		Action:   3,
+	}
+	w.BroadcastPacket(p.Serialize())
+	log.Printf("Entity %d died", entityId)
+}
+
+
 
 func outOfBounds(x, z float64) bool {
 	return x < worldMinX || x >= worldMaxX || z < worldMinZ || z >= worldMaxZ
@@ -340,7 +351,10 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velX += math.Cos(angle) * speed
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
+
 	eId := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	BroadcastDroppedItem(world, tracker, eId)
+
 	sendEquipmentChangeForHotbarSlot(world, pl)
 	tracker.AddForAll(world, eId)
 }
@@ -416,7 +430,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	BroadcastDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
+	CreateAndBroadcastDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -629,11 +643,60 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	return blockItem, blockMeta, count
 }
 
-func BroadcastDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
+func BroadcastDroppedItem(world *level.World, tracker *level.EntityTracker, eId int32) {
+	var e level.Entity
+	var ok bool
+	var dropped *level.DroppedItem
+	if e, ok = world.Entities[eId]; !ok {
+		return
+	}
+
+	if dropped, ok = e.(*level.DroppedItem); !ok {
+		return
+	}
+
+	spawn := packets.SpawnItemPacket{
+		EntityId: eId,
+		ItemId:   int16(dropped.ItemId),
+		Amount:   dropped.Amount,
+		Metadata: dropped.Metadata,
+		X:        int32(math.Floor(dropped.X * 32)),
+		Y:        int32(math.Floor(dropped.Y * 32)),
+		Z:        int32(math.Floor(dropped.Z * 32)),
+		Pitch:    byte(quantizeSpawnVelocity(dropped.VelX)),
+		Yaw:      byte(quantizeSpawnVelocity(dropped.VelY)),
+		Roll:     byte(quantizeSpawnVelocity(dropped.VelZ)),
+	}
+	world.BroadcastPacket(spawn.Serialize())
+	velocityPacket := packets.EntityVelocityPacket{EntityId: eId, Vx: dropped.VelX, Vy: dropped.VelY, Vz: dropped.VelZ}
+	world.BroadcastPacket(velocityPacket.Serialize())
+	tracker.AddForAll(world, eId)
+}
+
+func CreateAndBroadcastDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
+
+	// Item is set into world
 	eId := CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+
+	// Item is spawned
+	spawn := packets.SpawnItemPacket{
+		EntityId: eId,
+		ItemId:   int16(blockItem),
+		Amount:   count,
+		Metadata: blockMeta,
+		X:        int32(math.Floor(x * 32)),
+		Y:        int32(math.Floor(y * 32)),
+		Z:        int32(math.Floor(z * 32)),
+		Pitch:    byte(quantizeSpawnVelocity(velX)),
+		Yaw:      byte(quantizeSpawnVelocity(velY)),
+		Roll:     byte(quantizeSpawnVelocity(velZ)),
+	}
+	world.BroadcastPacket(spawn.Serialize())
+	velocityPacket := packets.EntityVelocityPacket{EntityId: eId, Vx: velX, Vy: velY, Vz: velZ}
+	world.BroadcastPacket(velocityPacket.Serialize())
 	tracker.AddForAll(world, eId)
 }
 

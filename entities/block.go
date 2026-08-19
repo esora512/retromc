@@ -16,6 +16,7 @@ type BlockEntity struct {
 	VelocitySent bool
 	IsFalling    bool
 	Dimension int32
+	ShouldDespawn bool
 }
 
 
@@ -34,7 +35,16 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		VelocitySent: false,
 		IsFalling:    false,
 		Dimension: dim,
+		ShouldDespawn: false,
 	}
+}
+
+func (b *BlockEntity) Despawn() bool {
+	if b.ShouldDespawn {
+		b.ShouldDespawn = false
+		return true
+	} 
+	return false
 }
 
 func (b *BlockEntity) GetVelocity() (float64, float64, float64) {

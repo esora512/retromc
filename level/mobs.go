@@ -29,10 +29,24 @@ type Mob struct {
 	WanderDirX, WanderDirZ float64
 	WanderTicksLeft        int32
 	KnockbackTicks         int32
+
+	ShouldDespawn bool
+	DespawnIn     int
 }
 
-func (m *Mob) IsItem() bool {return  false}
+func (m *Mob) Despawn() bool {
+	if m.DespawnIn < 0 {
+		return false
+	}
+	if m.DespawnIn == 0 {
+		m.DespawnIn = -1
+		return true
+	}
+	m.DespawnIn -= 1
+	return false
+}
 
+func (m *Mob) IsItem() bool { return false }
 
 func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -90,6 +104,7 @@ func NewSpider(w *World, x, y, z float64, dim int32) *Mob {
 		TargetId:  -1,
 		HP:        10,
 		OnGround:  true,
+		DespawnIn: -1,
 	}
 	return &m
 }
@@ -266,7 +281,6 @@ func (m *Mob) findNearbyPlayer(w *World) (int32, bool) {
 	}
 	return closestId, true
 }
-
 
 func (m *Mob) resolveGroundCollision(w *World, newX, newY, newZ, vy float64) (float64, float64, bool) {
 	if vy > 0 {

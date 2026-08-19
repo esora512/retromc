@@ -19,6 +19,7 @@ func DropInventory(
 	inv *inventory.Inventory,
 	x, y, z float64,
 	dim int32,
+	tracker *level.EntityTracker,
 ) {
 	for i := range inv.Items {
 		stack := &inv.Items[i]
@@ -54,7 +55,7 @@ func DropInventory(
 			velY := rand.Float64()*velocity + 0.2
 			velZ := rand.Float64() * velocity
 
-			CreateDroppedItem(
+			eId := CreateDroppedItem(
 				world,
 				spawnX,
 				spawnY,
@@ -68,6 +69,7 @@ func DropInventory(
 				60,
 				dim,
 			)
+			BroadcastDroppedItem(world, tracker, eId)
 		}
 		inv.Items[i] = inventory.EmptyItem()
 	}
@@ -78,29 +80,7 @@ func quantizeSpawnVelocity(v float64) int8 {
 }
 
 func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) int32 {
-	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim)
-
-	if item, ok := w.Entities[entityId].(*level.DroppedItem); ok {
-		item.VelX = velX
-		item.VelY = velY
-		item.VelZ = velZ
-	}
-
-	spawn := packets.SpawnItemPacket{
-		EntityId: entityId,
-		ItemId:   int16(itemId),
-		Amount:   amount,
-		Metadata: meta,
-		X:        int32(math.Floor(x * 32)),
-		Y:        int32(math.Floor(y * 32)),
-		Z:        int32(math.Floor(z * 32)),
-		Pitch:    byte(quantizeSpawnVelocity(velX)),
-		Yaw:      byte(quantizeSpawnVelocity(velY)),
-		Roll:     byte(quantizeSpawnVelocity(velZ)),
-	}
-	w.BroadcastPacket(spawn.Serialize())
-	velocityPacket := packets.EntityVelocityPacket{EntityId: entityId, Vx: velX, Vy: velY, Vz: velZ}
-	w.BroadcastPacket(velocityPacket.Serialize())
+	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim, velX, velY, velZ)
 	return entityId
 }
 
@@ -244,7 +224,6 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	if !ok {
 		return
 	}
-	//log.Printf("%s interacted with %s", player.Username, other.GetName())
 
 	if p.Attack {
 		oldHP := other.GetHP()
@@ -278,21 +257,19 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
-		//log.Printf("%s attacked %s for 1 damage (HP: %d -> %d)", player.Username, other.GetName(), oldHP, newHP)
+
 		if other.IsPlayer() || other.IsMob() {
 			applyKnockback(world, pl, other)
 
 		}
 
 		if other.IsRideable() {
-			p := packets.EntityEventPacket{
-				EntityId: other.GetEntityId(),
-				Action:   2,
-			}
-			world.BroadcastPacket(p.Serialize())
+			BroadcastPain(world, other.GetEntityId())
 		}
 
 		if newHP <= 0 {
+			BroadcastDeath(world, other.GetEntityId())
+
 			if other.IsPlayer() {
 				cMsgPkt := packets.ChatMessagePacket{
 					Message: other.GetName() + " was killed by " + player.Username,
@@ -301,35 +278,30 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 				x, y, z := other.GetPosition()
 				otherPl, _ := world.Players[other.GetEntityId()]
-				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
-
+				otherPl.DespawnIn = 25
+				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
 				tracker.ResetViewer(other.GetEntityId())
 			}
-			p := packets.EntityEventPacket{
-				EntityId: other.GetEntityId(),
-				Action:   3,
-			}
-			world.BroadcastPacket(p.Serialize())
 
 			if other.IsRideable() {
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.CreateAndBroadcastDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
-
+					world.CreateAndBroadcastDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
 				}
 			}
 
 			if other.IsMob() {
 				m, _ := other.(*level.Mob)
+				m.DespawnIn = 25
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
-					world.BroadcastDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.CreateAndBroadcastDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}
