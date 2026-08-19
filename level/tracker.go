@@ -118,12 +118,25 @@ func (et *EntityTracker) Manage(w *World) {
 			alive := target.GetHP() > 0
 
 			if isVisible && alive {
+				if target.IsBlock() {
+					t, _ := target.(*entities.BlockEntity)
+					if t.MovementState.VelocityChanged {
+						w.BroadcastEntityVelocity(
+							t.EntityId,
+							t.MovementState.VelocityX,
+							t.MovementState.VelocityY,
+							t.MovementState.VelocityZ,
+						)
+						t.MovementState.VelocityChanged = false
+					}
+				}
+
 				if target.IsRideable() {
 					t, _ := target.(*entities.RideableEntity)
 					if t.MovementState.PositionChanged {
 						w.BroadcastPositionAndRotation(
-							t, 
-							t.MovementState.PrevX, 
+							t,
+							t.MovementState.PrevX,
 							t.MovementState.PrevY,
 							t.MovementState.PrevZ,
 							t.MovementState.X,
@@ -136,7 +149,7 @@ func (et *EntityTracker) Manage(w *World) {
 
 					if t.MovementState.VelocityChanged {
 						w.BroadcastEntityVelocity(
-							t.EntityId, 
+							t.EntityId,
 							t.MovementState.VelocityX,
 							t.MovementState.VelocityY,
 							t.MovementState.VelocityZ,
@@ -146,10 +159,10 @@ func (et *EntityTracker) Manage(w *World) {
 
 					if t.MovementState.Teleported {
 						w.BroadcastTeleport(
-							t, 
-							t.MovementState.X, 
-							t.MovementState.Y, 
-							t.MovementState.Z, 
+							t,
+							t.MovementState.X,
+							t.MovementState.Y,
+							t.MovementState.Z,
 							t.Yaw)
 						t.MovementState.Teleported = false
 					}
@@ -176,14 +189,14 @@ func (et *EntityTracker) Manage(w *World) {
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
-				if target.IsPlayer() || target.IsMob() || target.IsRideable() {
+				if target.IsPlayer() || target.IsMob() || target.IsRideable() || target.IsBlock() {
 					despawn := target.Despawn()
 					if despawn {
 						log.Println("Despawning Living Entity")
 						viewer.Connection.Write(et.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if target.IsMob() || target.IsRideable() {
+						if target.IsMob() || target.IsRideable() || target.IsBlock() {
 							w.RemoveEntity(targetID)
 						}
 					}
@@ -224,4 +237,5 @@ type Entity interface {
 	GetVelocity() (float64, float64, float64)
 	IsItem() bool
 	Despawn() bool
+	IsBlock() bool
 }

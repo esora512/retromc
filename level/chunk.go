@@ -360,6 +360,8 @@ const (
 	Maze
 )
 
+func (d *DroppedItem) IsBlock() bool {return false}
+
 type DroppedItem struct {
 	EntityId    int32
 	ItemId      int32

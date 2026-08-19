@@ -34,6 +34,8 @@ type Mob struct {
 	DespawnIn     int
 }
 
+func (m *Mob) IsBlock() bool { return false }
+
 func (m *Mob) Despawn() bool {
 	if m.DespawnIn < 0 {
 		return false

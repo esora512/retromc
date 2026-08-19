@@ -133,7 +133,6 @@ func (w *World) CollectNearbyItems() {
 var fallingBlockSafeRadius = int32(VIEW_DISTANCE * 16 / 2)
 
 func (world *World) FallingBlocksPhysics() {
-	toRemove := []int32{}
 	allEntities := world.SnapshotEntities()
 
 	for _, e := range allEntities {
@@ -148,7 +147,7 @@ func (world *World) FallingBlocksPhysics() {
 		falling.IsFalling = true
 
 		if !falling.VelocitySent {
-			world.BroadcastEntityVelocity(falling.EntityId, 0, falling.VelocityY, 0)
+			falling.SetVelocityMovement(0, falling.VelocityY, 0)
 			falling.VelocitySent = true
 		}
 
@@ -161,15 +160,10 @@ func (world *World) FallingBlocksPhysics() {
 		})
 
 		if falling.Landed && falling.Y >= 0 {
-			toRemove = append(toRemove, falling.EntityId)
+			falling.ShouldDespawn = true
 			block := NewBlockById(falling.TypeId, falling.Metadata)
 			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block, falling.Dimension)
 		}
-	}
-
-	for _, id := range toRemove {
-		world.RemoveEntity(id)
-		world.BroadcastDespawn(id)
 	}
 }
 
@@ -207,7 +201,7 @@ func (world *World) instaFall(falling *entities.BlockEntity, dim int32) {
 	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata, dim)
 }
 
-func maybeBroadcastVelocity(ridable *entities.RideableEntity, vx, vy, vz float64) {
+func maybeSetVelocityMovement(ridable *entities.RideableEntity, vx, vy, vz float64) {
 	const epsilon = 0.02
 
 	dx := vx - ridable.LastSentVelX
@@ -264,11 +258,11 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 			velX := nx - cx
 			velY := ny - cy
 			velZ := nz - cz
-			maybeBroadcastVelocity(ridable, velX, velY, velZ)
+			maybeSetVelocityMovement(ridable, velX, velY, velZ)
 
 		case entities.Stopped:
 			ridable.SetTeleportMovement(cx, cy, cz, yaw)
-			maybeBroadcastVelocity(ridable, 0, 0, 0)
+			maybeSetVelocityMovement(ridable, 0, 0, 0)
 
 		case entities.Despawned:
 			ridable.ShouldDespawn = true

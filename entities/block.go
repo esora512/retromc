@@ -2,39 +2,70 @@ package entities
 
 import (
 	"math"
+
+	"github.com/leNicDev/retromc/constants"
 )
 
 type BlockEntity struct {
-	X            int32
-	Y            float64
-	Z            int32
-	TypeId       int16
-	Metadata     byte
-	EntityId     int32
-	VelocityY    float64
-	Landed       bool
-	VelocitySent bool
-	IsFalling    bool
-	Dimension int32
+	X             int32
+	Y             float64
+	Z             int32
+	TypeId        int16
+	Metadata      byte
+	EntityId      int32
+	VelocityY     float64
+	Landed        bool
+	VelocitySent  bool
+	IsFalling     bool
+	Dimension     int32
 	ShouldDespawn bool
+	MovementState constants.MovementState
+}
+
+func (b *BlockEntity) IsBlock() bool {
+	return true
+}
+
+func (b *BlockEntity) SetVelocityMovement(vx, vy, vz float64) {
+	b.MovementState.VelocityX = vx
+	b.MovementState.VelocityY = vy
+	b.MovementState.VelocityZ = vz
+	b.MovementState.VelocityChanged = true
+}
+
+func (r *BlockEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+	r.MovementState.PrevX = prevX
+	r.MovementState.PrevY = prevY
+	r.MovementState.PrevZ = prevZ
+	r.MovementState.X = nextX
+	r.MovementState.Y = nextY
+	r.MovementState.Z = nextZ
+	r.MovementState.PositionChanged = true
 }
 
 
-func (b *BlockEntity) IsItem() bool {return  false}
+func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
+	r.MovementState.X = nextX
+	r.MovementState.Y = nextY
+	r.MovementState.Z = nextZ
+	r.MovementState.Teleported = true 
+}
 
+
+func (b *BlockEntity) IsItem() bool { return false }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32) *BlockEntity {
 	return &BlockEntity{
-		EntityId:     entityId,
-		TypeId:       typeId,
-		Metadata:     metadata,
-		X:            int32(x),
-		Y:            float64(y),
-		Z:            int32(z),
-		VelocityY:    0,
-		VelocitySent: false,
-		IsFalling:    false,
-		Dimension: dim,
+		EntityId:      entityId,
+		TypeId:        typeId,
+		Metadata:      metadata,
+		X:             int32(x),
+		Y:             float64(y),
+		Z:             int32(z),
+		VelocityY:     0,
+		VelocitySent:  false,
+		IsFalling:     false,
+		Dimension:     dim,
 		ShouldDespawn: false,
 	}
 }
@@ -43,7 +74,7 @@ func (b *BlockEntity) Despawn() bool {
 	if b.ShouldDespawn {
 		b.ShouldDespawn = false
 		return true
-	} 
+	}
 	return false
 }
 

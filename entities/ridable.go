@@ -35,11 +35,15 @@ type RideableEntity struct {
 	MovementState constants.MovementState
 }
 
+func (r *RideableEntity) IsBlock() bool {
+	return false
+}
+
 func (r *RideableEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.Yaw = yaw
+	r.MovementState.Yaw = yaw
 	r.MovementState.Teleported = true 
 }
 
@@ -57,7 +61,7 @@ func (r *RideableEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, 
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.Yaw = yaw
+	r.MovementState.Yaw = yaw
 	r.MovementState.PositionChanged = true
 }
 

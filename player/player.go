@@ -112,6 +112,8 @@ func (pl *Player) GetVelocity() (float64, float64, float64) {
 
 func (pl *Player) IsItem() bool { return false }
 
+func (pl *Player) IsBlock() bool { return false }
+
 type Player struct {
 	FallDistance float64
 	Username     string
@@ -207,7 +209,7 @@ func NewPlayer(conn net.Conn) *Player {
 		Dimension:            0,
 		Immune:               0,
 		IsOp:                 false,
-		DespawnIn: -1,
+		DespawnIn:            -1,
 	}
 }
 
