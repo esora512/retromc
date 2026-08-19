@@ -207,7 +207,7 @@ func (world *World) instaFall(falling *entities.BlockEntity, dim int32) {
 	world.instaFallAt(falling.X, falling.Z, int32(falling.Y), falling.TypeId, falling.Metadata, dim)
 }
 
-func (world *World) maybeBroadcastVelocity(ridable *entities.RideableEntity, vx, vy, vz float64) {
+func maybeBroadcastVelocity(ridable *entities.RideableEntity, vx, vy, vz float64) {
 	const epsilon = 0.02
 
 	dx := vx - ridable.LastSentVelX
@@ -218,7 +218,7 @@ func (world *World) maybeBroadcastVelocity(ridable *entities.RideableEntity, vx,
 		return
 	}
 
-	world.BroadcastEntityVelocity(ridable.EntityId, vx, vy, vz)
+	ridable.SetVelocityMovement(vx, vy, vz)
 
 	ridable.LastSentVelX = vx
 	ridable.LastSentVelY = vy
@@ -252,36 +252,27 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 			IsWater:       b.IsWater(),
 		}
 	}
-
-	var toRemove []int32
-
 	for _, ridable := range ridables {
 		cx, cy, cz := ridable.GetPosition()
 		nx, ny, nz, yaw, action := ridable.Tick(getBlock, players)
 
 		switch action {
 		case entities.Moved:
-			world.BroadcastRelativePosition(ridable, cx, cy, cz, nx, ny, nz, yaw)
+			ridable.SetPositionMovement(cx, cy, cz, nx, ny, nz, yaw)
 			ridable.SetPosition(nx, ny, nz)
 
 			velX := nx - cx
 			velY := ny - cy
 			velZ := nz - cz
-			world.maybeBroadcastVelocity(ridable, velX, velY, velZ)
+			maybeBroadcastVelocity(ridable, velX, velY, velZ)
 
 		case entities.Stopped:
-			world.BroadcastTeleport(ridable, cx, cy, cz, yaw)
-			world.maybeBroadcastVelocity(ridable, 0, 0, 0)
+			ridable.SetTeleportMovement(cx, cy, cz, yaw)
+			maybeBroadcastVelocity(ridable, 0, 0, 0)
 
 		case entities.Despawned:
-			world.BroadcastDespawn(ridable.EntityId)
-			toRemove = append(toRemove, ridable.EntityId)
+			ridable.ShouldDespawn = true
 		}
-	}
-
-	for _, id := range toRemove {
-		world.RemoveEntity(id)
-		tacker.ResetEntity(id)
 	}
 }
 

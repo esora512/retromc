@@ -5,6 +5,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -116,6 +117,45 @@ func (et *EntityTracker) Manage(w *World) {
 			inRange := sameDim && dx <= distance && dz <= distance
 			alive := target.GetHP() > 0
 
+			if isVisible && alive {
+				if target.IsRideable() {
+					t, _ := target.(*entities.RideableEntity)
+					if t.MovementState.PositionChanged {
+						w.BroadcastPositionAndRotation(
+							t, 
+							t.MovementState.PrevX, 
+							t.MovementState.PrevY,
+							t.MovementState.PrevZ,
+							t.MovementState.X,
+							t.MovementState.Y,
+							t.MovementState.Z,
+							t.Yaw,
+						)
+						t.MovementState.PositionChanged = false
+					}
+
+					if t.MovementState.VelocityChanged {
+						w.BroadcastEntityVelocity(
+							t.EntityId, 
+							t.MovementState.VelocityX,
+							t.MovementState.VelocityY,
+							t.MovementState.VelocityZ,
+						)
+						t.MovementState.VelocityChanged = false
+					}
+
+					if t.MovementState.Teleported {
+						w.BroadcastTeleport(
+							t, 
+							t.MovementState.X, 
+							t.MovementState.Y, 
+							t.MovementState.Z, 
+							t.Yaw)
+						t.MovementState.Teleported = false
+					}
+				}
+			}
+
 			if !isVisible && inRange && alive {
 				if target.IsPlayer() {
 					if target.GetName() == viewer.Username {
@@ -136,17 +176,16 @@ func (et *EntityTracker) Manage(w *World) {
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive) {
-				if target.IsPlayer() || target.IsMob() {
+				if target.IsPlayer() || target.IsMob() || target.IsRideable() {
 					despawn := target.Despawn()
 					if despawn {
 						log.Println("Despawning Living Entity")
 						viewer.Connection.Write(et.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if target.IsMob() {
+						if target.IsMob() || target.IsRideable() {
 							w.RemoveEntity(targetID)
 						}
-
 					}
 					return
 				} else {

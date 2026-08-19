@@ -351,7 +351,7 @@ func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, next
 	w.BroadcastPacket(p.Serialize())
 }
 
-func BroadcastRelativePosition(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+func BroadcastPositionAndRotation(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
 	encPrevZ := int32(math.Floor(prevZ * 32))

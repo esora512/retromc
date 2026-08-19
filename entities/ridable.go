@@ -31,6 +31,34 @@ type RideableEntity struct {
 	Dimension int32
 
 	ShouldDespawn bool
+
+	MovementState constants.MovementState
+}
+
+func (r *RideableEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
+	r.MovementState.X = nextX
+	r.MovementState.Y = nextY
+	r.MovementState.Z = nextZ
+	r.Yaw = yaw
+	r.MovementState.Teleported = true 
+}
+
+func (r *RideableEntity) SetVelocityMovement(vx, vy, vz float64) {
+	r.MovementState.VelocityX = vx
+	r.MovementState.VelocityY = vy
+	r.MovementState.VelocityZ = vz
+	r.MovementState.VelocityChanged = true
+}
+
+func (r *RideableEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+	r.MovementState.PrevX = prevX
+	r.MovementState.PrevY = prevY
+	r.MovementState.PrevZ = prevZ
+	r.MovementState.X = nextX
+	r.MovementState.Y = nextY
+	r.MovementState.Z = nextZ
+	r.Yaw = yaw
+	r.MovementState.PositionChanged = true
 }
 
 func (r *RideableEntity) Despawn() bool {
@@ -41,8 +69,7 @@ func (r *RideableEntity) Despawn() bool {
 	return false
 }
 
-func (r *RideableEntity) IsItem() bool {return  false}
-
+func (r *RideableEntity) IsItem() bool { return false }
 
 func (r *RideableEntity) GetVelocity() (float64, float64, float64) {
 	return r.VelocityX, r.VelocityY, r.VelocityZ

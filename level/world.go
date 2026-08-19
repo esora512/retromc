@@ -118,7 +118,7 @@ type World struct {
 	Seed            int64
 	sleepers        map[int32]int
 
-	broadcastRelativePosition       func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
+	broadcastPositionAndRotation    func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	collectItem                     func(itemId, collectorId int32) []byte
 	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
 	broadcastEntityVelocity         func(w *World, entityId int32, vx, vy, vz float64)
@@ -221,8 +221,8 @@ func (w *World) BroadcastDespawn(id int32) {
 	w.broascastDespawn(w, id)
 }
 
-func (w *World) BroadcastRelativePosition(c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
-	w.broadcastRelativePosition(w, c, prevX, prevY, prevZ, nextX, nextY, nextZ, yaw)
+func (w *World) BroadcastPositionAndRotation(c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+	w.broadcastPositionAndRotation(w, c, prevX, prevY, prevZ, nextX, nextY, nextZ, yaw)
 }
 
 func (w *World) BroadcastEntityVelocity(entityId int32, vx, vy, vz float64) {
@@ -237,8 +237,8 @@ func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item
 	w.sendSetSlot(connection, windowId, slot, item)
 }
 
-func (w *World) SetBroadcastRelativePosition(f func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
-	w.broadcastRelativePosition = f
+func (w *World) SetBroadcastPositionAndRotation(f func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
+	w.broadcastPositionAndRotation = f
 }
 
 func (w *World) SetCollectItem(f func(itemId, collectorId int32) []byte) {
