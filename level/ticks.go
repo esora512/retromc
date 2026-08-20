@@ -323,7 +323,7 @@ func (w *World) TickPlayers() {
 func (w *World) TickMobs(tracker *EntityTracker) {
 	var toRemove []int32
 	for _, e := range w.Entities {
-		if m, ok := e.(*Mob); ok {
+		if m, ok := e.(*entities.Mob); ok {
 			if m.HP <= 0 {
 				toRemove = append(toRemove, m.EntityId)
 				continue
@@ -333,13 +333,21 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 	}
 }
 
+func (w *World) SendHealth(entityId int32, newHp int16) {
+	pl, ok := w.Players[entityId];
+	if !ok {
+		return
+	}
+	w.sendSetHealth(pl.Connection, uint16(newHp))
+}
+
 func (w *World) SpawnSpiders(tracker *EntityTracker) {
 	if !w.IsNight() {
 		return
 	}
 	count := 0
 	for _, e := range w.Entities {
-		if _, ok := e.(*Mob); ok {
+		if _, ok := e.(*entities.Mob); ok {
 			count++
 		}
 	}

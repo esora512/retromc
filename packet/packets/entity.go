@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
@@ -281,7 +282,7 @@ func NewMobPositionAndRotationPacketV2(e constants.Entity, m constants.MovementS
 	return p.Serialize()
 }
 
-func NewMobPositionAndRotationPacket(m *level.Mob, x, y, z, yaw, pitch float64) []byte {
+func NewMobPositionAndRotationPacket(m *entities.Mob, x, y, z, yaw, pitch float64) []byte {
 	//log.Printf("Spider Pos&Rot Pkt x=%f, y=%f, z=%f (Id=%d)", x, y, z, m.EntityId)
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
@@ -319,7 +320,7 @@ func NewMobPositionAndRotationPacket(m *level.Mob, x, y, z, yaw, pitch float64) 
 	return p.Serialize()
 }
 
-func BroadcastMobPositionAndRotation(w *level.World, m *level.Mob, nX, nY, nZ, yaw, pitch float64) {
+func BroadcastMobPositionAndRotation(w *level.World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64) {
 	p := NewMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
 	w.BroadcastPacket(p)
 }
@@ -572,6 +573,6 @@ func BroadcastMobSpawn(w *level.World, mobType, meta byte, x, y, z int32, yaw, p
 	w.BroadcastPacket(p)
 }
 
-func SpawnMob(m *level.Mob) []byte {
+func SpawnMob(m *entities.Mob) []byte {
 	return NewSpawnMob(m.MobType, m.Metadata, int32(m.X), int32(m.Y), int32(m.Z), m.Yaw, m.Pitch, m.Dimension, m.EntityId)
 }

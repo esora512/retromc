@@ -103,8 +103,8 @@ type World struct {
 	broadcastWakeUp                 func(w *World, id int32)
 	broadcastWorldMsg               func(w *World, msg string)
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
-	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
-	newMobPositionAndRotationPacket func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte
+	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
+	newMobPositionAndRotationPacket func(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) []byte
 	newEntityVelocityPacket         func(entityId int32, vx, vy, vz float64) []byte
 	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
@@ -119,7 +119,7 @@ type World struct {
 
 	spawnPlayer func(pl *player.Player) []byte
 	spawnObject func(e constants.Entity) []byte
-	spawnMob func(m *Mob) []byte
+	spawnMob func(m *entities.Mob) []byte
 	spawnItem func(d *DroppedItem) []byte
 	despawnEntity func(id int32) []byte
 	setEquipment func(pl *player.Player, send func([]byte) (int, error))
@@ -133,7 +133,7 @@ func (w *World) SetSpawnObject(f func(e constants.Entity) []byte) {
 	w.spawnObject = f
 }
 
-func (w *World) SetSpawnMob(f func(m *Mob) []byte) {
+func (w *World) SetSpawnMob(f func(m *entities.Mob) []byte) {
 	w.spawnMob = f
 }
 
@@ -181,7 +181,7 @@ func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz flo
 	w.newEntityVelocityPacket = f
 }
 
-func (w *World) SetNewMobPositionAndRotationPacket(f func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte) {
+func (w *World) SetNewMobPositionAndRotationPacket(f func(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) []byte) {
 	w.newMobPositionAndRotationPacket = f
 }
 
@@ -193,7 +193,7 @@ func (w *World) SendSetHealth(conn net.Conn, health uint16) {
 	w.sendSetHealth(conn, health)
 }
 
-func (w *World) BroadcastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
+func (w *World) BroadcastMobPositionAndRotation(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) {
 	w.broadcastMobPositionAndRotation(w, m, nX, nY, nZ, yaw, pitch)
 }
 
@@ -324,7 +324,7 @@ func (w *World) SetBroadcastMobSpawn(f func(w *World, mobType, meta byte, x, y, 
 	w.broadcastMobSpawn = f
 }
 
-func (w *World) SetBroadcastMobPositionAndRotation(f func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)) {
+func (w *World) SetBroadcastMobPositionAndRotation(f func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)) {
 	w.broadcastMobPositionAndRotation = f
 }
 

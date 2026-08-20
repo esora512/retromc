@@ -162,7 +162,7 @@ func (et *EntityTracker) Manage(w *World) {
 					}
 
 				case c.Mob:
-					t, _ := target.(*Mob)
+					t, _ := target.(*entities.Mob)
 					if posAndRotChanged {
 						viewer.Connection.Write(w.newMobPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
@@ -182,7 +182,7 @@ func (et *EntityTracker) Manage(w *World) {
 						viewer.Connection.Write(w.newTeleportPacket(w, t, msCopy))
 					}
 
-				case c.DroppedItem, c.FallingBlock:
+				case c.FallingBlock:
 					if velChanged {
 						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
 					}
@@ -203,11 +203,12 @@ func (et *EntityTracker) Manage(w *World) {
 					viewer.Connection.Write(w.spawnObject(target))
 
 				case c.Mob:
-					t, _ := target.(*Mob)
+					t, _ := target.(*entities.Mob)
 					log.Printf("Spawning Spider for %s", viewer.Username)
 					viewer.Connection.Write(w.spawnMob(t))
 
 				case c.DroppedItem:
+					log.Printf("Spawning Drop...")
 					t, _ := target.(*DroppedItem)
 					viewer.Connection.Write(w.spawnItem(t))
 					if velChanged {

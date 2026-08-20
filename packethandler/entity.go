@@ -219,7 +219,7 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 		Vz:       vZ,
 	}
 
-	if mob, ok := victim.(*level.Mob); ok {
+	if mob, ok := victim.(*entities.Mob); ok {
 		mob.ApplyKnockback(vX, vY, vZ)
 	}
 
@@ -269,7 +269,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			BroadcastPain(world, other.GetEntityId())
 		} else if other.GetEntityType() == constants.Mob {
 			BroadcastPain(world, other.GetEntityId())
-			if mob, ok := other.(*level.Mob); ok {
+			if mob, ok := other.(*entities.Mob); ok {
 				mob.SetTargetForced(pl.GetEntityId())
 			}
 		}
@@ -319,7 +319,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			}
 
 			if other.GetEntityType() == constants.Mob {
-				m, _ := other.(*level.Mob)
+				m, _ := other.(*entities.Mob)
 				m.DespawnIn = 21
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
