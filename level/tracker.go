@@ -128,32 +128,32 @@ func (et *EntityTracker) Manage(w *World) {
 			alive := target.IsBlock() || target.IsItem() || target.GetHP() > 0
 
 			if isVisible && alive {
-				if target.IsPlayer() {
-					t, _ := target.(*player.Player)
-					if t.MovementState.VelocityChanged {
-						p := w.newEntityVelocityPacket(targetID, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
-						viewer.Connection.Write(p)
-						t.MovementState.VelocityChanged = false 
-					}
+				// if target.IsPlayer() {
+				// 	t, _ := target.(*player.Player)
+				// 	if t.MovementState.VelocityChanged {
+				// 		p := w.newEntityVelocityPacket(targetID, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+				// 		viewer.Connection.Write(p)
+				// 		t.MovementState.VelocityChanged = false 
+				// 	}
 
-					if t.MovementState.PositionAndRotationChanged {
-						p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
-						viewer.Connection.Write(p)
-						t.MovementState.PositionAndRotationChanged = false
-					}
+				// 	if t.MovementState.PositionAndRotationChanged {
+				// 		p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
+				// 		viewer.Connection.Write(p)
+				// 		t.MovementState.PositionAndRotationChanged = false
+				// 	}
 
-					if t.MovementState.PositionChanged {
-						p := w.newPositionPacket(w, t, t.MovementState)
-						viewer.Connection.Write(p)
-						t.MovementState.PositionChanged = false 
-					}
+				// 	if t.MovementState.PositionChanged {
+				// 		p := w.newPositionPacket(w, t, t.MovementState)
+				// 		viewer.Connection.Write(p)
+				// 		t.MovementState.PositionChanged = false 
+				// 	}
 
-					if t.MovementState.RotationChanged {
-						p := w.newPositionPacket(w, t, t.MovementState)
-						viewer.Connection.Write(p)
-						t.MovementState.RotationChanged = false
-					}
-				}
+				// 	if t.MovementState.RotationChanged {
+				// 		p := w.newPositionPacket(w, t, t.MovementState)
+				// 		viewer.Connection.Write(p)
+				// 		t.MovementState.RotationChanged = false
+				// 	}
+				// }
 
 				if target.IsItem() {
 					t, _ := target.(*DroppedItem)

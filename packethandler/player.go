@@ -252,10 +252,12 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 
 	pl.MovementState.X = x
 	pl.MovementState.Y = y
-	pl.MovementState.Z = z 
+	pl.MovementState.Z = z
 	pl.MovementState.Yaw = byte(p.Yaw)
 	pl.MovementState.Pitch = byte(p.Pitch)
-	pl.MovementState.PositionAndRotationChanged = true 
+	pl.MovementState.PositionAndRotationChanged = true
+	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch))
+	world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -301,12 +303,12 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 			x, y, z = ridable.X, ridable.Y, ridable.Z
 		}
 	}
-	pl.MovementState.X = x 
+	pl.MovementState.X = x
 	pl.MovementState.Y = y
-	pl.MovementState.Z = z 
-	pl.MovementState.PositionChanged = true 
-	// ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
-	// world.MulticastPacket(ep, pl)
+	pl.MovementState.Z = z
+	pl.MovementState.PositionChanged = true
+	ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
+	world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -319,11 +321,11 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
-	// ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
-	// world.MulticastPacket(ep, pl)
+	ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	world.MulticastPacket(ep, pl)
 	pl.MovementState.Yaw = byte(p.Yaw)
 	pl.MovementState.Pitch = byte(p.Pitch)
-	pl.MovementState.RotationChanged = true 
+	pl.MovementState.RotationChanged = true
 
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
