@@ -397,8 +397,8 @@ func (m *Mob) moveTowardTarget(w *World) {
 	m.MovementState.PrevZ = m.Z
 	m.MovementState.Yaw = float32(yaw)
 	m.MovementState.Pitch = float32(pitch)
-	m.MovementState.PositionAndRotationChanged = false
-	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	m.MovementState.PositionAndRotationChanged = true
+	//w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -444,8 +444,8 @@ func (m *Mob) performAttack(w *World, t constants.Entity, dx, dy, dz float64) {
 	m.MovementState.VelocityZ = vz
 	m.MovementState.VelocityChanged = false
 
-	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
+	// w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	// w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.SetPosition(newX, newY, newZ)

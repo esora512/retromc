@@ -255,7 +255,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.MovementState.Z = z
 	pl.MovementState.Yaw = p.Yaw
 	pl.MovementState.Pitch = p.Pitch
-	pl.MovementState.PositionAndRotationChanged = true
+	pl.MovementState.PositionAndRotationChanged = false
 	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch))
 	world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
@@ -306,7 +306,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.MovementState.X = x
 	pl.MovementState.Y = y
 	pl.MovementState.Z = z
-	pl.MovementState.PositionChanged = true
+	pl.MovementState.PositionChanged = false
 	ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
 	world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
@@ -321,11 +321,11 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
-	ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
-	world.MulticastPacket(ep, pl)
 	pl.MovementState.Yaw = p.Yaw
 	pl.MovementState.Pitch = p.Pitch
-	pl.MovementState.RotationChanged = true
+	pl.MovementState.RotationChanged = false
+	ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	world.MulticastPacket(ep, pl)
 
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch

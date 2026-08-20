@@ -218,9 +218,20 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 		Vy:       vY,
 		Vz:       vZ,
 	}
+
 	if mob, ok := victim.(*level.Mob); ok {
 		mob.ApplyKnockback(vX, vY, vZ)
 	}
+
+	// if vPl, ok := victim.(*player.Player); ok {
+	// 	vPl.MovementState.VelocityChanged = true 
+	// 	vPl.MovementState.VelocityX = vX
+	// 	vPl.MovementState.VelocityY = vY
+	// 	vPl.MovementState.VelocityZ = vZ 
+
+	// 	vPl.Connection.Write(ev.Serialize())
+	// }
+
 	w.BroadcastPacket(ev.Serialize())
 }
 
