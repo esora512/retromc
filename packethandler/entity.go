@@ -223,16 +223,16 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 		mob.ApplyKnockback(vX, vY, vZ)
 	}
 
-	// if vPl, ok := victim.(*player.Player); ok {
-	// 	vPl.MovementState.VelocityChanged = true 
-	// 	vPl.MovementState.VelocityX = vX
-	// 	vPl.MovementState.VelocityY = vY
-	// 	vPl.MovementState.VelocityZ = vZ 
+	if vPl, ok := victim.(*player.Player); ok {
+		vPl.MovementState.VelocityChanged = true 
+		vPl.MovementState.VelocityX = vX
+		vPl.MovementState.VelocityY = vY
+		vPl.MovementState.VelocityZ = vZ 
 
-	// 	vPl.Connection.Write(ev.Serialize())
-	// }
+		vPl.Connection.Write(ev.Serialize())
+	}
 
-	w.BroadcastPacket(ev.Serialize())
+	//w.BroadcastPacket(ev.Serialize())
 }
 
 func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {

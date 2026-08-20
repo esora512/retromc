@@ -331,12 +331,6 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 			m.Move(w)
 		}
 	}
-
-	// for _, id := range toRemove {
-	// 	//delete(w.Entities, id)
-	// 	// tracker.ResetEntity(id)
-	// 	// go func() { time.Sleep(time.Millisecond * 500); w.BroadcastDespawn(id) }()
-	// }
 }
 
 func (w *World) SpawnSpiders(tracker *EntityTracker) {

@@ -51,37 +51,6 @@ func (w *World) IsNight() bool {
 	return timeTicks >= 12541 && timeTicks < 23458
 }
 
-func (w *World) MulticastMobPositionAndRotation(m *Mob, nX, nY, nZ, yaw, pitch float64) {
-	p := w.newMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
-	w.MulticastToInRange(m, p)
-}
-
-func (w *World) MulticastEntityVelocity(entityId int32, vx, vy, vz float64) {
-	if e, ok := w.Entities[entityId]; ok {
-		p := w.newEntityVelocityPacket(entityId, vx, vy, vz)
-		w.MulticastToInRange(e, p)
-	}
-}
-
-func (w *World) MulticastToInRange(source constants.Entity, data []byte) {
-	const distance = VIEW_DISTANCE * 8
-	oX, _, oZ := source.GetPosition()
-	sDim := source.GetDim()
-
-	for _, pl := range w.Players {
-		x, _, z := pl.GetPosition()
-		dim := pl.GetDim()
-		sameDim := sDim == dim
-
-		dx := math.Abs(oX - x)
-		dz := math.Abs(oZ - z)
-		inRange := sameDim && dx <= distance && dz <= distance
-
-		if inRange {
-			pl.Connection.Write(data)
-		}
-	}
-}
 
 func (w *World) SnapshotEntities() []constants.Entity {
 	snapshot := make([]constants.Entity, 0, len(w.Entities))

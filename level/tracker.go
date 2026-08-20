@@ -1,6 +1,7 @@
 package level
 
 import (
+	"log"
 	"math"
 	"sync"
 
@@ -203,6 +204,7 @@ func (et *EntityTracker) Manage(w *World) {
 
 				case c.Mob:
 					t, _ := target.(*Mob)
+					log.Printf("Spawning Spider for %s", viewer.Username)
 					viewer.Connection.Write(w.spawnMob(t))
 
 				case c.DroppedItem:
@@ -217,7 +219,11 @@ func (et *EntityTracker) Manage(w *World) {
 			} else if isVisible && (!inRange || (isDespawnable(targetType) && shouldDespawn(target))) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock:
+					log.Printf("Despawning because: inRange=%t, alive=%t", inRange, alive)
 					if !inRange || !alive || shouldDespawn(target) {
+						if targetType == c.Mob {
+							log.Printf("Despawning Spider for %s", viewer.Username)
+						}
 						viewer.Connection.Write(w.despawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 					}
@@ -229,20 +235,21 @@ func (et *EntityTracker) Manage(w *World) {
 		}
 
 		// Notify server that information has been sent to clients
-		if posAndRotChanged {
-			ms.PositionAndRotationChanged = false
-		}
-		if velChanged {
-			ms.VelocityChanged = false
-		}
-		if teleported {
-			ms.Teleported = false
-		}
-		if rotChanged {
-			ms.RotationChanged = false
-		}
-		if posChanged {
-			ms.PositionChanged = false
-		}
+		// TODO: Atm, we disable this since it leads to jank AF client rendering; need to fix this at some point
+		// if posAndRotChanged {
+		// 	ms.PositionAndRotationChanged = false
+		// }
+		// if velChanged {
+		// 	ms.VelocityChanged = false
+		// }
+		// if teleported {
+		// 	ms.Teleported = false
+		// }
+		// if rotChanged {
+		// 	ms.RotationChanged = false
+		// }
+		// if posChanged {
+		// 	ms.PositionChanged = false
+		// }
 	}
 }
