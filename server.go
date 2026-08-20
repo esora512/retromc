@@ -60,6 +60,11 @@ func main() {
 	world := level.NewWorld(GitCommit, 0, level.Template)
 
 	// Give world access to packethandler functions due to forbidden import cycles
+	world.SetNewPositionAndRotationOrTeleportPacket(packethandler.NewPositionAndRotationOrTeleportPacket)
+	world.SetNewTeleportPacket(packethandler.NewTeleportPacket)
+	world.SetNewPositionPacket(packethandler.NewPositionOrTeleportPacket)
+	world.SetNewRotationPacket(packethandler.NewRotationPacket)
+
 	world.SetBroadcastPositionAndRotation(packethandler.BroadcastPositionAndRotation)
 	world.SetBroadcastEntityVelocity(packethandler.BroadcastEntityVelocity)
 	world.SetCollectItem(packets.CollectItem)
@@ -80,11 +85,18 @@ func main() {
 	world.SetBroadcastPain(packethandler.BroadcastPain)
 	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
 	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
-	world.SetAndCreateBroadcastDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
+	world.SetAndCreateAndSetMovementDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
 
 	world.SetOppedUsernames(ops)
 
-	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, packets.NewSpawnObjectPacket, packets.SpawnMob, packets.NewSpawnItem, packets.NewEntityDespawnPacket, packets.SetEquipment2)
+	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, 
+											packets.NewSpawnObjectPacket, 
+											packets.SpawnMob, 
+											packets.NewSpawnItem, 
+											packets.NewEntityDespawnPacket, 
+											packets.SetEquipment2)
+
+
 	gameLoop(world, entityTracker)
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))

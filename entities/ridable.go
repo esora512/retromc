@@ -44,7 +44,7 @@ func (r *RideableEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw by
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
 	r.MovementState.Yaw = yaw
-	r.MovementState.Teleported = true 
+	r.MovementState.Teleported = true
 }
 
 func (r *RideableEntity) SetVelocityMovement(vx, vy, vz float64) {
@@ -62,7 +62,7 @@ func (r *RideableEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, 
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
 	r.MovementState.Yaw = yaw
-	r.MovementState.PositionChanged = true
+	r.MovementState.PositionAndRotationChanged = true
 }
 
 func (r *RideableEntity) Despawn() bool {

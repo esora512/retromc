@@ -6,10 +6,12 @@ type MovementState struct {
 
 	VelocityX, VelocityY, VelocityZ float64
 
-	PositionChanged bool
-	VelocityChanged bool
-	Teleported bool
+	PositionAndRotationChanged bool
+	PositionChanged bool 
+	RotationChanged bool
+	VelocityChanged            bool
+	Teleported                 bool
 
-	Yaw byte
+	Yaw   byte
 	Pitch byte
 }

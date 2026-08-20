@@ -6,6 +6,7 @@ import (
 
 	"math"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
@@ -349,6 +350,94 @@ func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, next
 		Z:        byte(dZ),
 	}
 	w.BroadcastPacket(p.Serialize())
+}
+
+func NewTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	tpkt := packets.TeleportEntityPacket{
+		EntityId: e.GetEntityId(),
+		X:        int32(math.Floor(m.X * 32)),
+		Y:        int32(math.Floor(m.Y * 32)),
+		Z:        int32(math.Floor(m.Z * 32)),
+		Yaw:      m.Yaw,
+		Pitch:    m.Pitch,
+	}
+	return tpkt.Serialize()
+}
+
+
+func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	encPrevX := int32(math.Floor(m.PrevX * 32))
+	encPrevY := int32(math.Floor(m.PrevY * 32))
+	encPrevZ := int32(math.Floor(m.PrevZ * 32))
+	encNextX := int32(math.Floor(m.X * 32))
+	encNextY := int32(math.Floor(m.Y * 32))
+	encNextZ := int32(math.Floor(m.Z * 32))
+	dX := encNextX - encPrevX
+	dY := encNextY - encPrevY
+	dZ := encNextZ - encPrevZ
+
+	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
+		tpkt := packets.TeleportEntityPacket{
+			EntityId: e.GetEntityId(),
+			X:        int32(math.Floor(m.X * 32)),
+			Y:        int32(math.Floor(m.Y * 32)),
+			Z:        int32(math.Floor(m.Z * 32)),
+			Yaw:      m.Yaw,
+			Pitch:    0,
+		}
+		return tpkt.Serialize()
+	}
+	p := packets.EntityPositionPacket{
+		EntityId: e.GetEntityId(),
+		X:        byte(dX),
+		Y:        byte(dY),
+		Z:        byte(dZ),
+	}
+	return p.Serialize()
+}
+
+
+func NewRotationPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	p := packets.EntityRotationPacket{
+		EntityId: e.GetEntityId(),
+		Yaw: m.Yaw,
+		Pitch: m.Pitch,
+	}
+	return p.Serialize()
+}
+
+
+func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	encPrevX := int32(math.Floor(m.PrevX * 32))
+	encPrevY := int32(math.Floor(m.PrevY * 32))
+	encPrevZ := int32(math.Floor(m.PrevZ * 32))
+	encNextX := int32(math.Floor(m.X * 32))
+	encNextY := int32(math.Floor(m.Y * 32))
+	encNextZ := int32(math.Floor(m.Z * 32))
+	dX := encNextX - encPrevX
+	dY := encNextY - encPrevY
+	dZ := encNextZ - encPrevZ
+
+	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
+		tpkt := packets.TeleportEntityPacket{
+			EntityId: e.GetEntityId(),
+			X:        int32(math.Floor(m.X * 32)),
+			Y:        int32(math.Floor(m.Y * 32)),
+			Z:        int32(math.Floor(m.Z * 32)),
+			Yaw:      m.Yaw,
+			Pitch:    0,
+		}
+		return tpkt.Serialize()
+	}
+	p := packets.EntityPositionAndRotationPacket{
+		EntityId: e.GetEntityId(),
+		X:        byte(dX),
+		Y:        byte(dY),
+		Z:        byte(dZ),
+		Yaw:      m.Yaw,
+		Pitch:    0,
+	}
+	return p.Serialize()
 }
 
 func BroadcastPositionAndRotation(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {

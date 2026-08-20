@@ -36,7 +36,7 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 	world.BroadcastPacket(p.Serialize())
 }
 
-func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
 	pl.Z = player.SpawnZ
@@ -56,7 +56,6 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
-	//world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -251,8 +250,12 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 		pl.BelowZeroHeightCount = 0
 	}
 
-	ep := packets.NewPlayerPositionAndRotationPacket(pl, x, y, z, float64(p.Yaw), float64(p.Pitch))
-	world.MulticastPacket(ep, pl)
+	pl.MovementState.X = x
+	pl.MovementState.Y = y
+	pl.MovementState.Z = z 
+	pl.MovementState.Yaw = byte(p.Yaw)
+	pl.MovementState.Pitch = byte(p.Pitch)
+	pl.MovementState.PositionAndRotationChanged = true 
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -298,8 +301,12 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 			x, y, z = ridable.X, ridable.Y, ridable.Z
 		}
 	}
-	ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
-	world.MulticastPacket(ep, pl)
+	pl.MovementState.X = x 
+	pl.MovementState.Y = y
+	pl.MovementState.Z = z 
+	pl.MovementState.PositionChanged = true 
+	// ep := packets.NewPlayerPositionPacket(pl, x, y, z, world)
+	// world.MulticastPacket(ep, pl)
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -312,8 +319,12 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
-	ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
-	world.MulticastPacket(ep, pl)
+	// ep := packets.NewPlayerRotationPacket(pl, float64(p.Yaw), float64(p.Pitch), world)
+	// world.MulticastPacket(ep, pl)
+	pl.MovementState.Yaw = byte(p.Yaw)
+	pl.MovementState.Pitch = byte(p.Pitch)
+	pl.MovementState.RotationChanged = true 
+
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
@@ -328,7 +339,7 @@ const dropRandomVelocity = 0.02
 const playerEyeHeight = 1.62
 const JavaPI = 3.141592653589793
 
-func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte, tracker *level.EntityTracker) {
+func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {
 	if count == 0 {
 		return
 	}
@@ -350,16 +361,13 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
 
-	e := CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
-	BroadcastDroppedItem(world, tracker, e.EntityId)
-
+	CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
 	sendEquipmentChangeForHotbarSlot(world, pl)
-	tracker.AddForAll(world, e.EntityId)
 }
 
-func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player) {
 	if p.Status == 4 {
-		dropHeldItemStack(connection, world, pl, tracker)
+		dropHeldItemStack(connection, world, pl)
 		return
 	}
 	if pl.IsRiding != -1 {
@@ -428,11 +436,11 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	CreateAndSetMovementDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10, tracker)
+	CreateAndSetMovementDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
-func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Player) {
 	item := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if item.TypeId == -1 {
 		return
@@ -441,7 +449,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	metadata := item.Metadata
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
 	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
-	DropItemFromPlayer(world, pl, typeId, metadata, 1, tracker)
+	DropItemFromPlayer(world, pl, typeId, metadata, 1)
 }
 
 func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock level.Block) bool {
@@ -641,48 +649,11 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 	return blockItem, blockMeta, count
 }
 
-func BroadcastDroppedItem(world *level.World, tracker *level.EntityTracker, eId int32) {
-	var e level.Entity
-	var ok bool
-	var dropped *level.DroppedItem
-	if e, ok = world.Entities[eId]; !ok {
-		return
-	}
-
-	if dropped, ok = e.(*level.DroppedItem); !ok {
-		return
-	}
-
-	spawn := packets.SpawnItemPacket{
-		EntityId: eId,
-		ItemId:   int16(dropped.ItemId),
-		Amount:   dropped.Amount,
-		Metadata: dropped.Metadata,
-		X:        int32(math.Floor(dropped.X * 32)),
-		Y:        int32(math.Floor(dropped.Y * 32)),
-		Z:        int32(math.Floor(dropped.Z * 32)),
-		Pitch:    byte(quantizeSpawnVelocity(dropped.VelX)),
-		Yaw:      byte(quantizeSpawnVelocity(dropped.VelY)),
-		Roll:     byte(quantizeSpawnVelocity(dropped.VelZ)),
-	}
-	world.BroadcastPacket(spawn.Serialize())
-	velocityPacket := packets.EntityVelocityPacket{EntityId: eId, Vx: dropped.VelX, Vy: dropped.VelY, Vz: dropped.VelZ}
-	world.BroadcastPacket(velocityPacket.Serialize())
-	tracker.AddForAll(world, eId)
-}
-
-func CreateAndSetMovementDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *level.EntityTracker) {
+func CreateAndSetMovementDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
-	d := CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
-	d.MovementState.VelocityX = velX
-	d.MovementState.VelocityX = velY
-	d.MovementState.VelocityX = velZ
-	d.MovementState.X = x
-	d.MovementState.Y = y
-	d.MovementState.Z = z
-	d.MovementState.VelocityChanged = true
+	CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {
@@ -730,14 +701,14 @@ func raycastForWater(world *level.World, pl *player.Player, maxDistance float64)
 	return 0, 0, 0, false
 }
 
-func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker) bool {
+func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Player) bool {
 	x, y, z, found := raycastForWater(world, pl, 8.0)
 	if !found {
 		return false
 	}
 
 	slot := pl.HotbarSlot
-	tryPlaceBoat(connection, world, pl, tracker, int32(x), y, int32(z), slot)
+	tryPlaceBoat(connection, world, pl, int32(x), y, int32(z), slot)
 	return true
 }
 
@@ -811,7 +782,7 @@ func placementCollidesWithPlayer(pl *player.Player, x, y, z int32) bool {
 	return block.Intersects(player)
 }
 
-func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
 
@@ -840,7 +811,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	if p.X == -1 && p.Y == 255 && p.Z == -1 && heldItem.TypeId == constants.Boat.Value {
 		//log.Printf("Player Looks At: x=%f, y=%f, z=%f, yaw=%f, pitch=%f", pl.X, pl.Y, pl.Z, pl.Yaw, pl.Pitch)
-		if tryPlaceBoatNoTarget(connection, world, pl, tracker) {
+		if tryPlaceBoatNoTarget(connection, world, pl) {
 			return
 		}
 		return
@@ -940,7 +911,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 
 	if heldItem.TypeId == constants.Boat.Value {
-		tryPlaceBoat(connection, world, pl, tracker, newX, newY, newZ, slot)
+		tryPlaceBoat(connection, world, pl, newX, newY, newZ, slot)
 		return
 	}
 
@@ -1549,20 +1520,7 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 		return
 	}
 	entityId := world.NextEntityId()
-	spawnPacket := packets.SpawnObjectPacket{
-		EntityId:      entityId,
-		ObjectType:    constants.ObjectMinecart,
-		X:             int32(newX * 32),
-		Y:             int32(newY * 32),
-		Z:             int32(newZ * 32),
-		OwnerEntityId: int32(pl.EntityId),
-		VelocityX:     0,
-		VelocityY:     0,
-		VelocityZ:     0,
-	}
 	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), float64(newY), float64(newZ), 0, 0, 0, 10, pl.Dimension)
-	world.BroadcastPacket(spawnPacket.Serialize())
-
 	pl.Inventory.RemoveOne(slot)
 	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
@@ -1570,26 +1528,12 @@ func tryPlaceMinecart(connection net.Conn, world *level.World, pl *player.Player
 	}
 }
 
-func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, tracker *level.EntityTracker, newX int32, newY int, newZ int32, slot int16) {
+func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, slot int16) {
 	entityId := world.NextEntityId()
 	// Lift posY by BoatYOffset so the hitbox bottom sits on the block top
 	// instead of half-burying the model in the block below.
 	spawnY := float64(newY) + entities.BoatYOffset
-	spawnPacket := packets.SpawnObjectPacket{
-		EntityId:      entityId,
-		ObjectType:    constants.ObjectBoat,
-		X:             int32(math.Floor(float64(newX) * 32)),
-		Y:             int32(spawnY * 32),
-		Z:             int32(math.Floor(float64(newZ) * 32)),
-		OwnerEntityId: int32(pl.EntityId),
-		VelocityX:     0,
-		VelocityY:     0,
-		VelocityZ:     0,
-	}
 	world.AddRidable(entityId, pl.GetEntityId(), float64(newX), spawnY, float64(newZ), 0, 0, 0, 1, pl.Dimension)
-	world.BroadcastPacket(spawnPacket.Serialize())
-	tracker.Add(pl.GetEntityId(), entityId)
-
 	pl.Inventory.RemoveOne(slot)
 	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {

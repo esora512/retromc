@@ -154,7 +154,8 @@ type Player struct {
 	Immune int64
 	IsOp   bool
 
-	DespawnIn int
+	DespawnIn     int
+	MovementState constants.MovementState
 }
 
 func (pl *Player) SetHP(hp int16) {

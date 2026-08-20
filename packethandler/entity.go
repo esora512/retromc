@@ -55,7 +55,7 @@ func DropInventory(
 			velY := rand.Float64()*velocity + 0.2
 			velZ := rand.Float64() * velocity
 
-			e := CreateDroppedItem(
+			CreateDroppedItem(
 				world,
 				spawnX,
 				spawnY,
@@ -69,7 +69,6 @@ func DropInventory(
 				60,
 				dim,
 			)
-			BroadcastDroppedItem(world, tracker, e.EntityId)
 		}
 		inv.Items[i] = inventory.EmptyItem()
 	}
@@ -83,6 +82,13 @@ func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, me
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim, velX, velY, velZ)
 	e, _ := w.Entities[entityId]
 	d, _ := e.(*level.DroppedItem)
+	d.MovementState.VelocityX = velX
+	d.MovementState.VelocityY = velY
+	d.MovementState.VelocityZ = velZ
+	d.MovementState.X = x
+	d.MovementState.Y = y
+	d.MovementState.Z = z
+	d.MovementState.VelocityChanged = true
 	return d
 }
 
@@ -289,12 +295,12 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					x, y, z := other.GetPosition()
-					world.CreateAndBroadcastDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					x, y, z := other.GetPosition()
-					world.CreateAndBroadcastDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
 				}
 			}
 
@@ -303,7 +309,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				m.DespawnIn = 25
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
-					world.CreateAndBroadcastDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5, tracker)
+					world.CreateAndSetMovementDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}

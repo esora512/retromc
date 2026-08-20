@@ -1,7 +1,6 @@
 package level
 
 import (
-	"log"
 	"math"
 	"sync"
 
@@ -126,18 +125,41 @@ func (et *EntityTracker) Manage(w *World) {
 			isVisible := et.visible[viewerID][targetID]
 			sameDim := viewer.GetDim() == target.GetDim()
 			inRange := sameDim && dx <= distance && dz <= distance
-			alive := target.IsBlock() || target.GetHP() > 0
+			alive := target.IsBlock() || target.IsItem() || target.GetHP() > 0
 
 			if isVisible && alive {
+				if target.IsPlayer() {
+					t, _ := target.(*player.Player)
+					if t.MovementState.VelocityChanged {
+						p := w.newEntityVelocityPacket(targetID, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+						viewer.Connection.Write(p)
+						t.MovementState.VelocityChanged = false 
+					}
+
+					if t.MovementState.PositionAndRotationChanged {
+						p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
+						viewer.Connection.Write(p)
+						t.MovementState.PositionAndRotationChanged = false
+					}
+
+					if t.MovementState.PositionChanged {
+						p := w.newPositionPacket(w, t, t.MovementState)
+						viewer.Connection.Write(p)
+						t.MovementState.PositionChanged = false 
+					}
+
+					if t.MovementState.RotationChanged {
+						p := w.newPositionPacket(w, t, t.MovementState)
+						viewer.Connection.Write(p)
+						t.MovementState.RotationChanged = false
+					}
+				}
+
 				if target.IsItem() {
 					t, _ := target.(*DroppedItem)
 					if t.MovementState.VelocityChanged {
-						w.BroadcastEntityVelocity(
-							t.EntityId,
-							t.MovementState.VelocityX,
-							t.MovementState.VelocityY,
-							t.MovementState.VelocityZ,
-						)
+						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+						viewer.Connection.Write(p)
 						t.MovementState.VelocityChanged = false
 					}
 				}
@@ -145,49 +167,29 @@ func (et *EntityTracker) Manage(w *World) {
 				if target.IsBlock() {
 					t, _ := target.(*entities.BlockEntity)
 					if t.MovementState.VelocityChanged {
-						w.BroadcastEntityVelocity(
-							t.EntityId,
-							t.MovementState.VelocityX,
-							t.MovementState.VelocityY,
-							t.MovementState.VelocityZ,
-						)
+						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+						viewer.Connection.Write(p)
 						t.MovementState.VelocityChanged = false
 					}
 				}
 
 				if target.IsRideable() {
 					t, _ := target.(*entities.RideableEntity)
-					if t.MovementState.PositionChanged {
-						w.BroadcastPositionAndRotation(
-							t,
-							t.MovementState.PrevX,
-							t.MovementState.PrevY,
-							t.MovementState.PrevZ,
-							t.MovementState.X,
-							t.MovementState.Y,
-							t.MovementState.Z,
-							t.Yaw,
-						)
-						t.MovementState.PositionChanged = false
+					if t.MovementState.PositionAndRotationChanged {
+						p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
+						viewer.Connection.Write(p)
+						t.MovementState.PositionAndRotationChanged = false
 					}
 
 					if t.MovementState.VelocityChanged {
-						w.BroadcastEntityVelocity(
-							t.EntityId,
-							t.MovementState.VelocityX,
-							t.MovementState.VelocityY,
-							t.MovementState.VelocityZ,
-						)
+						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+						viewer.Connection.Write(p)
 						t.MovementState.VelocityChanged = false
 					}
 
 					if t.MovementState.Teleported {
-						w.BroadcastTeleport(
-							t,
-							t.MovementState.X,
-							t.MovementState.Y,
-							t.MovementState.Z,
-							t.Yaw)
+						p := w.newTeleportPacket(w, t, t.MovementState)
+						viewer.Connection.Write(p)
 						t.MovementState.Teleported = false
 					}
 				}
@@ -201,7 +203,6 @@ func (et *EntityTracker) Manage(w *World) {
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
-					log.Printf("Spawning %s for %s", target.GetName(), viewer.GetName())
 				} else if target.IsRideable() {
 					viewer.Connection.Write(et.SpawnObject(target))
 				} else if target.IsMob() {
@@ -210,13 +211,17 @@ func (et *EntityTracker) Manage(w *World) {
 				} else if target.IsItem() {
 					t, _ := target.(*DroppedItem)
 					viewer.Connection.Write(et.SpawnItem(t))
+					if t.MovementState.VelocityChanged {
+						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+						viewer.Connection.Write(p)
+						t.MovementState.VelocityChanged = false
+					}
 				}
 				et.visible[viewerID][targetID] = true
 			} else if isVisible && (!inRange || !alive || (target.IsBlock() && shouldDespawn(target))) {
 				if target.IsPlayer() || target.IsMob() || target.IsRideable() || target.IsBlock() {
 					despawn := !inRange || !alive || shouldDespawn(target)
 					if despawn {
-						log.Println("Despawning Living Entity")
 						viewer.Connection.Write(et.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
@@ -228,7 +233,6 @@ func (et *EntityTracker) Manage(w *World) {
 				} else {
 					viewer.Connection.Write(et.DespawnEntity(targetID))
 					delete(et.visible[viewerID], targetID)
-					log.Printf("Despawning %s for %s", target.GetName(), viewer.GetName())
 					w.RemoveEntity(targetID)
 				}
 			}

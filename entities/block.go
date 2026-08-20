@@ -40,17 +40,15 @@ func (r *BlockEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, nex
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.MovementState.PositionChanged = true
+	r.MovementState.PositionAndRotationChanged = true
 }
-
 
 func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.MovementState.Teleported = true 
+	r.MovementState.Teleported = true
 }
-
 
 func (b *BlockEntity) IsItem() bool { return false }
 

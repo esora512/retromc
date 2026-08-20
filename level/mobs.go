@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -32,7 +33,10 @@ type Mob struct {
 
 	ShouldDespawn bool
 	DespawnIn     int
+
+	MovementState constants.MovementState
 }
+
 
 func (m *Mob) IsBlock() bool { return false }
 

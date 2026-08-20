@@ -62,17 +62,17 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		}
 	case packet.MineBlock:
 		p := packets.ReadPlayerMineBlockPacket(packetReader)
-		handleMineBlockPacket(connection, p, world, pl, tracker)
+		handleMineBlockPacket(connection, p, world, pl)
 	case packet.SetHotbarSlot:
 		p := packets.ReadSetHotbarSlot(packetReader)
 		handleSetHotbarSlot(p, pl, world)
 	case packet.PlaceBlock:
 		p := packets.ReadPlaceBlockPacket(packetReader)
-		handlePlaceBlockPacket(connection, p, world, pl, tracker)
+		handlePlaceBlockPacket(connection, p, world, pl)
 	case packet.ClickSlot:
 		p := packets.ReadClickSlotPacket(packetReader)
 		before := pl.Inventory.PeekItem(pl.HotbarSlot)
-		handleClickSlotPacket(connection, p, world, pl, tracker)
+		handleClickSlotPacket(connection, p, world, pl)
 		NewFillContainerPacket(connection, pl)
 		after := pl.Inventory.PeekItem(pl.HotbarSlot)
 		if before != after {
@@ -80,7 +80,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		}
 	case packet.Respawn:
 		p := packets.ReadRespawnPacket(packetReader)
-		handleRespawnInPacket(connection, p, world, pl, tracker)
+		handleRespawnInPacket(connection, p, world, pl)
 	case packet.CloseContainer:
 		p := packets.ReadCloseContainerPacket(packetReader, pl)
 		handleCloseContainerPacket(p, pl)

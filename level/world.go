@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/player"
@@ -136,18 +137,39 @@ type World struct {
 	broadcastMobPositionAndRotation func(w *World, m *Mob, nX, nY, nZ, yaw, pitch float64)
 	newMobPositionAndRotationPacket func(m *Mob, nX, nY, nZ, yaw, pitch float64) []byte
 	newEntityVelocityPacket         func(entityId int32, vx, vy, vz float64) []byte
-	createAndbroadcastDroppedItem   func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)
+	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
 	broadcastPain func(w *World, entityId int32)
+
+	newPositionAndRotationOrTeleportPacket func(w *World, e Entity, m constants.MovementState) []byte
+	newTeleportPacket func(w *World, e Entity, m constants.MovementState) []byte
+	newRotationPacket func(w *World, e Entity, m constants.MovementState) []byte
+	newPositionPacket func(w *World, e Entity, m constants.MovementState) []byte
 }
 
-func (w *World) SetAndCreateBroadcastDroppedItem(f func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker)) {
-	w.createAndbroadcastDroppedItem = f
+func (w *World) SetNewRotationPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+	w.newPositionPacket = f
 }
 
-func (w *World) CreateAndBroadcastDroppedItem(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32, tracker *EntityTracker) {
-	w.createAndbroadcastDroppedItem(w, x, y, z, blockItem, blockMeta, count, dim, delay, tracker)
+func (w *World) SetNewPositionPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+	w.newRotationPacket = f
+}
+
+func (w *World) SetNewTeleportPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+	w.newTeleportPacket = f
+}
+
+func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+	w.newPositionAndRotationOrTeleportPacket = f
+}
+
+func (w *World) SetAndCreateAndSetMovementDroppedItem(f func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)) {
+	w.createAndSetMovementDroppedItem = f
+}
+
+func (w *World) CreateAndSetMovementDroppedItem(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+	w.createAndSetMovementDroppedItem(w, x, y, z, blockItem, blockMeta, count, dim, delay)
 }
 
 func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz float64) []byte) {

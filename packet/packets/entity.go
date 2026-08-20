@@ -301,11 +301,6 @@ func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch f
 		dY < -maxRelDelta || dY > maxRelDelta ||
 		dZ < -maxRelDelta || dZ > maxRelDelta {
 
-		// log.Printf(
-		// 	"[PosLook] entity=%d delta too large (dX=%d dY=%d dZ=%d), sending Teleport",
-		// 	pl.EntityId, dX, dY, dZ,
-		// )
-
 		p := TeleportEntityPacket{
 			EntityId: int32(pl.EntityId),
 			X:        encX,
@@ -327,6 +322,8 @@ func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch f
 	}
 	return p.Serialize()
 }
+
+
 
 func NewPlayerPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))
