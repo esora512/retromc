@@ -60,6 +60,7 @@ func main() {
 	world := level.NewWorld(GitCommit, 0, level.Template)
 
 	// Give world access to packethandler functions due to forbidden import cycles
+	world.SetNewMobPositionAndRotationOrTeleportPacket(packets.NewMobPositionAndRotationPacketV2)
 	world.SetNewPositionAndRotationOrTeleportPacket(packethandler.NewPositionAndRotationOrTeleportPacket)
 	world.SetNewTeleportPacket(packethandler.NewTeleportPacket)
 	world.SetNewPositionPacket(packethandler.NewPositionOrTeleportPacket)

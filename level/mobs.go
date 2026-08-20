@@ -5,7 +5,7 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/leNicDev/retromc/constants"
+	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -34,11 +34,16 @@ type Mob struct {
 	ShouldDespawn bool
 	DespawnIn     int
 
-	MovementState constants.MovementState
+	MovementState c.MovementState
 }
 
+func (m *Mob) GetEntityType() c.EntityType {
+	return c.Mob
+}
 
-func (m *Mob) IsBlock() bool { return false }
+func (m *Mob) GetMovementState() *c.MovementState {
+	return &m.MovementState
+}
 
 func (m *Mob) Despawn() bool {
 	if m.DespawnIn < 0 {
@@ -52,7 +57,6 @@ func (m *Mob) Despawn() bool {
 	return false
 }
 
-func (m *Mob) IsItem() bool { return false }
 
 func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -71,16 +75,9 @@ func (m *Mob) SetPosition(x, y, z float64) {
 	m.X, m.Y, m.Z = x, y, z
 }
 
-func (m *Mob) IsRideable() bool {
-	return false
-}
 
 func (m *Mob) GetEntityId() int32 {
 	return m.EntityId
-}
-
-func (m *Mob) IsPlayer() bool {
-	return false
 }
 
 func (m *Mob) SetHP(hp int16) {
@@ -176,7 +173,15 @@ func (m *Mob) wander(w *World) {
 		yaw, pitch = float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
 	}
 
-	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	m.MovementState.X = newX
+	m.MovementState.Y = newY
+	m.MovementState.Z = newZ
+	m.MovementState.PrevX = m.X
+	m.MovementState.PrevY = m.Y
+	m.MovementState.PrevZ = m.Z
+	m.MovementState.PositionAndRotationChanged = true
+
+	//w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
 	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
@@ -247,8 +252,19 @@ func (m *Mob) tickKnockback(w *World) {
 
 	yaw, pitch := float64(m.Yaw)*360/256, float64(m.Pitch)*360/256
 
-	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
+	m.MovementState.X = newX
+	m.MovementState.Y = newY
+	m.MovementState.Z = newZ
+	m.MovementState.PrevX = m.X
+	m.MovementState.PrevY = m.Y
+	m.MovementState.PrevZ = m.Z
+	m.MovementState.PositionAndRotationChanged = true
+
+	//w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
 	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
+
+	m.MovementState.Yaw = float32(yaw)
+	m.MovementState.Pitch = float32(pitch)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -435,9 +451,6 @@ func (m *Mob) GetVelocity() (float64, float64, float64) {
 	return m.Vx, m.Vy, m.Vz
 }
 
-func (m *Mob) IsMob() bool {
-	return true
-}
 
 func (m *Mob) AttackSpeed() int32 {
 	switch m.MobType {
@@ -525,6 +538,9 @@ func computeYawPitch(dx, dy, dz float64) (yaw, pitch float64) {
 func (m *Mob) SetYawPitch(yawDeg, pitchDeg float64) {
 	m.Yaw = byte(int32(yawDeg*256/360) & 0xFF)
 	m.Pitch = byte(int32(pitchDeg*256/360) & 0xFF)
+
+	m.MovementState.Yaw = float32(m.Yaw)
+	m.MovementState.Pitch = float32(m.Pitch)
 }
 
 func (m *Mob) StopDistance() float64 {
@@ -549,7 +565,6 @@ func (w *World) SpawnSpider(x, y, z, dim int32, target int32) int32 {
 	s := NewSpider(w, float64(x), float64(y), float64(z), dim)
 	s.SetTarget(target)
 	w.Entities[s.EntityId] = s
-	w.BroadcastMobSpawn(s.MobType, s.Metadata, x, y, z, s.Yaw, s.Pitch, s.Dimension, s.EntityId)
 	return s.EntityId
 }
 
@@ -561,7 +576,7 @@ func (m *Mob) adjustForOthers(w *World) (avoidX, avoidZ float64) {
 
 	nearby := 0
 	for _, e := range w.Entities {
-		if e.GetEntityId() == m.EntityId || e.IsPlayer() {
+		if e.GetEntityId() == m.EntityId || e.GetEntityType() == c.Player {
 			continue
 		}
 		if e.GetDim() != m.Dimension {

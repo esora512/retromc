@@ -4,6 +4,7 @@ import (
 	"math"
 	"sync"
 
+	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/player"
 )
@@ -73,6 +74,32 @@ func (et *EntityTracker) AddForAll(w *World, otherId int32) {
 	}
 }
 
+func (et *EntityTracker) Despawn(w *World, id int32) {
+	et.Mu.Lock()
+	delete(et.visible, id)
+	for _, seen := range et.visible {
+		delete(seen, id)
+	}
+	et.Mu.Unlock()
+
+	w.BroadcastPacket(et.DespawnEntity(id))
+}
+
+type Entity interface {
+	GetName() string
+	GetPosition() (float64, float64, float64)
+	SetPosition(x, y, z float64)
+	GetEntityId() int32
+	SetHP(hp int16)
+	GetHP() int16
+	GetLoggedIn() bool
+	GetDim() int32
+	GetVelocity() (float64, float64, float64)
+	Despawn() bool
+	GetMovementState() *c.MovementState
+	GetEntityType() c.EntityType
+}
+
 func (et *EntityTracker) Manage(w *World) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
@@ -89,6 +116,23 @@ func (et *EntityTracker) Manage(w *World) {
 		return res
 	}
 
+	sendVelocityIfChanged := func(viewer *player.Player, target Entity, ms *c.MovementState) {
+		if ms.VelocityChanged {
+			p := w.newEntityVelocityPacket(target.GetEntityId(), ms.VelocityX, ms.VelocityY, ms.VelocityZ)
+			viewer.Connection.Write(p)
+			ms.VelocityChanged = false
+		}
+	}
+
+	isDespawnable := func(t c.EntityType) bool {
+		switch t {
+		case c.FallingBlock, c.Mob, c.Player, c.Ridable:
+			return true
+		default:
+			return false
+		}
+	}
+
 	for _, viewer := range w.Players {
 		viewerID := viewer.GetEntityId()
 
@@ -100,7 +144,7 @@ func (et *EntityTracker) Manage(w *World) {
 			continue
 		}
 
-		if viewer.IsPlayer() && viewer.HP <= 0 {
+		if viewer.GetEntityType() == c.Player && viewer.HP <= 0 {
 			continue
 		}
 
@@ -108,12 +152,13 @@ func (et *EntityTracker) Manage(w *World) {
 
 		for _, target := range w.Entities {
 			targetID := target.GetEntityId()
+			targetType := target.GetEntityType()
 
 			if viewerID == targetID {
 				continue
 			}
 
-			if target.IsPlayer() && !target.GetLoggedIn() {
+			if targetType == c.Player && !target.GetLoggedIn() {
 				continue
 			}
 
@@ -125,112 +170,101 @@ func (et *EntityTracker) Manage(w *World) {
 			isVisible := et.visible[viewerID][targetID]
 			sameDim := viewer.GetDim() == target.GetDim()
 			inRange := sameDim && dx <= distance && dz <= distance
-			alive := target.IsBlock() || target.IsItem() || target.GetHP() > 0
+			alive := targetType == c.FallingBlock || targetType == c.DroppedItem || target.GetHP() > 0
 
 			if isVisible && alive {
-				// if target.IsPlayer() {
+				ms := target.GetMovementState()
+
+				switch targetType {
+				case c.Mob:
+					t, _ := target.(*Mob)
+					if ms.PositionAndRotationChanged {
+						p := w.newMobPositionAndRotationOrTeleportPacket(t, *ms)
+						viewer.Connection.Write(p)
+						ms.PositionAndRotationChanged = false
+					}
+
+				// case c.Player:
 				// 	t, _ := target.(*player.Player)
-				// 	if t.MovementState.VelocityChanged {
-				// 		p := w.newEntityVelocityPacket(targetID, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
+				// 	if ms.VelocityChanged {
+				// 		p := w.newEntityVelocityPacket(targetID, ms.VelocityX, ms.VelocityY, ms.VelocityZ)
 				// 		viewer.Connection.Write(p)
-				// 		t.MovementState.VelocityChanged = false 
+				// 		ms.VelocityChanged = false
+				// 	}
+				// 	if ms.PositionAndRotationChanged {
+				// 		p := w.newPositionAndRotationOrTeleportPacket(w, t, *ms)
+				// 		viewer.Connection.Write(p)
+				// 		ms.PositionAndRotationChanged = false
+				// 	}
+				// 	if ms.PositionChanged {
+				// 		p := w.newPositionPacket(w, t, *ms)
+				// 		viewer.Connection.Write(p)
+				// 		ms.PositionChanged = false
+				// 	}
+				// 	if ms.RotationChanged {
+				// 		p := w.newPositionPacket(w, t, *ms)
+				// 		viewer.Connection.Write(p)
+				// 		ms.RotationChanged = false
 				// 	}
 
-				// 	if t.MovementState.PositionAndRotationChanged {
-				// 		p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
-				// 		viewer.Connection.Write(p)
-				// 		t.MovementState.PositionAndRotationChanged = false
-				// 	}
-
-				// 	if t.MovementState.PositionChanged {
-				// 		p := w.newPositionPacket(w, t, t.MovementState)
-				// 		viewer.Connection.Write(p)
-				// 		t.MovementState.PositionChanged = false 
-				// 	}
-
-				// 	if t.MovementState.RotationChanged {
-				// 		p := w.newPositionPacket(w, t, t.MovementState)
-				// 		viewer.Connection.Write(p)
-				// 		t.MovementState.RotationChanged = false
-				// 	}
-				// }
-
-				if target.IsItem() {
-					t, _ := target.(*DroppedItem)
-					if t.MovementState.VelocityChanged {
-						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
-						viewer.Connection.Write(p)
-						t.MovementState.VelocityChanged = false
-					}
-				}
-
-				if target.IsBlock() {
-					t, _ := target.(*entities.BlockEntity)
-					if t.MovementState.VelocityChanged {
-						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
-						viewer.Connection.Write(p)
-						t.MovementState.VelocityChanged = false
-					}
-				}
-
-				if target.IsRideable() {
+				case c.Ridable:
 					t, _ := target.(*entities.RideableEntity)
-					if t.MovementState.PositionAndRotationChanged {
-						p := w.newPositionAndRotationOrTeleportPacket(w, t, t.MovementState)
+					if ms.PositionAndRotationChanged {
+						p := w.newPositionAndRotationOrTeleportPacket(w, t, *ms)
 						viewer.Connection.Write(p)
-						t.MovementState.PositionAndRotationChanged = false
+						ms.PositionAndRotationChanged = false
+					}
+					sendVelocityIfChanged(viewer, target, ms)
+					if ms.Teleported {
+						p := w.newTeleportPacket(w, t, *ms)
+						viewer.Connection.Write(p)
+						ms.Teleported = false
 					}
 
-					if t.MovementState.VelocityChanged {
-						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
-						viewer.Connection.Write(p)
-						t.MovementState.VelocityChanged = false
-					}
-
-					if t.MovementState.Teleported {
-						p := w.newTeleportPacket(w, t, t.MovementState)
-						viewer.Connection.Write(p)
-						t.MovementState.Teleported = false
-					}
+				case c.DroppedItem, c.FallingBlock:
+					sendVelocityIfChanged(viewer, target, ms)
 				}
 			}
 
 			if !isVisible && inRange && alive {
-				if target.IsPlayer() {
+				switch targetType {
+				case c.Player:
 					if target.GetName() == viewer.Username {
 						continue
 					}
 					t, _ := target.(*player.Player)
 					viewer.Connection.Write(et.SpawnPlayer(t))
 					et.SetEquipment(t, viewer.Connection.Write)
-				} else if target.IsRideable() {
+
+				case c.Ridable:
 					viewer.Connection.Write(et.SpawnObject(target))
-				} else if target.IsMob() {
+
+				case c.Mob:
 					t, _ := target.(*Mob)
 					viewer.Connection.Write(et.SpawnMob(t))
-				} else if target.IsItem() {
+
+				case c.DroppedItem:
 					t, _ := target.(*DroppedItem)
 					viewer.Connection.Write(et.SpawnItem(t))
-					if t.MovementState.VelocityChanged {
-						p := w.newEntityVelocityPacket(t.EntityId, t.MovementState.VelocityX, t.MovementState.VelocityY, t.MovementState.VelocityZ)
-						viewer.Connection.Write(p)
-						t.MovementState.VelocityChanged = false
-					}
+					sendVelocityIfChanged(viewer, target, target.GetMovementState())
 				}
 				et.visible[viewerID][targetID] = true
-			} else if isVisible && (!inRange || !alive || (target.IsBlock() && shouldDespawn(target))) {
-				if target.IsPlayer() || target.IsMob() || target.IsRideable() || target.IsBlock() {
+
+			} else if isVisible && (!inRange || (isDespawnable(targetType) && shouldDespawn(target))) {
+				switch targetType {
+				case c.Player, c.Mob, c.Ridable, c.FallingBlock:
 					despawn := !inRange || !alive || shouldDespawn(target)
 					if despawn {
 						viewer.Connection.Write(et.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if target.IsMob() || target.IsRideable() || target.IsBlock() {
+						if targetType == c.Mob || targetType == c.Ridable || targetType == c.FallingBlock {
 							w.RemoveEntity(targetID)
 						}
 					}
 					continue
-				} else {
+
+				default:
 					viewer.Connection.Write(et.DespawnEntity(targetID))
 					delete(et.visible[viewerID], targetID)
 					w.RemoveEntity(targetID)
@@ -238,33 +272,4 @@ func (et *EntityTracker) Manage(w *World) {
 			}
 		}
 	}
-}
-
-func (et *EntityTracker) Despawn(w *World, id int32) {
-	et.Mu.Lock()
-	delete(et.visible, id)
-	for _, seen := range et.visible {
-		delete(seen, id)
-	}
-	et.Mu.Unlock()
-
-	w.BroadcastPacket(et.DespawnEntity(id))
-}
-
-type Entity interface {
-	GetName() string
-	GetPosition() (float64, float64, float64)
-	SetPosition(x, y, z float64)
-	IsRideable() bool
-	GetEntityId() int32
-	IsPlayer() bool
-	SetHP(hp int16)
-	GetHP() int16
-	GetLoggedIn() bool
-	GetDim() int32
-	IsMob() bool
-	GetVelocity() (float64, float64, float64)
-	IsItem() bool
-	Despawn() bool
-	IsBlock() bool
 }

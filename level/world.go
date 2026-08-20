@@ -146,6 +146,11 @@ type World struct {
 	newTeleportPacket func(w *World, e Entity, m constants.MovementState) []byte
 	newRotationPacket func(w *World, e Entity, m constants.MovementState) []byte
 	newPositionPacket func(w *World, e Entity, m constants.MovementState) []byte
+	newMobPositionAndRotationOrTeleportPacket func(e Entity, m constants.MovementState) []byte
+}
+
+func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e Entity, m constants.MovementState) []byte) {
+	w.newMobPositionAndRotationOrTeleportPacket = f
 }
 
 func (w *World) SetNewRotationPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {

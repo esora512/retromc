@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 
+	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
 )
@@ -222,13 +223,17 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 	var players []entities.PlayerPosition
 
 	for _, e := range allEntities {
-		if e.IsPlayer() {
+		switch e.GetEntityType() {
+		case c.Player:
 			x, y, z := e.GetPosition()
 			players = append(players, entities.PlayerPosition{X: x, Y: y, Z: z, EntityId: e.GetEntityId()})
-		} else if ridable, ok := e.(*entities.RideableEntity); ok {
+		case c.Ridable:
+			ridable, _ := e.(*entities.RideableEntity)
 			if ridable.ObjectType == 1 || ridable.ObjectType == 10 {
 				ridables = append(ridables, ridable)
 			}
+		default:
+			continue
 		}
 	}
 

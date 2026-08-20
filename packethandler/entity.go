@@ -251,12 +251,12 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				pl.Inventory.Items[pl.HotbarSlot] = item
 			}
 		}
-		if other.IsPlayer() {
+		if other.GetEntityType() == constants.Player {
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			SendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
 			BroadcastPain(world, other.GetEntityId())
-		} else if other.IsMob() {
+		} else if other.GetEntityType() == constants.Mob {
 			BroadcastPain(world, other.GetEntityId())
 			if mob, ok := other.(*level.Mob); ok {
 				mob.SetTargetForced(pl.GetEntityId())
@@ -266,19 +266,20 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 
-		if other.IsPlayer() || other.IsMob() {
+		eType := other.GetEntityType()
+		if eType == constants.Player || eType == constants.Mob {
 			applyKnockback(world, pl, other)
 
 		}
 
-		if other.IsRideable() {
+		if eType == constants.Ridable {
 			BroadcastPain(world, other.GetEntityId())
 		}
 
 		if newHP <= 0 {
 			BroadcastDeath(world, other.GetEntityId())
 
-			if other.IsPlayer() {
+			if other.GetEntityType() == constants.Player {
 				cMsgPkt := packets.ChatMessagePacket{
 					Message: other.GetName() + " was killed by " + player.Username,
 				}
@@ -286,27 +287,29 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 				x, y, z := other.GetPosition()
 				otherPl, _ := world.Players[other.GetEntityId()]
-				otherPl.DespawnIn = 25
+				otherPl.DespawnIn = 21
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
 				tracker.ResetViewer(other.GetEntityId())
 			}
 
-			if other.IsRideable() {
+			if other.GetEntityType() == constants.Ridable {
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
+					ridable.ShouldDespawn = true 
 					x, y, z := other.GetPosition()
 					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
+					ridable.ShouldDespawn = true 
 					x, y, z := other.GetPosition()
 					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
 				}
 			}
 
-			if other.IsMob() {
+			if other.GetEntityType() == constants.Mob {
 				m, _ := other.(*level.Mob)
-				m.DespawnIn = 25
+				m.DespawnIn = 21
 				if m.MobType == 52 {
 					x, y, z := other.GetPosition()
 					world.CreateAndSetMovementDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
@@ -318,7 +321,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	}
 
 	world.MulticastPacket(packets.ArmSwing(pl), pl)
-	if other.IsRideable() {
+	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {
 			pl.IsRiding = -1

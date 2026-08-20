@@ -7,11 +7,23 @@ type MovementState struct {
 	VelocityX, VelocityY, VelocityZ float64
 
 	PositionAndRotationChanged bool
-	PositionChanged bool 
-	RotationChanged bool
+	PositionChanged            bool
+	RotationChanged            bool
 	VelocityChanged            bool
 	Teleported                 bool
 
-	Yaw   byte
-	Pitch byte
+	Yaw   float32
+	Pitch float32
 }
+
+type EntityType int
+
+const (
+	Player EntityType = iota
+	Mob
+	Ridable
+	DroppedItem
+	FallingBlock
+)
+
+

@@ -22,8 +22,12 @@ type BlockEntity struct {
 	MovementState constants.MovementState
 }
 
-func (b *BlockEntity) IsBlock() bool {
-	return true
+func (b *BlockEntity) GetEntityType() constants.EntityType {
+	return constants.FallingBlock
+}
+
+func (b *BlockEntity) GetMovementState() *constants.MovementState {
+	return &b.MovementState
 }
 
 func (b *BlockEntity) SetVelocityMovement(vx, vy, vz float64) {
@@ -49,8 +53,6 @@ func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte)
 	r.MovementState.Z = nextZ
 	r.MovementState.Teleported = true
 }
-
-func (b *BlockEntity) IsItem() bool { return false }
 
 func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32) *BlockEntity {
 	return &BlockEntity{
@@ -80,9 +82,6 @@ func (b *BlockEntity) GetVelocity() (float64, float64, float64) {
 	return 0, b.VelocityY, 0
 }
 
-func (b *BlockEntity) IsMob() bool {
-	return false
-}
 
 func (b *BlockEntity) GetDim() int32 {
 	return b.Dimension
@@ -106,17 +105,10 @@ func (b *BlockEntity) SetPosition(x, y, z float64) {
 	b.Z = int32(z)
 }
 
-func (b *BlockEntity) IsRideable() bool {
-	return false
-}
-
 func (b *BlockEntity) GetEntityId() int32 {
 	return b.EntityId
 }
 
-func (b *BlockEntity) IsPlayer() bool {
-	return false
-}
 
 func (b *BlockEntity) SetHP(hp int16) {
 	// No-op

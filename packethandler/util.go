@@ -353,17 +353,18 @@ func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, next
 }
 
 func NewTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
+	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 	tpkt := packets.TeleportEntityPacket{
 		EntityId: e.GetEntityId(),
 		X:        int32(math.Floor(m.X * 32)),
 		Y:        int32(math.Floor(m.Y * 32)),
 		Z:        int32(math.Floor(m.Z * 32)),
-		Yaw:      m.Yaw,
-		Pitch:    m.Pitch,
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
 	}
 	return tpkt.Serialize()
 }
-
 
 func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
@@ -376,14 +377,17 @@ func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.Mov
 	dY := encNextY - encPrevY
 	dZ := encNextZ - encPrevZ
 
+	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
+	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
+
 	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
 		tpkt := packets.TeleportEntityPacket{
 			EntityId: e.GetEntityId(),
 			X:        int32(math.Floor(m.X * 32)),
 			Y:        int32(math.Floor(m.Y * 32)),
 			Z:        int32(math.Floor(m.Z * 32)),
-			Yaw:      m.Yaw,
-			Pitch:    0,
+			Yaw:      byte(dYaw),
+			Pitch:    byte(dPitch),
 		}
 		return tpkt.Serialize()
 	}
@@ -396,16 +400,17 @@ func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.Mov
 	return p.Serialize()
 }
 
-
 func NewRotationPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
+	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
+
 	p := packets.EntityRotationPacket{
 		EntityId: e.GetEntityId(),
-		Yaw: m.Yaw,
-		Pitch: m.Pitch,
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
 	}
 	return p.Serialize()
 }
-
 
 func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
@@ -417,6 +422,8 @@ func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m co
 	dX := encNextX - encPrevX
 	dY := encNextY - encPrevY
 	dZ := encNextZ - encPrevZ
+	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
+	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 
 	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
 		tpkt := packets.TeleportEntityPacket{
@@ -424,8 +431,8 @@ func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m co
 			X:        int32(math.Floor(m.X * 32)),
 			Y:        int32(math.Floor(m.Y * 32)),
 			Z:        int32(math.Floor(m.Z * 32)),
-			Yaw:      m.Yaw,
-			Pitch:    0,
+			Yaw:      byte(dYaw),
+			Pitch:    byte(dPitch),
 		}
 		return tpkt.Serialize()
 	}
@@ -434,8 +441,8 @@ func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m co
 		X:        byte(dX),
 		Y:        byte(dY),
 		Z:        byte(dZ),
-		Yaw:      m.Yaw,
-		Pitch:    0,
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
 	}
 	return p.Serialize()
 }

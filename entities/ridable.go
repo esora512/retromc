@@ -35,15 +35,20 @@ type RideableEntity struct {
 	MovementState constants.MovementState
 }
 
-func (r *RideableEntity) IsBlock() bool {
-	return false
+func (r *RideableEntity) GetEntityType() constants.EntityType {
+	return constants.Ridable
 }
+
+func (r *RideableEntity) GetMovementState() *constants.MovementState {
+	return &r.MovementState
+}
+
 
 func (r *RideableEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.MovementState.Yaw = yaw
+	r.MovementState.Yaw = float32(yaw)
 	r.MovementState.Teleported = true
 }
 
@@ -61,7 +66,7 @@ func (r *RideableEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, 
 	r.MovementState.X = nextX
 	r.MovementState.Y = nextY
 	r.MovementState.Z = nextZ
-	r.MovementState.Yaw = yaw
+	r.MovementState.Yaw = float32(yaw)
 	r.MovementState.PositionAndRotationChanged = true
 }
 
@@ -73,15 +78,10 @@ func (r *RideableEntity) Despawn() bool {
 	return false
 }
 
-func (r *RideableEntity) IsItem() bool { return false }
-
 func (r *RideableEntity) GetVelocity() (float64, float64, float64) {
 	return r.VelocityX, r.VelocityY, r.VelocityZ
 }
 
-func (r *RideableEntity) IsMob() bool {
-	return false
-}
 
 func (r *RideableEntity) GetDim() int32 {
 	return r.Dimension
@@ -103,10 +103,6 @@ func (r *RideableEntity) GetHP() int16 {
 	return r.HP
 }
 
-func (r *RideableEntity) IsPlayer() bool {
-	return false
-}
-
 func (r *RideableEntity) GetEntityId() int32 {
 	return r.EntityId
 }
@@ -115,9 +111,6 @@ func (r *RideableEntity) GetPosition() (float64, float64, float64) {
 	return r.X, r.Y, r.Z
 }
 
-func (r *RideableEntity) IsRideable() bool {
-	return true
-}
 
 func (r *RideableEntity) GetName() string {
 	return fmt.Sprintf("Entity %d", r.EntityId)

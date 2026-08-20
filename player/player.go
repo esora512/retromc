@@ -102,17 +102,17 @@ func (pl *Player) GetDim() int32 {
 	return pl.Dimension
 }
 
-func (pl *Player) IsMob() bool {
-	return false
-}
-
 func (pl *Player) GetVelocity() (float64, float64, float64) {
 	return pl.Vx, pl.Vy, pl.Vz
 }
 
-func (pl *Player) IsItem() bool { return false }
+func (pl *Player) GetMovementState() *constants.MovementState {
+	return &pl.MovementState
+}
 
-func (pl *Player) IsBlock() bool { return false }
+func (pl *Player) GetEntityType() constants.EntityType {
+	return constants.Player
+}
 
 type Player struct {
 	FallDistance float64
@@ -218,16 +218,8 @@ func (pl *Player) SetPosition(x, y, z float64) {
 	pl.X, pl.Y, pl.Z = x, y, z
 }
 
-func (pl *Player) IsPlayer() bool {
-	return true
-}
-
 func (pl *Player) GetEntityId() int32 {
 	return int32(pl.EntityId)
-}
-
-func (pl *Player) IsRideable() bool {
-	return false
 }
 
 func (pl *Player) GetName() string {

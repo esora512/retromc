@@ -3,6 +3,7 @@ package packets
 import (
 	"math"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/player"
@@ -243,6 +244,44 @@ func NewTeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, wor
 
 const maxRelDelta = 127
 
+func NewMobPositionAndRotationPacketV2(e level.Entity, m constants.MovementState) []byte {
+	//log.Printf("Spider Pos&Rot Pkt x=%f, y=%f, z=%f (Id=%d)", x, y, z, m.EntityId)
+	encX := int32(math.Floor(m.X * 32))
+	encY := int32(math.Floor(m.Y * 32))
+	encZ := int32(math.Floor(m.Z * 32))
+
+	dX := encX - int32(math.Floor(m.PrevX*32))
+	dY := encY - int32(math.Floor(m.PrevY*32))
+	dZ := encZ - int32(math.Floor(m.PrevZ*32))
+	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
+	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
+
+	if dX < -maxRelDelta || dX > maxRelDelta ||
+		dY < -maxRelDelta || dY > maxRelDelta ||
+		dZ < -maxRelDelta || dZ > maxRelDelta {
+
+		p := TeleportEntityPacket{
+			EntityId: e.GetEntityId(),
+			X:        encX,
+			Y:        encY,
+			Z:        encZ,
+			Yaw:      byte(dYaw),
+			Pitch:    byte(dPitch),
+		}
+		return p.Serialize()
+	}
+
+	p := EntityPositionAndRotationPacket{
+		EntityId: e.GetEntityId(),
+		X:        byte(dX),
+		Y:        byte(dY),
+		Z:        byte(dZ),
+		Yaw:      byte(dYaw),
+		Pitch:    byte(dPitch),
+	}
+	return p.Serialize()
+}
+
 func NewMobPositionAndRotationPacket(m *level.Mob, x, y, z, yaw, pitch float64) []byte {
 	//log.Printf("Spider Pos&Rot Pkt x=%f, y=%f, z=%f (Id=%d)", x, y, z, m.EntityId)
 	encX := int32(math.Floor(x * 32))
@@ -322,8 +361,6 @@ func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch f
 	}
 	return p.Serialize()
 }
-
-
 
 func NewPlayerPositionPacket(pl *player.Player, x, y, z float64, world *level.World) []byte {
 	encX := int32(math.Floor(x * 32))

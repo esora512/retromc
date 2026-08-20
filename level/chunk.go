@@ -361,8 +361,6 @@ const (
 	Maze
 )
 
-func (d *DroppedItem) IsBlock() bool { return false }
-
 type DroppedItem struct {
 	EntityId    int32
 	ItemId      int32
@@ -376,6 +374,14 @@ type DroppedItem struct {
 
 	DespawnIn     int
 	MovementState constants.MovementState
+}
+
+func (d *DroppedItem) GetEntityType() constants.EntityType {
+	return constants.DroppedItem
+}
+
+func (d *DroppedItem) GetMovementState() *constants.MovementState {
+	return &d.MovementState
 }
 
 func (d *DroppedItem) Despawn() bool {
@@ -406,19 +412,12 @@ func (d *DroppedItem) GetPosition() (float64, float64, float64) {
 
 func (d *DroppedItem) SetPosition(x, y, z float64) {}
 
-func (d *DroppedItem) IsRideable() bool { return false }
-
-func (d *DroppedItem) IsPlayer() bool { return false }
-
-func (d *DroppedItem) IsMob() bool { return false }
-
 func (d *DroppedItem) GetLoggedIn() bool { return false }
 
 func (d *DroppedItem) GetDim() int32 { return d.Dim }
 
 func (d *DroppedItem) GetVelocity() (float64, float64, float64) { return d.VelX, d.VelY, d.VelZ }
 
-func (d *DroppedItem) IsItem() bool { return true }
 
 type ChunkLogic struct {
 	Growables    map[BlockKey]Growable

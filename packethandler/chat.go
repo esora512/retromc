@@ -327,7 +327,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "entities":
 				entities := world.SnapshotEntities()
 				for _, e := range entities {
-					if !e.IsPlayer() {
+					if e.GetEntityType() != constants.Player {
 						e.SetHP(0)
 					}
 				}
@@ -357,8 +357,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 			}
 			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
-			s := world.SpawnSpider(x, y, z, pl.Dimension, -1)
-			tracker.AddForAll(world, s)
+			world.SpawnSpider(x, y, z, pl.Dimension, -1)
 		}
 
 		if strings.HasPrefix(message, "/time") {
@@ -401,7 +400,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				entities := world.SnapshotEntities()
 				lines := []string{"Players:"}
 				for _, e := range entities {
-					if e.IsPlayer() {
+					if e.GetEntityType() == constants.Player {
 						x, y, z := e.GetPosition()
 						lines = append(lines, fmt.Sprintf("  [%d] HP=%d at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), e.GetHP(), x, y, z))
 					}
