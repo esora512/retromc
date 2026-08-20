@@ -147,6 +147,37 @@ type World struct {
 	newRotationPacket func(w *World, e Entity, m constants.MovementState) []byte
 	newPositionPacket func(w *World, e Entity, m constants.MovementState) []byte
 	newMobPositionAndRotationOrTeleportPacket func(e Entity, m constants.MovementState) []byte
+
+	spawnPlayer func(pl *player.Player) []byte
+	spawnObject func(e Entity) []byte
+	spawnMob func(m *Mob) []byte
+	spawnItem func(d *DroppedItem) []byte
+	despawnEntity func(id int32) []byte
+	setEquipment func(pl *player.Player, send func([]byte) (int, error))
+}
+
+func (w *World) SetSpawnPlayer(f func(pl *player.Player) []byte) {
+	w.spawnPlayer = f
+}
+
+func (w *World) SetSpawnObject(f func(e Entity) []byte) {
+	w.spawnObject = f
+}
+
+func (w *World) SetSpawnMob(f func(m *Mob) []byte) {
+	w.spawnMob = f
+}
+
+func (w *World) SetSpawnItem(f func(m *DroppedItem) []byte) {
+	w.spawnItem = f
+}
+
+func (w *World) SetDespawnEntity(f func(id int32) []byte) {
+	w.despawnEntity = f
+}
+
+func (w *World) SetSendEquipment(f func(pl *player.Player, send func([]byte) (int, error))) {
+	w.setEquipment = f 
 }
 
 func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e Entity, m constants.MovementState) []byte) {

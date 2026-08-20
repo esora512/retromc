@@ -10,41 +10,24 @@ import (
 )
 
 type EntityTracker struct {
-	SpawnPlayer   func(pl *player.Player) []byte
-	SpawnObject   func(e Entity) []byte
-	SpawnMob      func(m *Mob) []byte
-	DespawnEntity func(id int32) []byte
-	SpawnItem     func(d *DroppedItem) []byte
-	SetEquipment  func(pl *player.Player, send func([]byte) (int, error))
-	visible       map[int32]map[int32]bool
-	Mu            sync.Mutex
+	visible map[int32]map[int32]bool
+	Mu      sync.Mutex
 }
 
-func NewEntityTracker(
-	spawnPlayer func(pl *player.Player) []byte,
-	spawnObject func(e Entity) []byte,
-	spawnMob func(m *Mob) []byte,
-	spawnItem func(d *DroppedItem) []byte,
-	despawnEntity func(id int32) []byte,
-	setEquipment func(pl *player.Player, send func([]byte) (int, error)),
-) *EntityTracker {
+func NewEntityTracker() *EntityTracker {
 	return &EntityTracker{
-		SpawnPlayer:   spawnPlayer,
-		SpawnObject:   spawnObject,
-		SpawnMob:      spawnMob,
-		SpawnItem:     spawnItem,
-		DespawnEntity: despawnEntity,
-		SetEquipment:  setEquipment,
-		visible:       make(map[int32]map[int32]bool),
+		visible: make(map[int32]map[int32]bool),
 	}
 }
 
+// Use case: Server has to resend entity packets if the viewer died & respawned, so client has them again
 func (et *EntityTracker) ResetViewer(playerID int32) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	delete(et.visible, playerID)
 }
 
+// Clears the entity server side, so if it is still present in w.Entities, it gets re-spawned
 func (et *EntityTracker) ResetEntity(id int32) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
@@ -54,25 +37,25 @@ func (et *EntityTracker) ResetEntity(id int32) {
 	}
 }
 
-func (et *EntityTracker) Add(playerId int32, otherId int32) {
-	et.Mu.Lock()
-	defer et.Mu.Unlock()
-	if et.visible[playerId] == nil {
-		et.visible[playerId] = make(map[int32]bool)
-	}
-	et.visible[playerId][otherId] = true
-}
+// func (et *EntityTracker) Add(playerId int32, otherId int32) {
+// 	et.Mu.Lock()
+// 	defer et.Mu.Unlock()
+// 	if et.visible[playerId] == nil {
+// 		et.visible[playerId] = make(map[int32]bool)
+// 	}
+// 	et.visible[playerId][otherId] = true
+// }
 
-func (et *EntityTracker) AddForAll(w *World, otherId int32) {
-	et.Mu.Lock()
-	defer et.Mu.Unlock()
-	for p := range w.Players {
-		if et.visible[p] == nil {
-			et.visible[p] = make(map[int32]bool)
-		}
-		et.visible[p][otherId] = true
-	}
-}
+// func (et *EntityTracker) AddForAll(w *World, otherId int32) {
+// 	et.Mu.Lock()
+// 	defer et.Mu.Unlock()
+// 	for p := range w.Players {
+// 		if et.visible[p] == nil {
+// 			et.visible[p] = make(map[int32]bool)
+// 		}
+// 		et.visible[p][otherId] = true
+// 	}
+// }
 
 func (et *EntityTracker) Despawn(w *World, id int32) {
 	et.Mu.Lock()
@@ -82,7 +65,7 @@ func (et *EntityTracker) Despawn(w *World, id int32) {
 	}
 	et.Mu.Unlock()
 
-	w.BroadcastPacket(et.DespawnEntity(id))
+	w.BroadcastPacket(w.despawnEntity(id))
 }
 
 type Entity interface {
@@ -233,19 +216,19 @@ func (et *EntityTracker) Manage(w *World) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					viewer.Connection.Write(et.SpawnPlayer(t))
-					et.SetEquipment(t, viewer.Connection.Write)
+					viewer.Connection.Write(w.spawnPlayer(t))
+					w.setEquipment(t, viewer.Connection.Write)
 
 				case c.Ridable:
-					viewer.Connection.Write(et.SpawnObject(target))
+					viewer.Connection.Write(w.spawnObject(target))
 
 				case c.Mob:
 					t, _ := target.(*Mob)
-					viewer.Connection.Write(et.SpawnMob(t))
+					viewer.Connection.Write(w.spawnMob(t))
 
 				case c.DroppedItem:
 					t, _ := target.(*DroppedItem)
-					viewer.Connection.Write(et.SpawnItem(t))
+					viewer.Connection.Write(w.spawnItem(t))
 					sendVelocityIfChanged(viewer, target, target.GetMovementState())
 				}
 				et.visible[viewerID][targetID] = true
@@ -255,7 +238,7 @@ func (et *EntityTracker) Manage(w *World) {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock:
 					despawn := !inRange || !alive || shouldDespawn(target)
 					if despawn {
-						viewer.Connection.Write(et.DespawnEntity(targetID))
+						viewer.Connection.Write(w.despawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
 						if targetType == c.Mob || targetType == c.Ridable || targetType == c.FallingBlock {
@@ -265,9 +248,10 @@ func (et *EntityTracker) Manage(w *World) {
 					continue
 
 				default:
-					viewer.Connection.Write(et.DespawnEntity(targetID))
-					delete(et.visible[viewerID], targetID)
-					w.RemoveEntity(targetID)
+					continue
+					// viewer.Connection.Write(et.DespawnEntity(targetID))
+					// delete(et.visible[viewerID], targetID)
+					// w.RemoveEntity(targetID)
 				}
 			}
 		}

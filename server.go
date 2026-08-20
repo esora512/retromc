@@ -90,13 +90,14 @@ func main() {
 
 	world.SetOppedUsernames(ops)
 
-	entityTracker := level.NewEntityTracker(packets.NewSpawnPlayerPacket, 
-											packets.NewSpawnObjectPacket, 
-											packets.SpawnMob, 
-											packets.NewSpawnItem, 
-											packets.NewEntityDespawnPacket, 
-											packets.SetEquipment2)
+	entityTracker := level.NewEntityTracker()
 
+	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
+	world.SetSpawnObject(packets.NewSpawnObjectPacket)
+	world.SetSpawnMob(packets.SpawnMob)
+	world.SetSpawnItem(packets.NewSpawnItem)
+	world.SetSendEquipment(packets.SetEquipment2)
+	world.SetDespawnEntity(packets.NewEntityDespawnPacket)
 
 	gameLoop(world, entityTracker)
 	// go func() {
