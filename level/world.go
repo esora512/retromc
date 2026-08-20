@@ -63,7 +63,7 @@ func (w *World) MulticastEntityVelocity(entityId int32, vx, vy, vz float64) {
 	}
 }
 
-func (w *World) MulticastToInRange(source Entity, data []byte) {
+func (w *World) MulticastToInRange(source constants.Entity, data []byte) {
 	const distance = VIEW_DISTANCE * 8
 	oX, _, oZ := source.GetPosition()
 	sDim := source.GetDim()
@@ -83,8 +83,8 @@ func (w *World) MulticastToInRange(source Entity, data []byte) {
 	}
 }
 
-func (w *World) SnapshotEntities() []Entity {
-	snapshot := make([]Entity, 0, len(w.Entities))
+func (w *World) SnapshotEntities() []constants.Entity {
+	snapshot := make([]constants.Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
 		snapshot = append(snapshot, e)
 	}
@@ -104,7 +104,7 @@ type World struct {
 	Tick           int64
 	TimeTick       int64
 	Players        map[int32]*player.Player
-	Entities       map[int32]Entity
+	Entities       map[int32]constants.Entity
 	EntityCount    int32
 	WorldType      WorldType
 	Scheduler      BlockUpdateScheduler
@@ -119,12 +119,12 @@ type World struct {
 	Seed            int64
 	sleepers        map[int32]int
 
-	broadcastPositionAndRotation    func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
+	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	collectItem                     func(itemId, collectorId int32) []byte
 	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
 	broadcastEntityVelocity         func(w *World, entityId int32, vx, vy, vz float64)
 	broascastDespawn                func(w *World, id int32)
-	broadcastTeleport               func(w *World, c Entity, cx, cy, cz float64, yaw byte)
+	broadcastTeleport               func(w *World, c constants.Entity, cx, cy, cz float64, yaw byte)
 	broadcastContainerData          func(w *World, windowId byte, itemType, itemValue int16)
 	broadcastSetSlot                func(w *World, windowId byte, slot int16, item inventory.Item)
 	broadcastMultiBlockChange       func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
@@ -142,14 +142,14 @@ type World struct {
 	sendSetHealth func(conn net.Conn, hp uint16)
 	broadcastPain func(w *World, entityId int32)
 
-	newPositionAndRotationOrTeleportPacket func(w *World, e Entity, m constants.MovementState) []byte
-	newTeleportPacket func(w *World, e Entity, m constants.MovementState) []byte
-	newRotationPacket func(w *World, e Entity, m constants.MovementState) []byte
-	newPositionPacket func(w *World, e Entity, m constants.MovementState) []byte
-	newMobPositionAndRotationOrTeleportPacket func(e Entity, m constants.MovementState) []byte
+	newPositionAndRotationOrTeleportPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
+	newTeleportPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
+	newRotationPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
+	newPositionPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
+	newMobPositionAndRotationOrTeleportPacket func(e constants.Entity, m constants.MovementState) []byte
 
 	spawnPlayer func(pl *player.Player) []byte
-	spawnObject func(e Entity) []byte
+	spawnObject func(e constants.Entity) []byte
 	spawnMob func(m *Mob) []byte
 	spawnItem func(d *DroppedItem) []byte
 	despawnEntity func(id int32) []byte
@@ -160,7 +160,7 @@ func (w *World) SetSpawnPlayer(f func(pl *player.Player) []byte) {
 	w.spawnPlayer = f
 }
 
-func (w *World) SetSpawnObject(f func(e Entity) []byte) {
+func (w *World) SetSpawnObject(f func(e constants.Entity) []byte) {
 	w.spawnObject = f
 }
 
@@ -180,23 +180,23 @@ func (w *World) SetSendEquipment(f func(pl *player.Player, send func([]byte) (in
 	w.setEquipment = f 
 }
 
-func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newMobPositionAndRotationOrTeleportPacket = f
 }
 
-func (w *World) SetNewRotationPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewRotationPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
 	w.newPositionPacket = f
 }
 
-func (w *World) SetNewPositionPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewPositionPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
 	w.newRotationPacket = f
 }
 
-func (w *World) SetNewTeleportPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewTeleportPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
 	w.newTeleportPacket = f
 }
 
-func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(w *World, e Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
 	w.newPositionAndRotationOrTeleportPacket = f
 }
 
@@ -232,7 +232,7 @@ func (w *World) BroadcastMobSpawn(mobType, meta byte, x, y, z int32, yaw, pitch 
 	w.broadcastMobSpawn(w, mobType, meta, x, y, z, yaw, pitch, dim, entityId)
 }
 
-func (w *World) GetEntity(id int32) (Entity, bool) {
+func (w *World) GetEntity(id int32) (constants.Entity, bool) {
 	if e, ok := w.Entities[id]; ok {
 		return e, ok
 	}
@@ -271,7 +271,7 @@ func (w *World) BroadcastSetSlot(windowId byte, slot int16, item inventory.Item)
 	w.broadcastSetSlot(w, windowId, slot, item)
 }
 
-func (w *World) BroadcastTeleport(c Entity, cx, cy, cz float64, yaw byte) {
+func (w *World) BroadcastTeleport(c constants.Entity, cx, cy, cz float64, yaw byte) {
 	w.broadcastTeleport(w, c, cx, cy, cz, yaw)
 }
 
@@ -279,7 +279,7 @@ func (w *World) BroadcastDespawn(id int32) {
 	w.broascastDespawn(w, id)
 }
 
-func (w *World) BroadcastPositionAndRotation(c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+func (w *World) BroadcastPositionAndRotation(c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	w.broadcastPositionAndRotation(w, c, prevX, prevY, prevZ, nextX, nextY, nextZ, yaw)
 }
 
@@ -295,7 +295,7 @@ func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item
 	w.sendSetSlot(connection, windowId, slot, item)
 }
 
-func (w *World) SetBroadcastPositionAndRotation(f func(w *World, c Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
+func (w *World) SetBroadcastPositionAndRotation(f func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)) {
 	w.broadcastPositionAndRotation = f
 }
 
@@ -315,7 +315,7 @@ func (w *World) SetBroadcastDespawn(f func(world *World, id int32)) {
 	w.broascastDespawn = f
 }
 
-func (w *World) SetBroadcastTeleport(f func(w *World, c Entity, cx, cy, cz float64, yaw byte)) {
+func (w *World) SetBroadcastTeleport(f func(w *World, c constants.Entity, cx, cy, cz float64, yaw byte)) {
 	w.broadcastTeleport = f
 }
 
@@ -389,7 +389,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		nChunks:     make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
-		Entities:    make(map[int32]Entity),
+		Entities:    make(map[int32]constants.Entity),
 		TickSpeed:   1,
 		Containers: Containers{
 			Chests:     make(map[BlockKey]*inventory.Chest),
@@ -545,7 +545,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 	w.Entities[int32(entityId)] = &r
 }
 
-func (w *World) AddEntity(e Entity) {
+func (w *World) AddEntity(e constants.Entity) {
 	w.Entities[e.GetEntityId()] = e
 }
 

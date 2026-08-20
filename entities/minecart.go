@@ -17,8 +17,6 @@ var railDirs = [10][2][3]int{
 	9: {{0, 0, -1}, {1, 0, 0}},
 }
 
-type GetEntity func(eId int32)
-
 type PlayerPosition struct {
 	X, Y, Z  float64
 	EntityId int32

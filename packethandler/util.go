@@ -283,7 +283,7 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 
 // Use teleport packet to obtain absolute control over minecart
 // Too bad at math to get it to work with relative positions and mimicking client-side calculations...
-func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
+func BroadcastTeleport(w *level.World, c constants.Entity, cx, cy, cz float64, yaw byte) {
 	tpkt := packets.TeleportEntityPacket{
 		EntityId: c.GetEntityId(),
 		X:        int32(math.Floor(cx * 32)),
@@ -295,7 +295,7 @@ func BroadcastTeleport(w *level.World, c level.Entity, cx, cy, cz float64, yaw b
 	w.BroadcastPacket(tpkt.Serialize())
 }
 
-func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64, yaw byte) {
+func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz float64, yaw byte) {
 	tpkt := packets.TeleportEntityPacket{
 		EntityId: c.GetEntityId(),
 		X:        int32(math.Floor(cx * 32)),
@@ -325,7 +325,7 @@ func BroadcastTeleportPlayer(w *level.World, c level.Entity, cx, cy, cz float64,
 	}
 }
 
-func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
+func BroadcastPosition(w *level.World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
 	encPrevZ := int32(math.Floor(prevZ * 32))
@@ -352,7 +352,7 @@ func BroadcastPosition(w *level.World, c level.Entity, prevX, prevY, prevZ, next
 	w.BroadcastPacket(p.Serialize())
 }
 
-func NewTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+func NewTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 	tpkt := packets.TeleportEntityPacket{
@@ -366,7 +366,7 @@ func NewTeleportPacket(w *level.World, e level.Entity, m constants.MovementState
 	return tpkt.Serialize()
 }
 
-func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+func NewPositionOrTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
 	encPrevY := int32(math.Floor(m.PrevY * 32))
 	encPrevZ := int32(math.Floor(m.PrevZ * 32))
@@ -400,7 +400,7 @@ func NewPositionOrTeleportPacket(w *level.World, e level.Entity, m constants.Mov
 	return p.Serialize()
 }
 
-func NewRotationPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+func NewRotationPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 
@@ -412,7 +412,7 @@ func NewRotationPacket(w *level.World, e level.Entity, m constants.MovementState
 	return p.Serialize()
 }
 
-func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m constants.MovementState) []byte {
+func NewPositionAndRotationOrTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
 	encPrevY := int32(math.Floor(m.PrevY * 32))
 	encPrevZ := int32(math.Floor(m.PrevZ * 32))
@@ -447,7 +447,7 @@ func NewPositionAndRotationOrTeleportPacket(w *level.World, e level.Entity, m co
 	return p.Serialize()
 }
 
-func BroadcastPositionAndRotation(w *level.World, c level.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
+func BroadcastPositionAndRotation(w *level.World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
 	encPrevX := int32(math.Floor(prevX * 32))
 	encPrevY := int32(math.Floor(prevY * 32))
 	encPrevZ := int32(math.Floor(prevZ * 32))

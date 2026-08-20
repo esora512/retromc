@@ -244,7 +244,7 @@ func NewTeleportPlayerPacket(pl *player.Player, x, y, z, yaw, pitch float64, wor
 
 const maxRelDelta = 127
 
-func NewMobPositionAndRotationPacketV2(e level.Entity, m constants.MovementState) []byte {
+func NewMobPositionAndRotationPacketV2(e constants.Entity, m constants.MovementState) []byte {
 	//log.Printf("Spider Pos&Rot Pkt x=%f, y=%f, z=%f (Id=%d)", x, y, z, m.EntityId)
 	encX := int32(math.Floor(m.X * 32))
 	encY := int32(math.Floor(m.Y * 32))

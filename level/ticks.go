@@ -126,7 +126,6 @@ func (w *World) CollectNearbyItems() {
 			collect := w.CollectItem(d.EntityId, int32(pl.GetEntityId()))
 			w.BroadcastPacket(collect)
 			w.RemoveEntity(d.EntityId)
-			//tracker.Remove(d.EntityId)
 			break
 		}
 	}

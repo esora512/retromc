@@ -190,7 +190,7 @@ const (
 	knockbackVertical          = 0.4
 )
 
-func applyKnockback(w *level.World, attacker, victim level.Entity) {
+func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 	aX, _, aZ := attacker.GetPosition()
 	viX, _, viZ := victim.GetPosition()
 	dx := aX - viX

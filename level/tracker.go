@@ -68,28 +68,13 @@ func (et *EntityTracker) Despawn(w *World, id int32) {
 	w.BroadcastPacket(w.despawnEntity(id))
 }
 
-type Entity interface {
-	GetName() string
-	GetPosition() (float64, float64, float64)
-	SetPosition(x, y, z float64)
-	GetEntityId() int32
-	SetHP(hp int16)
-	GetHP() int16
-	GetLoggedIn() bool
-	GetDim() int32
-	GetVelocity() (float64, float64, float64)
-	Despawn() bool
-	GetMovementState() *c.MovementState
-	GetEntityType() c.EntityType
-}
-
 func (et *EntityTracker) Manage(w *World) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	const distance = VIEW_DISTANCE * 8
 
 	despawnResults := make(map[int32]bool)
-	shouldDespawn := func(target Entity) bool {
+	shouldDespawn := func(target c.Entity) bool {
 		id := target.GetEntityId()
 		if res, ok := despawnResults[id]; ok {
 			return res
@@ -99,7 +84,7 @@ func (et *EntityTracker) Manage(w *World) {
 		return res
 	}
 
-	sendVelocityIfChanged := func(viewer *player.Player, target Entity, ms *c.MovementState) {
+	sendVelocityIfChanged := func(viewer *player.Player, target c.Entity, ms *c.MovementState) {
 		if ms.VelocityChanged {
 			p := w.newEntityVelocityPacket(target.GetEntityId(), ms.VelocityX, ms.VelocityY, ms.VelocityZ)
 			viewer.Connection.Write(p)
@@ -165,6 +150,11 @@ func (et *EntityTracker) Manage(w *World) {
 						p := w.newMobPositionAndRotationOrTeleportPacket(t, *ms)
 						viewer.Connection.Write(p)
 						ms.PositionAndRotationChanged = false
+					}
+					if ms.VelocityChanged {
+						p := w.newEntityVelocityPacket(t.GetEntityId(), ms.VelocityX, ms.VelocityY, ms.VelocityZ)
+						viewer.Connection.Write(p)
+						ms.VelocityChanged = false
 					}
 
 				// case c.Player:

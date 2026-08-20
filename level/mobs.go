@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/leNicDev/retromc/constants"
 	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/player"
 )
@@ -57,7 +58,6 @@ func (m *Mob) Despawn() bool {
 	return false
 }
 
-
 func (m *Mob) ApplyKnockback(vx, vy, vz float64) {
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.KnockbackTicks = 6
@@ -74,7 +74,6 @@ func (m *Mob) GetPosition() (float64, float64, float64) {
 func (m *Mob) SetPosition(x, y, z float64) {
 	m.X, m.Y, m.Z = x, y, z
 }
-
 
 func (m *Mob) GetEntityId() int32 {
 	return m.EntityId
@@ -390,8 +389,16 @@ func (m *Mob) moveTowardTarget(w *World) {
 	onGround := belowBlock.IsSolid() && vy <= 0
 	newY, vy, onGround = m.resolveGroundCollision(w, newX, newY, newZ, vy)
 
+	m.MovementState.X = newX
+	m.MovementState.Y = newY
+	m.MovementState.Z = newZ
+	m.MovementState.PrevX = m.X
+	m.MovementState.PrevY = m.Y
+	m.MovementState.PrevZ = m.Z
+	m.MovementState.Yaw = float32(yaw)
+	m.MovementState.Pitch = float32(pitch)
+	m.MovementState.PositionAndRotationChanged = false
 	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
-	//w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -399,7 +406,7 @@ func (m *Mob) moveTowardTarget(w *World) {
 	m.SetYawPitch(yaw, pitch)
 }
 
-func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
+func (m *Mob) performAttack(w *World, t constants.Entity, dx, dy, dz float64) {
 	const lungeSpeed = 0.55
 	const lungeUp = 0.50
 
@@ -421,6 +428,21 @@ func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
 	newX := mx + vx
 	newY := my + vy
 	newZ := mz + vz
+
+	m.MovementState.X = newX
+	m.MovementState.Y = newY
+	m.MovementState.Z = newZ
+	m.MovementState.PrevX = m.X
+	m.MovementState.PrevY = m.Y
+	m.MovementState.PrevZ = m.Z
+	m.MovementState.Yaw = float32(yaw)
+	m.MovementState.Pitch = float32(pitch)
+	m.MovementState.PositionAndRotationChanged = false 
+
+	m.MovementState.VelocityX = vx
+	m.MovementState.VelocityY = vy
+	m.MovementState.VelocityZ = vz
+	m.MovementState.VelocityChanged = false
 
 	w.MulticastMobPositionAndRotation(m, newX, newY, newZ, yaw, pitch)
 	w.MulticastEntityVelocity(m.EntityId, vx, vy, vz)
@@ -450,7 +472,6 @@ func (m *Mob) performAttack(w *World, t Entity, dx, dy, dz float64) {
 func (m *Mob) GetVelocity() (float64, float64, float64) {
 	return m.Vx, m.Vy, m.Vz
 }
-
 
 func (m *Mob) AttackSpeed() int32 {
 	switch m.MobType {
@@ -538,9 +559,6 @@ func computeYawPitch(dx, dy, dz float64) (yaw, pitch float64) {
 func (m *Mob) SetYawPitch(yawDeg, pitchDeg float64) {
 	m.Yaw = byte(int32(yawDeg*256/360) & 0xFF)
 	m.Pitch = byte(int32(pitchDeg*256/360) & 0xFF)
-
-	m.MovementState.Yaw = float32(m.Yaw)
-	m.MovementState.Pitch = float32(m.Pitch)
 }
 
 func (m *Mob) StopDistance() float64 {

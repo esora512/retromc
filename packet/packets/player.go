@@ -3,6 +3,7 @@ package packets
 import (
 	"math"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
@@ -166,7 +167,7 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
-func NewSpawnObjectPacket(e level.Entity) []byte {
+func NewSpawnObjectPacket(e constants.Entity) []byte {
 	// NOTE: Bad practice but we wing it...
 	rideable, _ := e.(*entities.RideableEntity)
 	p := SpawnObjectPacket{
