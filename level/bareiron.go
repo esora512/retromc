@@ -480,7 +480,7 @@ func applySnowToTrees(chunk *Chunk, anchors []chunkAnchor) {
 
 				above := chunk.GetBlock(x, y+1, z)
 				if above.IsAir() {
-					chunk.SetBlock(x, y+1, z, NewSnowLayerBlock())
+					chunk.SetBlock(x, y+1, z, constants.NewSnowLayerBlock())
 				}
 				break
 			}

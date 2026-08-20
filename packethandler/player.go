@@ -28,8 +28,8 @@ const (
 
 type fluidPlacement struct {
 	bucketId     int16
-	isFluidBlock func(*level.Block) bool
-	newBlock     level.Block
+	isFluidBlock func(*constants.WBlock) bool
+	newBlock     constants.WBlock
 }
 
 func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
@@ -390,7 +390,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 
 	removeMinedBlockEntity(world, p, oldBlock)
 
-	air := level.NewAirBlock()
+	air := constants.NewAirBlock()
 
 	above := world.GetBlock(p.X, p.Y+1, p.Z, pl.Dimension)
 	if above.IsSnowLayer() {
@@ -454,7 +454,7 @@ func dropHeldItemStack(connection net.Conn, world *level.World, pl *player.Playe
 	DropItemFromPlayer(world, pl, typeId, metadata, 1)
 }
 
-func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock level.Block) bool {
+func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock constants.WBlock) bool {
 	finishedDigging := p.Status == 2 || (pl.IsCreative && p.Status == 0)
 	if pl.Inventory.Items[pl.HotbarSlot].IsShovel() && oldBlock.TypeId == byte(constants.SnowLayer.Value) {
 		return true
@@ -487,7 +487,7 @@ func damageHeldItemOnDig(pl *player.Player) {
 	}
 }
 
-func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock level.Block) {
+func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock) {
 	if oldBlock.TypeId == byte(constants.Chest.Value) {
 		world.RemoveChest(p.X, int32(p.Y), p.Z)
 	}
@@ -501,7 +501,7 @@ func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBl
 	}
 }
 
-func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock level.Block, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
+func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
 	blockMeta = oldBlock.Metadata
@@ -621,7 +621,7 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock le
 			if above.TypeId != oldBlock.TypeId {
 				break
 			}
-			air := level.NewAirBlock()
+			air := constants.NewAirBlock()
 			world.SetBlockInQueue(p.X, int32(aboveY), p.Z, air, pl.Dimension)
 			count++
 		}
@@ -714,7 +714,7 @@ func tryPlaceBoatNoTarget(connection net.Conn, world *level.World, pl *player.Pl
 	return true
 }
 
-func interactWithBed(oldExisting *level.Block, world *level.World, pl *player.Player, p packets.PlaceBlockPacket) bool {
+func interactWithBed(oldExisting *constants.WBlock, world *level.World, pl *player.Player, p packets.PlaceBlockPacket) bool {
 	if oldExisting.IsBed() {
 		var hX, hZ int32
 		if oldExisting.IsBedHead() {
@@ -888,7 +888,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
-	block := level.NewBlockById(p.ItemId, byte(item.Metadata))
+	block := constants.NewBlockById(p.ItemId, byte(item.Metadata))
 	//log.Printf("Placing block: TypeId=%d Meta=%d at (%d, %d, %d)", block.TypeId, block.Metadata, newX, newY, newZ)
 	if heldItem.TypeId == -1 {
 		return
@@ -924,14 +924,14 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	finalizePlacement(connection, world, pl, block, newX, newY, newZ, p, slot)
 }
 
-func logPlacementDebug(pl *player.Player, oldExisting level.Block) {
+func logPlacementDebug(pl *player.Player, oldExisting constants.WBlock) {
 	if !pl.DebugBlock {
 		return
 	}
 	sendDebugMessage(pl, fmt.Sprintf("Block type=%d meta=%d, light=%d, skylight=%d", oldExisting.TypeId, oldExisting.Metadata, oldExisting.Light, oldExisting.SkyLight))
 }
 
-func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Player, p packets.PlaceBlockPacket, oldExisting level.Block) bool {
+func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Player, p packets.PlaceBlockPacket, oldExisting constants.WBlock) bool {
 	if oldExisting.TypeId == byte(constants.CraftingTable.Value) {
 		cp := packets.NewCraftingTable()
 		connection.Write(cp.Serialize())
@@ -1146,7 +1146,7 @@ func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.P
 		return
 	}
 	face := int32(p.Face)
-	trapDoor := level.NewTrapdoorBlock(0)
+	trapDoor := constants.NewTrapdoorBlock(0)
 	facing := facingFromFace(face)
 	trapDoor.Metadata = trapDoorMeta(false, facing)
 	world.SetBlockInQueue(x, y, z, trapDoor, pl.Dimension)
@@ -1164,13 +1164,13 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 		y = int32(p.Y)
 	}
 
-	var bottomDoor, topDoor level.Block
+	var bottomDoor, topDoor constants.WBlock
 	if typeId == int32(constants.WoodenDoorItem.Value) {
-		bottomDoor = level.NewWoodenDoorBlock()
-		topDoor = level.NewWoodenDoorBlock()
+		bottomDoor = constants.NewWoodenDoorBlock()
+		topDoor = constants.NewWoodenDoorBlock()
 	} else {
-		bottomDoor = level.NewIronDoorBlock()
-		topDoor = level.NewIronDoorBlock()
+		bottomDoor = constants.NewIronDoorBlock()
+		topDoor = constants.NewIronDoorBlock()
 	}
 
 	facing := facingFromFace(face)
@@ -1224,7 +1224,7 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 		face = yawToFace(pl.Yaw)
 	}
 
-	bed := level.NewBedBlock(0)
+	bed := constants.NewBedBlock(0)
 	directions := bed.GetDirections()
 	var headDir byte
 	var dx, dz int32
@@ -1250,8 +1250,8 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 		dx, dz = 0, 1
 	}
 
-	footBlock := level.NewBedBlock(headDir)
-	headBlock := level.NewBedBlock(headDir | 0x8)
+	footBlock := constants.NewBedBlock(headDir)
+	headBlock := constants.NewBedBlock(headDir | 0x8)
 
 	var y int32 = int32(p.Y + 1)
 
@@ -1269,7 +1269,7 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 }
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, heldItem inventory.Item) {
-	fire := level.NewFireBlock()
+	fire := constants.NewFireBlock()
 	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire, pl.Dimension)
 	if !crafting.HasDurability(heldItem.TypeId) {
 		return
@@ -1285,11 +1285,11 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket
 	}
 }
 
-func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting level.Block, heldItem inventory.Item, dim int32) bool {
+func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting constants.WBlock, heldItem inventory.Item, dim int32) bool {
 	if (oldExisting.TypeId != byte(constants.Dirt.Value) && oldExisting.TypeId != byte(constants.Grass.Value)) || !heldItem.IsHoe() {
 		return false
 	}
-	tilled := level.NewBlockById(constants.Farmland.Value, 0)
+	tilled := constants.NewBlockById(constants.Farmland.Value, 0)
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled, dim)
 	return true
 }
@@ -1320,7 +1320,7 @@ func placementTargetCoords(p packets.PlaceBlockPacket, w *level.World, dim int32
 	return newX, newY, newZ
 }
 
-func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, oldExisting level.Block, heldItem inventory.Item) bool {
+func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, oldExisting constants.WBlock, heldItem inventory.Item) bool {
 	rule, ok := level.PlantRules[heldItem.TypeId]
 	if !ok {
 		return false
@@ -1346,11 +1346,11 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 	return true
 }
 
-func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, existing level.Block, heldItem inventory.Item) bool {
+func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, existing constants.WBlock, heldItem inventory.Item) bool {
 	if !existing.IsLiquid() || heldItem.TypeId != constants.Bucket.Value {
 		return false
 	}
-	air := level.NewAirBlock()
+	air := constants.NewAirBlock()
 	world.SetBlockInQueue(newX, int32(newY), newZ, air, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	var bucketItem inventory.Item
@@ -1364,7 +1364,7 @@ func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player
 	return true
 }
 
-func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int, newZ int32, dim int32) {
+func placeRailBlock(world *level.World, block *constants.WBlock, newX int32, newY int, newZ int32, dim int32) {
 	railIds := map[byte]bool{
 		byte(constants.Rail.Value):         true,
 		byte(constants.PoweredRail.Value):  true,
@@ -1438,7 +1438,7 @@ func placeRailBlock(world *level.World, block *level.Block, newX int32, newY int
 	recalcRail(x-1, y, z) // west
 }
 
-func configureDirectionalBlock(world *level.World, pl *player.Player, block *level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlaceBlockPacket) bool {
+func configureDirectionalBlock(world *level.World, pl *player.Player, block *constants.WBlock, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlaceBlockPacket) bool {
 	if block.TypeId == byte(constants.Chest.Value) {
 		check := world.PlaceChest(int32(newX), int32(newY), int32(newZ))
 		if !check {
@@ -1543,10 +1543,10 @@ func tryPlaceBoat(connection net.Conn, world *level.World, pl *player.Player, ne
 	}
 }
 
-func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, heldItem inventory.Item, slot int16) bool {
+func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player.Player, block constants.WBlock, newX int32, newY int, newZ int32, heldItem inventory.Item, slot int16) bool {
 	for _, fp := range []fluidPlacement{
-		{constants.WaterBucket.Value, func(b *level.Block) bool { return b.IsWater() }, level.NewStillWaterBlock(0)},
-		{constants.LavaBucket.Value, func(b *level.Block) bool { return b.IsLava() }, level.NewStillLavaBlock(0)},
+		{constants.WaterBucket.Value, func(b *constants.WBlock) bool { return b.IsWater() }, constants.NewStillWaterBlock(0)},
+		{constants.LavaBucket.Value, func(b *constants.WBlock) bool { return b.IsLava() }, constants.NewStillLavaBlock(0)},
 	} {
 		if !fp.isFluidBlock(&block) && heldItem.TypeId != fp.bucketId {
 			continue
@@ -1567,7 +1567,7 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 	return false
 }
 
-func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block level.Block, newX int32, newY int, newZ int32, p packets.PlaceBlockPacket, slot int16) {
+func finalizePlacement(connection net.Conn, world *level.World, pl *player.Player, block constants.WBlock, newX int32, newY int, newZ int32, p packets.PlaceBlockPacket, slot int16) {
 	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)

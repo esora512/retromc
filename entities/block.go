@@ -118,7 +118,7 @@ func (b *BlockEntity) GetHP() int16 {
 	return -1
 }
 
-func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) BlockInfo) {
+func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) constants.WBlock) {
 	if e.Landed {
 		return
 	}
@@ -137,7 +137,7 @@ func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) BlockInfo) {
 	groundY := int32(math.Floor(newY))
 	if groundY >= 1 {
 		beneath := getBlock(int32(e.X), byte(groundY-1), int32(e.Z))
-		if beneath.IsSolid {
+		if beneath.IsSolid() {
 			e.Landed = true
 			e.Y = float64(groundY)
 			e.VelocityY = 0

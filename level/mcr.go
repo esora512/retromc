@@ -333,7 +333,7 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 		for lz := 0; lz < 16; lz++ {
 			for y := 0; y < CHUNK_HEIGHT; y++ {
 				idx := lx*CHUNK_HEIGHT*16 + lz*CHUNK_HEIGHT + y
-				b := Block{
+				b := constants.WBlock{
 					TypeId:   blocks[idx],
 					Metadata: getNibble(data, idx),
 					SkyLight: getNibble(skyLight, idx),

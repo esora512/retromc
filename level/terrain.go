@@ -1,5 +1,7 @@
 package level
 
+import "github.com/leNicDev/retromc/constants"
+
 // IMPORTANT: This is AI-generated code; should be used as working placeholder  unitl world gen is better understood
 
 const (
@@ -121,7 +123,7 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 		}
 	}
 
-	setBlock := func(lx, ly, lz int, block Block) {
+	setBlock := func(lx, ly, lz int, block constants.WBlock) {
 		i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
 		blockTypes[i] = block.TypeId
 		ni := i / 2
@@ -139,18 +141,18 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
 			for ly := 0; ly < MAZE_FLOOR_Y; ly++ {
-				setBlock(lx, ly, lz, NewBedrockBlock())
+				setBlock(lx, ly, lz, constants.NewBedrockBlock())
 			}
 
 			corridor := open[lx][lz]
 			for h := 0; h < MAZE_HEIGHT; h++ {
 				ly := MAZE_FLOOR_Y + h
-				var block Block
+				var block constants.WBlock
 				if corridor {
-					block = NewAirBlock()
+					block = constants.NewAirBlock()
 					block.SkyLight = 0x0f
 				} else {
-					block = NewBedrockBlock()
+					block = constants.NewBedrockBlock()
 				}
 				setBlock(lx, ly, lz, block)
 			}

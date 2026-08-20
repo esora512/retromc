@@ -328,6 +328,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
+			pl.Immune = 150
 		} else {
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))

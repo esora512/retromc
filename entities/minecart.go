@@ -17,20 +17,15 @@ var railDirs = [10][2][3]int{
 	9: {{0, 0, -1}, {1, 0, 0}},
 }
 
-type BlockInfo struct {
-	IsRail        bool
-	IsPoweredRail bool
-	IsSolid       bool
-	Metadata      int
-	IsWater       bool
+type GetEntity func(eId int32)
+
+type PlayerPosition struct {
+	X, Y, Z  float64
+	EntityId int32
 }
 
-type GetBlockFunc func(x int32, y byte, z int32, dim int32) BlockInfo
-
-type PlayerPosition struct{ X, Y, Z float64; EntityId int32 }
-
 func (cart *RideableEntity) TickMinecart(
-	getBlock GetBlockFunc,
+	getBlock GetBlock,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	const maxSpeed = 0.4
 
@@ -42,12 +37,12 @@ func (cart *RideableEntity) TickMinecart(
 
 	// check one below, like the original
 	block := getBlock(bx, byte(by-1), bz, cart.Dimension)
-	if block.IsRail {
+	if block.IsRail() {
 		by--
 	}
 
 	block = getBlock(bx, byte(by), bz, cart.Dimension)
-	if !block.IsRail {
+	if !block.IsRail() {
 		return 0, 0, 0, 0, Despawned
 	}
 
@@ -69,7 +64,7 @@ func (cart *RideableEntity) TickMinecart(
 
 	// strip powered-rail activation bit to get shape meta
 	meta := block.Metadata
-	if block.IsPoweredRail {
+	if block.IsPoweredRail() {
 		meta &= 7
 	}
 
@@ -123,7 +118,7 @@ func (cart *RideableEntity) TickMinecart(
 	var nextX, nextZ float64
 
 	// Powered rail boost / braking
-	if block.IsPoweredRail {
+	if block.IsPoweredRail() {
 		isActivated := true
 		// TODO: When redstone is implemented, uncomment line below
 		//isActivated := (block.Metadata & 8) != 0
@@ -131,6 +126,9 @@ func (cart *RideableEntity) TickMinecart(
 			if speed > 0.01 {
 				cart.VelocityX += cart.VelocityX / speed * 0.06
 				cart.VelocityZ += cart.VelocityZ / speed * 0.06
+
+				cart.MovementState.VelocityX = cart.VelocityX
+				cart.MovementState.VelocityZ = cart.VelocityZ
 			}
 		} else {
 			// brake — unpowered powered rail
@@ -138,16 +136,25 @@ func (cart *RideableEntity) TickMinecart(
 				cart.VelocityX = 0
 				cart.VelocityY = 0
 				cart.VelocityZ = 0
+
+				cart.MovementState.VelocityX = cart.VelocityX
+				cart.MovementState.VelocityZ = cart.VelocityZ
 			} else {
 				cart.VelocityX *= 0.5
 				cart.VelocityY = 0
 				cart.VelocityZ *= 0.5
+
+				cart.MovementState.VelocityX = cart.VelocityX
+				cart.MovementState.VelocityZ = cart.VelocityZ
 			}
 		}
 	}
 
 	cart.VelocityX = clamp(cart.VelocityX, -maxSpeed, maxSpeed)
 	cart.VelocityZ = clamp(cart.VelocityZ, -maxSpeed, maxSpeed)
+
+	cart.MovementState.VelocityX = cart.VelocityX
+	cart.MovementState.VelocityZ = cart.VelocityZ
 
 	nextX = cx + cart.VelocityX
 	nextZ = cz + cart.VelocityZ
@@ -162,12 +169,18 @@ func (cart *RideableEntity) TickMinecart(
 		if speed > 0 {
 			cart.VelocityX = cart.VelocityX / speed * (speed + slope)
 			cart.VelocityZ = cart.VelocityZ / speed * (speed + slope)
+
+			cart.MovementState.VelocityX = cart.VelocityX
+			cart.MovementState.VelocityZ = cart.VelocityZ
 		}
 	} else {
 		// stop cart when it is about to go off-rails
 		cart.VelocityX = 0
 		cart.VelocityZ = 0
 		cart.VelocityY = 0
+
+		cart.MovementState.VelocityX = cart.VelocityX
+		cart.MovementState.VelocityZ = cart.VelocityZ
 		return cx, cy, cz, 0, Stopped
 	}
 
@@ -175,6 +188,9 @@ func (cart *RideableEntity) TickMinecart(
 	cart.VelocityX *= 0.96
 	cart.VelocityZ *= 0.96
 	cart.VelocityY = 0 // Y motion zeroed while on rail
+
+	cart.MovementState.VelocityX = cart.VelocityX
+	cart.MovementState.VelocityZ = cart.VelocityZ
 
 	if math.Abs(cart.VelocityX) < 0.001 {
 		cart.VelocityX = 0
@@ -202,23 +218,23 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
-func getRailPos(bInfo GetBlockFunc, px, py, pz float64, dim int32) (float64, float64, float64, bool) {
+func getRailPos(bInfo GetBlock, px, py, pz float64, dim int32) (float64, float64, float64, bool) {
 	bx := int32(math.Floor(px))
 	by := int32(math.Floor(py))
 	bz := int32(math.Floor(pz))
 
 	block := bInfo(bx, byte(by-1), bz, dim)
-	if block.IsRail {
+	if block.IsRail() {
 		by--
 	} else {
 		block = bInfo(bx, byte(by), bz, dim)
-		if !block.IsRail {
+		if !block.IsRail() {
 			return 0, 0, 0, false
 		}
 	}
 
 	meta := int(block.Metadata)
-	if block.IsPoweredRail {
+	if block.IsPoweredRail() {
 		meta &= 7
 	}
 

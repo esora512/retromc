@@ -12,7 +12,7 @@ const (
 	MaxFluidSpreadHeight = 7
 )
 
-func fluidDelay(b *Block, decay bool) int64 {
+func fluidDelay(b *constants.WBlock, decay bool) int64 {
 	if decay {
 		if b.IsWater() {
 			return 1
@@ -44,7 +44,7 @@ var lateralNeighbors = []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}
 var oppositeLateralNeighbour = []int{1, 0, 3, 2}
 
 // Required because Update trigger is called in package packethandler; cannot import SetBlock due to cycle.
-type SetBlock func(x, y, z int32, block Block, dim int32)
+type SetBlock func(x, y, z int32, block constants.WBlock, dim int32)
 
 type BlockUpdate struct {
 	X, Y, Z   int32
@@ -175,7 +175,7 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	if foundLog {
 		return
 	} else {
-		air := NewAirBlock()
+		air := constants.NewAirBlock()
 		maybeSnow := w.GetBlock(u.X, byte(u.Y+1), u.Z, u.Dimension)
 		if maybeSnow.IsSnowLayer() {
 			u.SetBlock(u.X, u.Y+1, u.Z, air, u.Dimension)
@@ -213,7 +213,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 		return
 	}
 
-	air := NewAirBlock()
+	air := constants.NewAirBlock()
 	u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
 
 	if !w.areaLoaded(u.X, u.Z, fallingBlockSafeRadius, u.Dimension) {
@@ -274,12 +274,12 @@ func (w *World) TriggerLeafUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
 	notifyLeafNeighbours(w, x, y, z, setBlock, dim)
 }
 
-func recomputeFluid(w *World, u *BlockUpdate, b Block) {
+func recomputeFluid(w *World, u *BlockUpdate, b constants.WBlock) {
 	isSource := b.IsStillWater() || b.IsStillLava()
 
 	if !isSource && b.IsWater() {
 		if hasSolidSupport(w, u.X, u.Y, u.Z, u.Dimension) && countAdjacentWaterSources(w, u.X, u.Y, u.Z, u.Dimension) >= 2 {
-			source := NewStillWaterBlock(0)
+			source := constants.NewStillWaterBlock(0)
 			u.SetBlock(u.X, u.Y, u.Z, source, u.Dimension)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 			return
@@ -289,18 +289,18 @@ func recomputeFluid(w *World, u *BlockUpdate, b Block) {
 	if !isSource {
 		newLevel, hasSupport := idealFluidLevel(w, u.X, u.Y, u.Z, u.Dimension)
 		if !hasSupport {
-			air := NewAirBlock()
+			air := constants.NewAirBlock()
 			u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 			return
 		}
 		if newLevel != int(b.Metadata) {
-			var updated Block
+			var updated constants.WBlock
 			if b.IsWater() {
-				updated = NewFlowingWaterBlock(byte(newLevel))
+				updated = constants.NewFlowingWaterBlock(byte(newLevel))
 			}
 			if b.IsLava() {
-				updated = NewFlowingLavaBlock(byte(newLevel))
+				updated = constants.NewFlowingLavaBlock(byte(newLevel))
 			}
 			u.SetBlock(u.X, u.Y, u.Z, updated, u.Dimension)
 			b = updated
@@ -349,19 +349,19 @@ func idealFluidLevel(w *World, x, y, z int32, dim int32) (int, bool) {
 	return best, true
 }
 
-func trySpread(w *World, x, y, z int32, b Block, setBlock SetBlock, dim int32) {
+func trySpread(w *World, x, y, z int32, b constants.WBlock, setBlock SetBlock, dim int32) {
 	isSource := b.IsStillWater() || b.IsStillLava()
 	level := 0
 	if !isSource {
 		level = int(b.Metadata)
 	}
 
-	var flowing Block
+	var flowing constants.WBlock
 	if b.IsWater() {
-		flowing = NewFlowingWaterBlock(0)
+		flowing = constants.NewFlowingWaterBlock(0)
 	}
 	if b.IsLava() {
-		flowing = NewFlowingLavaBlock(0)
+		flowing = constants.NewFlowingLavaBlock(0)
 	}
 	fedBelow := trySpreadInto(w, x, y-1, z, flowing, setBlock, dim)
 
@@ -384,12 +384,12 @@ func trySpread(w *World, x, y, z int32, b Block, setBlock SetBlock, dim int32) {
 	}
 
 	for _, d := range spreadDirections(w, x, y, z, dim) {
-		var flowing Block
+		var flowing constants.WBlock
 		if b.IsWater() {
-			flowing = NewFlowingWaterBlock(byte(newLevel))
+			flowing = constants.NewFlowingWaterBlock(byte(newLevel))
 		}
 		if b.IsLava() {
-			flowing = NewFlowingLavaBlock(byte(newLevel))
+			flowing = constants.NewFlowingLavaBlock(byte(newLevel))
 		}
 		trySpreadInto(w, x+d.dx, y, z+d.dz, flowing, setBlock, dim)
 	}
@@ -481,7 +481,7 @@ func isOpenBelow(w *World, x, y, z int32, dim int32) bool {
 	return b.IsAir()
 }
 
-func trySpreadInto(w *World, x, y, z int32, flowing Block, setBlock SetBlock, dim int32) bool {
+func trySpreadInto(w *World, x, y, z int32, flowing constants.WBlock, setBlock SetBlock, dim int32) bool {
 	if y < 0 || y > 255 || !w.IsLoaded(x, z, dim) {
 		return false
 	}
@@ -521,19 +521,19 @@ func lavaTouchesWater(w *World, x, y, z int32, dim int32) bool {
 	return false
 }
 
-func tryHardenLava(w *World, x, y, z int32, b Block, setBlock SetBlock, dim int32) bool {
+func tryHardenLava(w *World, x, y, z int32, b constants.WBlock, setBlock SetBlock, dim int32) bool {
 	if !lavaTouchesWater(w, x, y, z, dim) {
 		return false
 	}
 
 	if b.IsStillLava() {
-		obsidian := NewObsidianBlock()
+		obsidian := constants.NewObsidianBlock()
 		setBlock(x, y, z, obsidian, dim)
 	} else {
 		if b.Metadata > 4 {
 			return false
 		}
-		cobble := NewCobblestoneBlock()
+		cobble := constants.NewCobblestoneBlock()
 		setBlock(x, y, z, cobble, dim)
 	}
 
@@ -564,7 +564,7 @@ func hasSolidSupport(w *World, x, y, z int32, dim int32) bool {
 	return !below.IsAir() && !below.IsFluid()
 }
 
-func isFluidReplaceable(b Block) bool {
+func isFluidReplaceable(b constants.WBlock) bool {
 	return b.IsAir() ||
 		b.IsSnowLayer() ||
 		b.TypeId == byte(constants.Fire.Value) ||

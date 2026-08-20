@@ -492,7 +492,7 @@ func printCallStack() {
 }
 
 // SetBlock updates a single block in the world using world-space coordinates.
-func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block, dim int32) {
+func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constants.WBlock, dim int32) {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, dim)
@@ -505,7 +505,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block Block, d
 	w.SetGrowable(block, key, dim)
 }
 
-func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) Block {
+func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) constants.WBlock {
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, dim)
@@ -601,7 +601,7 @@ type QueueBlock struct {
 	Dim      int32
 }
 
-func (w *World) SetBlockInQueue(x, y, z int32, block Block, dim int32) {
+func (w *World) SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32) {
 	w.SetBlock(x, byte(y), z, block, dim)
 
 	if w.blockQueue == nil {

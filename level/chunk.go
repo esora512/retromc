@@ -68,19 +68,19 @@ func (c *Chunk) GenerateTemplate() {
 		isBorder := x == 0 || x == CHUNK_SIZE_X-1 || z == 0 || z == CHUNK_SIZE_Z-1
 		//isCenter := x == 7 && z == 7
 
-		var block Block
+		var block constants.WBlock
 		if y >= GROUND_LEVEL-GROUND_DEPTH && y < GROUND_LEVEL {
-			block = NewStoneBlock()
+			block = constants.NewStoneBlock()
 			if y == GROUND_LEVEL-1 {
 				if isBorder {
-					block = NewStoneBlock()
+					block = constants.NewStoneBlock()
 				} else {
-					block = NewGrassBlock()
+					block = constants.NewGrassBlock()
 				}
 				block.SkyLight = 0x0f
 			}
 		} else {
-			block = NewAirBlock()
+			block = constants.NewAirBlock()
 		}
 		blockTypes[i] = block.TypeId
 
@@ -179,7 +179,7 @@ func (c *Chunk) relightAll() {
 // lx, ly, lz are local (0-based) coordinates within the chunk.
 // The Data layout mirrors generate(): blockTypes | blockMetadata | blockLight | blockSkyLight,
 // with nibble arrays packed two 4-bit values per byte.
-func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
+func (c *Chunk) SetBlock(lx, ly, lz int, block constants.WBlock) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 
@@ -204,7 +204,7 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block Block) {
 	c.relightColumn(lx, lz)
 }
 
-func (c *Chunk) GetBlock(lx, ly, lz int) Block {
+func (c *Chunk) GetBlock(lx, ly, lz int) constants.WBlock {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
 
@@ -217,7 +217,7 @@ func (c *Chunk) GetBlock(lx, ly, lz int) Block {
 		metadata = (c.Data[metaOffset+ni] >> 4) & 0x0f
 	}
 
-	return Block{TypeId: c.Data[i], Metadata: metadata}
+	return constants.WBlock{TypeId: c.Data[i], Metadata: metadata}
 }
 
 func NewChunk() Chunk {
@@ -322,11 +322,11 @@ func (c *Chunk) GenerateSkyGrid() {
 		isSkyGridBlock := (mod(worldX, 3) == 0) && (mod(worldZ, 3) == 0) && (y%4 == 0)
 		//isSkyGridBlock := (worldX%2 == 0) && (worldZ%2 == 0) && (y%4 == 0)
 
-		var block Block
+		var block constants.WBlock
 		if isSkyGridBlock {
-			block = NewRandomBlock()
+			block = constants.NewRandomBlock()
 		} else {
-			block = NewAirBlock()
+			block = constants.NewAirBlock()
 		}
 		block.SkyLight = 0x0f
 

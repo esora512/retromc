@@ -33,6 +33,7 @@ type RideableEntity struct {
 	ShouldDespawn bool
 
 	MovementState constants.MovementState
+	getBlock      GetBlock
 }
 
 func (r *RideableEntity) GetEntityType() constants.EntityType {
@@ -42,7 +43,6 @@ func (r *RideableEntity) GetEntityType() constants.EntityType {
 func (r *RideableEntity) GetMovementState() *constants.MovementState {
 	return &r.MovementState
 }
-
 
 func (r *RideableEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
 	r.MovementState.X = nextX
@@ -82,7 +82,6 @@ func (r *RideableEntity) GetVelocity() (float64, float64, float64) {
 	return r.VelocityX, r.VelocityY, r.VelocityZ
 }
 
-
 func (r *RideableEntity) GetDim() int32 {
 	return r.Dimension
 }
@@ -111,7 +110,6 @@ func (r *RideableEntity) GetPosition() (float64, float64, float64) {
 	return r.X, r.Y, r.Z
 }
 
-
 func (r *RideableEntity) GetName() string {
 	return fmt.Sprintf("Entity %d", r.EntityId)
 }
@@ -125,7 +123,7 @@ const (
 )
 
 func (e *RideableEntity) Tick(
-	getBlock GetBlockFunc,
+	getBlock GetBlock,
 	players []PlayerPosition,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	if e.HP <= 0 {

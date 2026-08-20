@@ -76,7 +76,7 @@ var PlantRules = map[int16]PlantRule{
 	constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
 }
 
-func (w *World) SetGrowable(block Block, bk BlockKey, dim int32) {
+func (w *World) SetGrowable(block constants.WBlock, bk BlockKey, dim int32) {
 	chunk := w.GetLoadedChunk(bk.X, bk.Z, dim)
 	if chunk == nil {
 		return
@@ -204,7 +204,7 @@ func (s *GrowableDirt) Grow(w *World, bk *BlockKey) {
 		}
 	}
 	if connectedToGrass {
-		grass := NewBlockById(constants.Grass.Value, byte(s.Dimension))
+		grass := constants.NewBlockById(constants.Grass.Value, byte(s.Dimension))
 		w.SetBlock(bk.X, bk.Y, bk.Z, grass, s.Dimension)
 		w.BroadcastBlockChange(bk.X, int32(bk.Y), bk.Z, grass.TypeId, grass.Metadata)
 	}
@@ -228,7 +228,7 @@ func (c *Wheat) Grow(w *World, bk *BlockKey) {
 	if c.State < CROP_MAX_STATE {
 		c.State += 1
 	}
-	crop := NewBlockById(constants.Wheat.Value, c.State)
+	crop := constants.NewBlockById(constants.Wheat.Value, c.State)
 	w.SetBlock(bk.X, bk.Y, bk.Z, crop, 0)
 	w.BroadcastBlockChange(bk.X, int32(bk.Y), bk.Z, crop.TypeId, crop.Metadata)
 }
@@ -248,7 +248,7 @@ func (c *Sugarcane) Grow(w *World, bk *BlockKey) {
 		return
 	}
 
-	cane := NewBlockById(constants.Sugarcane.Value, 1)
+	cane := constants.NewBlockById(constants.Sugarcane.Value, 1)
 	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cane, c.Dim())
 	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cane.TypeId, cane.Metadata)
 }
@@ -268,20 +268,20 @@ func (c *Cactus) Grow(w *World, bk *BlockKey) {
 		return
 	}
 
-	cactus := NewBlockById(constants.Cactus.Value, 1)
+	cactus := constants.NewBlockById(constants.Cactus.Value, 1)
 	w.SetBlock(bk.X, byte(baseY+height), bk.Z, cactus, c.Dim())
 	w.BroadcastBlockChange(bk.X, int32(baseY+height), bk.Z, cactus.TypeId, cactus.Metadata)
 }
 
 func (s *Sapling) Grow(w *World, bk *BlockKey) {
-	log := NewBlockById(constants.Log.Value, s.WoodType)
+	log := constants.NewBlockById(constants.Log.Value, s.WoodType)
 	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {
 		w.SetBlock(bk.X, bk.Y+byte(i), bk.Z, log, s.Dim())
 		w.BroadcastBlockChange(bk.X, int32(bk.Y)+int32(i), bk.Z, log.TypeId, log.Metadata)
 	}
 
-	leaves := NewBlockById(constants.Leaves.Value, s.WoodType)
+	leaves := constants.NewBlockById(constants.Leaves.Value, s.WoodType)
 	topY := bk.Y + byte(trunkHeight-3) // one above the last log
 
 	// layer offsets: [dy] = list of (dx, dz) to place
@@ -330,8 +330,8 @@ func (s *Sapling) Grow(w *World, bk *BlockKey) {
 	delete(logic.Growables, *bk)
 }
 
-func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte, dim int32) *Block {
-	growable := NewBlockById(typeId, meta)
+func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte, dim int32) *constants.WBlock {
+	growable := constants.NewBlockById(typeId, meta)
 	w.SetBlock(x, y, z, growable, dim)
 	return &growable
 }

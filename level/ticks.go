@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/leNicDev/retromc/constants"
 	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -152,17 +153,11 @@ func (world *World) FallingBlocksPhysics() {
 			falling.VelocitySent = true
 		}
 
-		falling.Tick(func(x int32, y byte, z int32) entities.BlockInfo {
-			b := world.GetBlock(x, y, z, falling.Dimension)
-			return entities.BlockInfo{
-				IsSolid:  !b.IsAir() && !b.IsLiquid() && !b.IsSnowLayer(),
-				Metadata: int(b.Metadata),
-			}
-		})
+		falling.Tick(func(x int32, y byte, z int32) constants.WBlock {return world.GetBlock(x, y, z, falling.Dimension)})
 
 		if falling.Landed && falling.Y >= 0 {
 			falling.ShouldDespawn = true
-			block := NewBlockById(falling.TypeId, falling.Metadata)
+			block := constants.NewBlockById(falling.TypeId, falling.Metadata)
 			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block, falling.Dimension)
 		}
 	}
@@ -194,7 +189,7 @@ func (world *World) instaFallAt(x, z, startY int32, typeId int16, metadata byte,
 		y--
 	}
 
-	block := NewBlockById(typeId, metadata)
+	block := constants.NewBlockById(typeId, metadata)
 	world.SetBlockInQueue(x, y, z, block, dim)
 }
 
@@ -237,15 +232,9 @@ func (world *World) RidablePhysics(tacker *EntityTracker) {
 		}
 	}
 
-	getBlock := func(x int32, y byte, z int32, dim int32) entities.BlockInfo {
+	getBlock := func(x int32, y byte, z int32, dim int32) constants.WBlock {
 		b := world.GetBlock(x, y, z, dim)
-		return entities.BlockInfo{
-			IsRail:        b.IsRail(),
-			IsPoweredRail: b.IsPoweredRail(),
-			IsSolid:       !b.IsAir() && !b.IsLiquid(),
-			Metadata:      int(b.Metadata),
-			IsWater:       b.IsWater(),
-		}
+		return b
 	}
 	for _, ridable := range ridables {
 		cx, cy, cz := ridable.GetPosition()
@@ -289,11 +278,11 @@ func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool, dim int32) {
 	return func(x, y, z int16, lit bool, dim int32) {
 		oldBlock := w.GetBlock(int32(x), byte(y), int32(z), dim)
 
-		var newBlock Block
+		var newBlock constants.WBlock
 		if lit {
-			newBlock = NewLitFurnaceBlock(oldBlock.Metadata)
+			newBlock = constants.NewLitFurnaceBlock(oldBlock.Metadata)
 		} else {
-			newBlock = NewFurnaceBlock(oldBlock.Metadata)
+			newBlock = constants.NewFurnaceBlock(oldBlock.Metadata)
 		}
 		w.SetBlockInQueue(int32(x), int32(y), int32(z), newBlock, dim)
 	}

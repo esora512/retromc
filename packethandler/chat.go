@@ -217,7 +217,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
 				return false
 			}
-			block := level.NewBlockById(b.Value, byte(b.Meta))
+			block := constants.NewBlockById(b.Value, byte(b.Meta))
 
 			world.SetBlockInQueue(x, y, z, block, pl.Dimension)
 			sendDebugMessage(pl, fmt.Sprintf("Placed %s at x=%d, y=%d, z=%d", blockName, x, y, z))
@@ -286,7 +286,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendUsage(pl, "/destroy")
 				return false
 			}
-			air := level.NewAirBlock()
+			air := constants.NewAirBlock()
 			world.SetBlock(x, byte(y), z, air, pl.Dimension)
 			blockChange := packets.SetBlockPacket{
 				X:         x,
@@ -583,7 +583,7 @@ func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string
 		minZ, maxZ = maxZ, minZ
 	}
 
-	block := level.NewBlockById(b.Value, byte(b.Meta))
+	block := constants.NewBlockById(b.Value, byte(b.Meta))
 
 	changes := make(map[[2]int32]*chunkChanges)
 
