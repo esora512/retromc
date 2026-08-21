@@ -15,12 +15,11 @@ type BlockEntity struct {
 	EntityId      int32
 	VelocityY     float64
 	Landed        bool
-	VelocitySent  bool
 	IsFalling     bool
 	Dimension     int32
 	ShouldDespawn bool
 	MovementState constants.MovementState
-	ObjectType byte
+	ObjectType    byte
 }
 
 func (b *BlockEntity) GetEntityType() constants.EntityType {
@@ -35,7 +34,7 @@ func (b *BlockEntity) SetVelocityMovement(vx, vy, vz float64) {
 	b.MovementState.VelocityX = vx
 	b.MovementState.VelocityY = vy
 	b.MovementState.VelocityZ = vz
-	b.MovementState.VelocityChanged = true
+	//b.MovementState.VelocityChanged = true
 }
 
 func (r *BlockEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
@@ -55,21 +54,19 @@ func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte)
 	r.MovementState.Teleported = true
 }
 
-func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32, oType byte) *BlockEntity {
-	return &BlockEntity{
-		EntityId:      entityId,
-		TypeId:        typeId,
-		Metadata:      metadata,
-		X:             int32(x),
-		Y:             float64(y),
-		Z:             int32(z),
-		VelocityY:     0,
-		VelocitySent:  false,
-		IsFalling:     false,
+func NewFallingBlockEntity(eId int32, x int32, y float64, z int32, typeId int16, metadata byte, dim int32, oType byte) *BlockEntity {
+	e := &BlockEntity{
+		EntityId: eId,
+		X:        x, Y: y, Z: z,
+		TypeId: typeId, Metadata: metadata,
 		Dimension:     dim,
+		VelocityY:     0,
+		ObjectType:    oType,
+		IsFalling:     false,
 		ShouldDespawn: false,
-		ObjectType: oType,
 	}
+	e.SetVelocityMovement(0, e.VelocityY, 0)
+	return e
 }
 
 func (b *BlockEntity) Despawn() bool {
@@ -83,7 +80,6 @@ func (b *BlockEntity) Despawn() bool {
 func (b *BlockEntity) GetVelocity() (float64, float64, float64) {
 	return 0, b.VelocityY, 0
 }
-
 
 func (b *BlockEntity) GetDim() int32 {
 	return b.Dimension
@@ -110,7 +106,6 @@ func (b *BlockEntity) SetPosition(x, y, z float64) {
 func (b *BlockEntity) GetEntityId() int32 {
 	return b.EntityId
 }
-
 
 func (b *BlockEntity) SetHP(hp int16) {
 	// No-op

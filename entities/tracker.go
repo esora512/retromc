@@ -151,11 +151,6 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					if teleported {
 						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
 					}
-
-				case c.FallingBlock:
-					if velChanged {
-						viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
-					}
 				}
 			}
 

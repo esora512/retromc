@@ -229,7 +229,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	}
 
 	entityId := w.NextEntityId()
-	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z), u.Dimension, objectType)
+	falling := entities.NewFallingBlockEntity(entityId, u.X, float64(u.Y), u.Z, int16(b.TypeId), byte(b.Metadata), u.Dimension, objectType)
 	w.AddEntity(falling)
 	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock, u.Dimension)
 }

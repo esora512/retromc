@@ -147,12 +147,9 @@ func (world *World) FallingBlocksPhysics() {
 
 		falling.IsFalling = true
 
-		if !falling.VelocitySent {
-			falling.SetVelocityMovement(0, falling.VelocityY, 0)
-			falling.VelocitySent = true
-		}
-
-		falling.Tick(func(x int32, y byte, z int32) constants.WBlock {return world.GetBlock(x, y, z, falling.Dimension)})
+		falling.Tick(func(x int32, y byte, z int32) constants.WBlock {
+			return world.GetBlock(x, y, z, falling.Dimension)
+		})
 
 		if falling.Landed && falling.Y >= 0 {
 			falling.ShouldDespawn = true
