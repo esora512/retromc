@@ -313,7 +313,9 @@ func (w *World) TickSleep() {
 
 func (w *World) TickPlayers() {
 	for _, pl := range w.Players {
-		pl.Immune += 1
+		if pl.Immune >= 0 {
+			pl.Immune--
+		}
 	}
 }
 
@@ -332,7 +334,7 @@ func (w *World) TickMobs(tracker *entities.EntityTracker) {
 }
 
 func (w *World) SendHealth(entityId int32, newHp int16) {
-	pl, ok := w.Players[entityId];
+	pl, ok := w.Players[entityId]
 	if !ok {
 		return
 	}

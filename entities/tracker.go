@@ -134,6 +134,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewAnimationPacket(t, 1))
 					}
 
+					if teleported {
+						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
+					}
+
 					if posAndRotChanged || posChanged || velChanged || rotChanged {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
 						viewer.Connection.Write(w.NewPositionPacket(t, msCopy))

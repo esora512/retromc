@@ -44,7 +44,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.Yaw = 0
 	pl.Pitch = 0
 	pl.OnGround = true
-	pl.Immune = 0
+	pl.Immune = 200
 
 	loc := int32(0)
 	pl.SentChunks = make(player.ChunkSet)
@@ -55,7 +55,8 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.SetHP(20)
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
-	world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
+	//world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
+	pl.MovementState.Teleported = true 
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -131,7 +132,7 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 }
 
 func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
-	if pl.Immune < 200 {
+	if pl.Immune >= 0 {
 		// 10s spawn immunity
 		return
 	}
