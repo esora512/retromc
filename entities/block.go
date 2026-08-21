@@ -37,23 +37,6 @@ func (b *BlockEntity) SetVelocityMovement(vx, vy, vz float64) {
 	//b.MovementState.VelocityChanged = true
 }
 
-func (r *BlockEntity) SetPositionMovement(prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
-	r.MovementState.PrevX = prevX
-	r.MovementState.PrevY = prevY
-	r.MovementState.PrevZ = prevZ
-	r.MovementState.X = nextX
-	r.MovementState.Y = nextY
-	r.MovementState.Z = nextZ
-	r.MovementState.PositionAndRotationChanged = true
-}
-
-func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte) {
-	r.MovementState.X = nextX
-	r.MovementState.Y = nextY
-	r.MovementState.Z = nextZ
-	r.MovementState.Teleported = true
-}
-
 func NewFallingBlockEntity(eId int32, x int32, y float64, z int32, typeId int16, metadata byte, dim int32, oType byte) *BlockEntity {
 	e := &BlockEntity{
 		EntityId: eId,

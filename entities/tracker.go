@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"log"
 	"math"
 	"sync"
 
@@ -118,17 +117,12 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				switch targetType {
 				case c.Player:
 					t, _ := target.(*player.Player)
-					if posAndRotChanged {
+					if posAndRotChanged || posChanged || velChanged || rotChanged {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
-					}
-					if posChanged {
 						viewer.Connection.Write(w.NewPositionPacket(t, msCopy))
-					}
-					if velChanged {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
-					}
-					if rotChanged {
 						viewer.Connection.Write(w.NewRotationPacket(t, msCopy))
+
 					}
 
 				case c.Mob:
@@ -161,7 +155,6 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					log.Printf("Spawning %s for %s", t.Username, viewer.Username)
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 
@@ -199,7 +192,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 
 		// Notify server that information has been sent to clients
-		// TODO: Atm, we disable this since it leads to jank AF client rendering; need to fix this at some point
+		// TODO: For players this is still not working for whatever reason; so we just do not disable it
 		if posAndRotChanged {
 			ms.PositionAndRotationChanged = false
 		}

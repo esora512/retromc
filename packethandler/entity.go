@@ -225,7 +225,7 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 
 	if vPl, ok := victim.(*player.Player); ok {
 		vPl.MovementState.VelocityChanged = true 
-		vPl.MovementState.UntrackPositionAndRotationIn = 3
+		vPl.MovementState.UntrackVelocityIn = 60
 		vPl.MovementState.VelocityX = vX
 		vPl.MovementState.VelocityY = vY
 		vPl.MovementState.VelocityZ = vZ 
