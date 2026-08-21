@@ -72,21 +72,12 @@ func SendSetHealth(connection net.Conn, health uint16) {
 	connection.Write(setHealthPacket.Serialize())
 }
 
-func BroadcastPain(w *level.World, entityId int32) {
+func NewEntityEventPacket(eId int32, action byte) []byte {
 	p := packets.EntityEventPacket{
-		EntityId: entityId,
-		Action:   2,
+		EntityId: eId,
+		Action: action,
 	}
-	w.BroadcastPacket(p.Serialize())
-}
-
-func BroadcastDeath(w *level.World, entityId int32) {
-	p := packets.EntityEventPacket{
-		EntityId: entityId,
-		Action:   3,
-	}
-	w.BroadcastPacket(p.Serialize())
-	log.Printf("Entity %d died", entityId)
+	return p.Serialize()
 }
 
 func outOfBounds(x, z float64) bool {

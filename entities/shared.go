@@ -14,12 +14,13 @@ type WorldShared interface {
 	GetBlock(x int32, y byte, z int32, dim int32) constants.WBlock
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
-	BroadcastPain(entityId int32)
 
 	SpawnPlayerPacket(target constants.Entity) []byte
 	SpawnObjectPacket(target constants.Entity) []byte
 	SpawnMobPacket(target constants.Entity) []byte
 	SpawnItemPacket(target constants.Entity) []byte
+
+	NewEntityEventPacket(e constants.Entity, action byte) []byte
 
 	NewPositionAndRotationOrTeleportPacket(
 		target constants.Entity,

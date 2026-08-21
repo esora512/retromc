@@ -96,6 +96,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		rotChanged := ms.RotChanged()
 		velChanged := ms.VChanged()
 		teleported := ms.Teleported
+		isHurt := ms.IsHurt
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
@@ -113,20 +114,34 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			sameDim := viewer.GetDim() == target.GetDim()
 			inRange := sameDim && dx <= distance && dz <= distance
 
+			if isVisible && !alive {
+				switch targetType {
+				case c.Player, c.Mob:
+					viewer.Connection.Write(w.NewEntityEventPacket(target, 3))
+				}
+			}
+
 			if isVisible && alive {
 				switch targetType {
 				case c.Player:
 					t, _ := target.(*player.Player)
+					if isHurt {
+						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
+					}
+
 					if posAndRotChanged || posChanged || velChanged || rotChanged {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
 						viewer.Connection.Write(w.NewPositionPacket(t, msCopy))
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 						viewer.Connection.Write(w.NewRotationPacket(t, msCopy))
-
 					}
 
 				case c.Mob:
 					t, _ := target.(*Mob)
+					if isHurt {
+						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
+					}
+
 					if posAndRotChanged {
 						viewer.Connection.Write(w.NewMobPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
@@ -136,14 +151,14 @@ func (et *EntityTracker) Manage(w WorldShared) {
 
 				case c.Ridable:
 					t, _ := target.(*RideableEntity)
-					if posAndRotChanged {
+					if isHurt {
+						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
+					}
+					if posAndRotChanged || velChanged || teleported {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
-					}
-					if velChanged {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
-					}
-					if teleported {
 						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
+
 					}
 				}
 			}
@@ -192,7 +207,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 
 		// Notify server that information has been sent to clients
-		// TODO: For players this is still not working for whatever reason; so we just do not disable it
+		// TODO: For players this still seems to be a bit jank though...
 		if posAndRotChanged {
 			ms.PositionAndRotationChanged = false
 		}
@@ -207,6 +222,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 		if posChanged {
 			ms.PositionChanged = false
+		}
+		if isHurt {
+			ms.IsHurt = false
 		}
 	}
 }

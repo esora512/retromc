@@ -107,13 +107,14 @@ type World struct {
 	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
-	broadcastPain func(w *World, entityId int32)
 
 	newPositionAndRotationOrTeleportPacket    func(e constants.Entity, m constants.MovementState) []byte
 	newTeleportPacket                         func(e constants.Entity, m constants.MovementState) []byte
 	newRotationPacket                         func(e constants.Entity, m constants.MovementState) []byte
 	newPositionPacket                         func(e constants.Entity, m constants.MovementState) []byte
 	newMobPositionAndRotationOrTeleportPacket func(e constants.Entity, m constants.MovementState) []byte
+
+	newEntityEventPacket func(eId int32, action byte) []byte
 
 	spawnPlayer   func(pl *player.Player) []byte
 	spawnObject   func(e constants.Entity) []byte
@@ -123,6 +124,13 @@ type World struct {
 	setEquipment  func(pl *player.Player, v *player.Player)
 }
 
+func (w *World) NewEntityEventPacket(e constants.Entity, action byte) []byte {
+	return w.newEntityEventPacket(e.GetEntityId(), action)
+}
+
+func (w *World) SetEntityEventPacket(f func(eId int32, action byte)[]byte) {
+	w.newEntityEventPacket = f
+}
 
 func (w *World) SpawnPlayerPacket(t constants.Entity) []byte {
 	pl, _ := t.(*player.Player)
@@ -236,10 +244,6 @@ func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, m constants.Mo
 }
 
 
-func (w *World) BroadcastPain(entityId int32) {
-	w.broadcastPain(w, entityId)
-}
-
 func (w *World) SendSetHealth(conn net.Conn, health uint16) {
 	w.sendSetHealth(conn, health)
 }
@@ -342,9 +346,6 @@ func (w *World) SetSendSetHealth(f func(connection net.Conn, health uint16)) {
 	w.sendSetHealth = f
 }
 
-func (w *World) SetBroadcastPain(f func(w *World, entityId int32)) {
-	w.broadcastPain = f
-}
 
 func (w *World) SetOppedUsernames(names map[string]bool) {
 	w.OppedUsernames = names

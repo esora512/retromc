@@ -265,10 +265,11 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			SendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
-			BroadcastPain(world, other.GetEntityId())
+			otherPlayer.MovementState.IsHurt = true 
+
 		} else if other.GetEntityType() == constants.Mob {
-			BroadcastPain(world, other.GetEntityId())
 			if mob, ok := other.(*entities.Mob); ok {
+				mob.MovementState.IsHurt = true 
 				mob.SetTargetForced(pl.GetEntityId())
 			}
 		}
@@ -283,12 +284,11 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		}
 
 		if eType == constants.Ridable {
-			BroadcastPain(world, other.GetEntityId())
+			r, _ := other.(*entities.RideableEntity)
+			r.MovementState.IsHurt = true 
 		}
 
 		if newHP <= 0 {
-			BroadcastDeath(world, other.GetEntityId())
-
 			if other.GetEntityType() == constants.Player {
 				cMsgPkt := packets.ChatMessagePacket{
 					Message: other.GetName() + " was killed by " + player.Username,
@@ -299,7 +299,9 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				otherPl, _ := world.Players[other.GetEntityId()]
 				otherPl.DespawnIn = 21
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
-				tracker.ResetViewer(other.GetEntityId())
+
+				// NOTE: has to be done so tracker can handle respawn correctly; re-renders entities
+				tracker.ResetViewer(other.GetEntityId()) 
 			}
 
 			if other.GetEntityType() == constants.Ridable {

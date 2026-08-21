@@ -405,7 +405,8 @@ func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float6
 	newHP := oldHP - m.AttackDamage()
 	t.SetHP(newHP)
 	w.SendHealth(t.GetEntityId(), newHP)
-	w.BroadcastPain(t.GetEntityId())
+	ms := t.GetMovementState()
+	ms.IsHurt = true 
 
 	if newHP <= 0 {
 		m.UnsetTarget()
