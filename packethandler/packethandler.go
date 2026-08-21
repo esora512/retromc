@@ -59,7 +59,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.Animation:
 		p := packets.ReadAnimationPacket(packetReader)
 		if p.Animation == 1 {
-			world.MulticastPacket(packets.ArmSwing(pl), pl)
+			pl.MovementState.ArmSwing = true 
 		}
 	case packet.MineBlock:
 		p := packets.ReadPlayerMineBlockPacket(packetReader)

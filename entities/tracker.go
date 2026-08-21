@@ -97,6 +97,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		velChanged := ms.VChanged()
 		teleported := ms.Teleported
 		isHurt := ms.IsHurt
+		armSwung := ms.ArmSwing
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
@@ -127,6 +128,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					t, _ := target.(*player.Player)
 					if isHurt {
 						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
+					}
+
+					if armSwung {
+						viewer.Connection.Write(w.NewAnimationPacket(t, 1))
 					}
 
 					if posAndRotChanged || posChanged || velChanged || rotChanged {
@@ -225,6 +230,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 		if isHurt {
 			ms.IsHurt = false
+		}
+		if armSwung {
+			ms.ArmSwing = false
 		}
 	}
 }

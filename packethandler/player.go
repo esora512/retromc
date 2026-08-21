@@ -363,7 +363,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	if pl.IsRiding != -1 {
 		return
 	}
-	world.MulticastPacket(packets.ArmSwing(pl), pl)
+	pl.MovementState.ArmSwing = true 
 
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
 	if !shouldProcessDigging(p, pl, oldBlock) {

@@ -400,6 +400,14 @@ func NewPositionOrTeleportPacket(e constants.Entity, m constants.MovementState) 
 	return p.Serialize()
 }
 
+func NewAnimationPacket(playerId int32, animation byte) []byte {
+	p := packets.AnimationPacket{
+		PlayerId:  playerId,
+		Animation: animation,
+	}
+	return p.Serialize()
+}
+
 func NewRotationPacket(e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))

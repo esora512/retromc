@@ -115,6 +115,7 @@ type World struct {
 	newMobPositionAndRotationOrTeleportPacket func(e constants.Entity, m constants.MovementState) []byte
 
 	newEntityEventPacket func(eId int32, action byte) []byte
+	newAnimationPacket   func(pId int32, anim byte) []byte
 
 	spawnPlayer   func(pl *player.Player) []byte
 	spawnObject   func(e constants.Entity) []byte
@@ -124,11 +125,19 @@ type World struct {
 	setEquipment  func(pl *player.Player, v *player.Player)
 }
 
+func (w *World) NewAnimationPacket(pl *player.Player, anim byte) []byte {
+	return w.newAnimationPacket(pl.GetEntityId(), anim)
+}
+
+func (w *World) SetNewAnimationPacket(f func(pId int32, anim byte) []byte) {
+	w.newAnimationPacket = f
+}
+
 func (w *World) NewEntityEventPacket(e constants.Entity, action byte) []byte {
 	return w.newEntityEventPacket(e.GetEntityId(), action)
 }
 
-func (w *World) SetEntityEventPacket(f func(eId int32, action byte)[]byte) {
+func (w *World) SetNewEntityEventPacket(f func(eId int32, action byte) []byte) {
 	w.newEntityEventPacket = f
 }
 
@@ -243,7 +252,6 @@ func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, m constants.Mo
 	w.newEntityVelocityPacket = f
 }
 
-
 func (w *World) SendSetHealth(conn net.Conn, health uint16) {
 	w.sendSetHealth(conn, health)
 }
@@ -267,7 +275,6 @@ func (w *World) BroadcastTime(tick int64) {
 	w.broadcastTime(w, tick)
 }
 
-
 func (w *World) BroadcastBlockChange(x, y, z int32, blockType, blockMeta byte) {
 	w.broadcastBlockChange(w, x, y, z, blockType, blockMeta)
 }
@@ -284,11 +291,9 @@ func (w *World) BroadcastSetSlot(windowId byte, slot int16, item inventory.Item)
 	w.broadcastSetSlot(w, windowId, slot, item)
 }
 
-
 func (w *World) BroadcastDespawn(id int32) {
 	w.broascastDespawn(w, id)
 }
-
 
 func (w *World) CollectItem(itemId, collectorId int32) []byte {
 	return w.collectItem(itemId, collectorId)
@@ -297,7 +302,6 @@ func (w *World) CollectItem(itemId, collectorId int32) []byte {
 func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
 	w.sendSetSlot(connection, windowId, slot, item)
 }
-
 
 func (w *World) SetCollectItem(f func(itemId, collectorId int32) []byte) {
 	w.collectItem = f
@@ -310,7 +314,6 @@ func (w *World) SetSendSetSlot(f func(connection net.Conn, windowId byte, slot i
 func (w *World) SetBroadcastDespawn(f func(world *World, id int32)) {
 	w.broascastDespawn = f
 }
-
 
 func (w *World) SetBroadcastContainerData(f func(w *World, windowId byte, itemType, itemValue int16)) {
 	w.broadcastContainerData = f
@@ -332,7 +335,6 @@ func (w *World) SetBroadcastTime(f func(w *World, tick int64)) {
 	w.broadcastTime = f
 }
 
-
 func (w *World) SetBroadcastWakeUp(f func(w *World, id int32)) {
 	w.broadcastWakeUp = f
 }
@@ -341,11 +343,9 @@ func (w *World) SetBroadcastWorldMsg(f func(w *World, msg string)) {
 	w.broadcastWorldMsg = f
 }
 
-
 func (w *World) SetSendSetHealth(f func(connection net.Conn, health uint16)) {
 	w.sendSetHealth = f
 }
-
 
 func (w *World) SetOppedUsernames(names map[string]bool) {
 	w.OppedUsernames = names

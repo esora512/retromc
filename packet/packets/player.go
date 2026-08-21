@@ -124,14 +124,6 @@ func (p *AnimationPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func ArmSwing(pl *player.Player) []byte {
-	p := AnimationPacket{
-		PlayerId:  int32(pl.EntityId),
-		Animation: 1,
-	}
-	return p.Serialize()
-}
-
 func quantizeSpawnVelocity(v float64) int8 {
 	return int8(v * 128.0)
 }

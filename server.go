@@ -61,7 +61,7 @@ func main() {
 	world := level.NewWorld(GitCommit, 0, level.Template)
 
 	// Give world access to packethandler functions due to forbidden import cycles
-	world.SetEntityEventPacket(packethandler.NewEntityEventPacket)
+	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
 
 	world.SetNewMobPositionAndRotationOrTeleportPacket(packets.NewMobPositionAndRotationPacketV2)
 	world.SetNewPositionAndRotationOrTeleportPacket(packethandler.NewPositionAndRotationOrTeleportPacket)
@@ -93,6 +93,8 @@ func main() {
 	world.SetSpawnItem(packets.NewSpawnItem)
 	world.SetSendEquipment(packets.SetEquipment3)
 	world.SetDespawnEntity(packets.NewEntityDespawnPacket)
+
+	world.SetNewAnimationPacket(packethandler.NewAnimationPacket)
 
 	gameLoop(world, entityTracker)
 	// go func() {

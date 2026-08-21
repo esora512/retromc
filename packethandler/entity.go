@@ -332,7 +332,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		return
 	}
 
-	world.MulticastPacket(packets.ArmSwing(pl), pl)
+	pl.MovementState.ArmSwing = true 
 	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {

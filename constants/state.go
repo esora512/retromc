@@ -20,7 +20,8 @@ type MovementState struct {
 	UntrackPositionAndRotationIn int
 	UntrackRotationIn            int
 
-	IsHurt bool
+	IsHurt   bool
+	ArmSwing bool
 }
 
 func (m *MovementState) VChanged() bool {

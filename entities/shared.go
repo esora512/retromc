@@ -20,6 +20,8 @@ type WorldShared interface {
 	SpawnMobPacket(target constants.Entity) []byte
 	SpawnItemPacket(target constants.Entity) []byte
 
+	NewAnimationPacket(pl *player.Player, anim byte) []byte
+
 	NewEntityEventPacket(e constants.Entity, action byte) []byte
 
 	NewPositionAndRotationOrTeleportPacket(
