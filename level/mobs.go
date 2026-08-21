@@ -19,6 +19,7 @@ func NewSpider(w *World, x, y, z float64, dim int32) *e.Mob {
 		OnGround:  true,
 		DespawnIn: -1,
 	}
+	m.MovementState.IsDead = false
 	return &m
 }
 

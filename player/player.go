@@ -155,6 +155,7 @@ type Player struct {
 	IsOp   bool
 
 	DespawnIn     int
+	IsDead bool
 	MovementState constants.MovementState
 }
 
@@ -208,7 +209,7 @@ func NewPlayer(conn net.Conn) *Player {
 		DebugBlock:           false,
 		HP:                   20,
 		Dimension:            0,
-		Immune:               0,
+		Immune:               200,
 		IsOp:                 false,
 		DespawnIn:            -1,
 	}

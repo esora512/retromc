@@ -40,6 +40,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
 	pl.Z = player.SpawnZ
+	pl.MovementState.IsDead = false 
 	pl.Stance = player.SpawnStance
 	pl.Yaw = 0
 	pl.Pitch = 0

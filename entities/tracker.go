@@ -105,6 +105,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		velChanged := ms.VChanged()
 		teleported := ms.Teleported
 		isHurt := ms.IsHurt
+		isDead := ms.IsDead
 		armSwung := ms.ArmSwing
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
@@ -123,7 +124,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			sameDim := viewer.GetDim() == target.GetDim()
 			inRange := sameDim && dx <= distance && dz <= distance
 
-			if isVisible && !alive {
+			if isVisible && !alive && !isDead {
 				switch targetType {
 				case c.Player, c.Mob:
 					viewer.Connection.Write(w.NewEntityEventPacket(target, 3))
@@ -245,6 +246,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 		if armSwung {
 			ms.ArmSwing = false
+		}
+		if !alive {
+			ms.IsDead = true 
 		}
 	}
 }
