@@ -1,7 +1,6 @@
 package packethandler
 
 import (
-	"log"
 	"math"
 	"math/rand"
 
@@ -224,11 +223,11 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 	}
 
 	if vPl, ok := victim.(*player.Player); ok {
-		vPl.MovementState.VelocityChanged = true 
+		vPl.MovementState.VelocityChanged = true
 		vPl.MovementState.UntrackVelocityIn = 60
 		vPl.MovementState.VelocityX = vX
 		vPl.MovementState.VelocityY = vY
-		vPl.MovementState.VelocityZ = vZ 
+		vPl.MovementState.VelocityZ = vZ
 
 		vPl.Connection.Write(ev.Serialize())
 	}
@@ -236,7 +235,6 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 
 func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) {
 	var ok bool
-	log.Printf("%d attacks %d", p.PlayerId, p.EntityId)
 	player, ok := world.Players[p.PlayerId]
 	other, ok := world.Entities[p.EntityId]
 	if !ok {
@@ -246,7 +244,6 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	if p.Attack {
 		oldHP := other.GetHP()
 		item := pl.Inventory.Items[pl.HotbarSlot]
-		log.Printf("%s attacks %s", player.GetName(), other.GetName())
 		dmg := int16(1)
 		given := false
 		if item.TypeId != -1 {
@@ -265,11 +262,11 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			SendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
-			otherPlayer.MovementState.IsHurt = true 
+			otherPlayer.MovementState.IsHurt = true
 
 		} else if other.GetEntityType() == constants.Mob {
 			if mob, ok := other.(*entities.Mob); ok {
-				mob.MovementState.IsHurt = true 
+				mob.MovementState.IsHurt = true
 				mob.SetTargetForced(pl.GetEntityId())
 			}
 		}
@@ -285,7 +282,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 		if eType == constants.Ridable {
 			r, _ := other.(*entities.RideableEntity)
-			r.MovementState.IsHurt = true 
+			r.MovementState.IsHurt = true
 		}
 
 		if newHP <= 0 {
@@ -300,20 +297,19 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				otherPl.DespawnIn = 21
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
 
-				// NOTE: has to be done so tracker can handle respawn correctly; re-renders entities
-				//tracker.ResetViewer(other.GetEntityId()) 
+				tracker.ResetViewerV2(world, other.GetEntityId())
 			}
 
 			if other.GetEntityType() == constants.Ridable {
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
-					ridable.ShouldDespawn = true 
+					ridable.ShouldDespawn = true
 					x, y, z := other.GetPosition()
 					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
-					ridable.ShouldDespawn = true 
+					ridable.ShouldDespawn = true
 					x, y, z := other.GetPosition()
 					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
 				}
@@ -332,7 +328,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		return
 	}
 
-	pl.MovementState.ArmSwing = true 
+	pl.MovementState.ArmSwing = true
 	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {

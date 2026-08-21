@@ -547,6 +547,11 @@ func (w *World) AdvanceTime() {
 	w.BroadcastTime(w.TimeTick)
 }
 
+func (w *World) GetPlayer(pId int32) (*player.Player, bool) {
+	pl, ok := w.Players[pId]
+	return pl, ok
+}
+
 // BroadcastPacket sends raw pre-serialized packet data to all logged-in players.
 func (w *World) BroadcastPacket(data []byte) {
 	for _, pl := range w.Players {

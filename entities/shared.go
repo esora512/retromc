@@ -60,5 +60,7 @@ type WorldShared interface {
 
 	GetPlayers() map[int32]*player.Player
 
+	GetPlayer(pId int32) (*player.Player, bool)
+
 	RemoveEntity(eId int32)
 }

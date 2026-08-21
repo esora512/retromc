@@ -49,15 +49,15 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 
 	loc := int32(0)
 	pl.SentChunks = make(player.ChunkSet)
-	pl.HasInitializedChunks = true
+	pl.HasInitializedChunks = false
 
 	sendRespawn(connection, byte(loc))
 
 	pl.SetHP(20)
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
-	//world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
 	pl.MovementState.Teleported = true
+	updateChunks(world, pl.X, pl.Z, pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {

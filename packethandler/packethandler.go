@@ -87,7 +87,6 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleCloseContainerPacket(p, pl)
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityPacket(packetReader)
-		log.Printf("%+v", p)
 		handleInteractWithEntityPacket(p, pl, world, tracker)
 	case packet.Disconnect:
 		p := packets.ReadDisconnectPacket(packetReader)
