@@ -11,6 +11,7 @@ import (
 	"runtime"
 
 	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/entities"
 	entPack "github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -110,7 +111,7 @@ func handleHelpCommand(pl *player.Player, message string) {
 	sendDebugMessage(pl, fmt.Sprintf("Unknown command: %s", arg))
 }
 
-func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) bool {
+func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) bool {
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
 		// Determine the base command token (e.g. "/tp" from "/tp 1 2 3")

@@ -224,6 +224,26 @@ func SetEquipment2(pl *player.Player, send func([]byte) (int, error)) {
 	}
 }
 
+func SetEquipment3(pl *player.Player) {
+	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
+	data := map[int16]int16{
+		0: heldItem.TypeId,
+		1: pl.Inventory.Items[8].TypeId,
+		2: pl.Inventory.Items[7].TypeId,
+		3: pl.Inventory.Items[6].TypeId,
+		4: pl.Inventory.Items[5].TypeId,
+	}
+	for slot, itemId := range data {
+		p := &SetEquipmentPacket{
+			EntityId:      int32(pl.EntityId),
+			InventorySlot: slot,
+			ItemId:        itemId,
+			ItemMetadata:  0,
+		}
+		pl.Connection.Write(p.Serialize())
+	}
+}
+
 type RespawnPacket struct {
 	World byte
 }

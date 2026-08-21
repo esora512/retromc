@@ -21,7 +21,7 @@ const (
 	bounceFactor    = -0.5
 )
 
-func (w *World) ItemPhysicsTick(tracker *EntityTracker) {
+func (w *World) ItemPhysicsTick(tracker *entities.EntityTracker) {
 	for _, e := range w.Entities {
 		d, ok := e.(*DroppedItem)
 		if !ok {
@@ -31,7 +31,7 @@ func (w *World) ItemPhysicsTick(tracker *EntityTracker) {
 	}
 }
 
-func (w *World) tickDroppedItem(d *DroppedItem, tracker *EntityTracker) {
+func (w *World) tickDroppedItem(d *DroppedItem, tracker *entities.EntityTracker) {
 	if d.PickupDelay > 0 {
 		d.PickupDelay--
 	}
@@ -78,7 +78,7 @@ func (w *World) tickDroppedItem(d *DroppedItem, tracker *EntityTracker) {
 	d.VelY *= 0.9800000190734863
 }
 
-func (w *World) DroppedItemPhysics(tracker *EntityTracker) {
+func (w *World) DroppedItemPhysics(tracker *entities.EntityTracker) {
 	w.CollectNearbyItems()
 	w.ItemPhysicsTick(tracker)
 }
@@ -211,7 +211,7 @@ func maybeSetVelocityMovement(ridable *entities.RideableEntity, vx, vy, vz float
 	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
 }
 
-func (world *World) RidablePhysics(tacker *EntityTracker) {
+func (world *World) RidablePhysics(tacker *entities.EntityTracker) {
 	allEntities := world.SnapshotEntities()
 	var ridables []*entities.RideableEntity
 	var players []entities.PlayerPosition
@@ -292,7 +292,7 @@ func (w *World) TickFurnaces() {
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
-func (w *World) AdvanceTick(nextTick int64, tracker *EntityTracker) {
+func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.Tick = nextTick
 	w.AdvanceTime()
 	w.TickFluids()
@@ -320,7 +320,7 @@ func (w *World) TickPlayers() {
 	}
 }
 
-func (w *World) TickMobs(tracker *EntityTracker) {
+func (w *World) TickMobs(tracker *entities.EntityTracker) {
 	var toRemove []int32
 	for _, e := range w.Entities {
 		if m, ok := e.(*entities.Mob); ok {
@@ -328,6 +328,7 @@ func (w *World) TickMobs(tracker *EntityTracker) {
 				toRemove = append(toRemove, m.EntityId)
 				continue
 			}
+			// TODO: Re-enable
 			m.Move(w)
 		}
 	}
@@ -341,7 +342,7 @@ func (w *World) SendHealth(entityId int32, newHp int16) {
 	w.sendSetHealth(pl.Connection, uint16(newHp))
 }
 
-func (w *World) SpawnSpiders(tracker *EntityTracker) {
+func (w *World) SpawnSpiders(tracker *entities.EntityTracker) {
 	if !w.IsNight() {
 		return
 	}

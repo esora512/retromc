@@ -352,7 +352,7 @@ func BroadcastPosition(w *level.World, c constants.Entity, prevX, prevY, prevZ, 
 	w.BroadcastPacket(p.Serialize())
 }
 
-func NewTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
+func NewTeleportPacket(e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 	tpkt := packets.TeleportEntityPacket{
@@ -366,7 +366,7 @@ func NewTeleportPacket(w *level.World, e constants.Entity, m constants.MovementS
 	return tpkt.Serialize()
 }
 
-func NewPositionOrTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
+func NewPositionOrTeleportPacket(e constants.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
 	encPrevY := int32(math.Floor(m.PrevY * 32))
 	encPrevZ := int32(math.Floor(m.PrevZ * 32))
@@ -400,7 +400,7 @@ func NewPositionOrTeleportPacket(w *level.World, e constants.Entity, m constants
 	return p.Serialize()
 }
 
-func NewRotationPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
+func NewRotationPacket(e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 
@@ -412,7 +412,7 @@ func NewRotationPacket(w *level.World, e constants.Entity, m constants.MovementS
 	return p.Serialize()
 }
 
-func NewPositionAndRotationOrTeleportPacket(w *level.World, e constants.Entity, m constants.MovementState) []byte {
+func NewPositionAndRotationOrTeleportPacket(e constants.Entity, m constants.MovementState) []byte {
 	encPrevX := int32(math.Floor(m.PrevX * 32))
 	encPrevY := int32(math.Floor(m.PrevY * 32))
 	encPrevZ := int32(math.Floor(m.PrevZ * 32))

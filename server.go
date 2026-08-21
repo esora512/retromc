@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/packethandler"
@@ -85,18 +86,17 @@ func main() {
 	world.SetBroadcastMobPositionAndRotation(packets.BroadcastMobPositionAndRotation)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
 	world.SetBroadcastPain(packethandler.BroadcastPain)
-	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
 	world.SetAndCreateAndSetMovementDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
 
 	world.SetOppedUsernames(ops)
 
-	entityTracker := level.NewEntityTracker()
+	entityTracker := entities.NewEntityTracker()
 
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)
 	world.SetSpawnMob(packets.SpawnMob)
 	world.SetSpawnItem(packets.NewSpawnItem)
-	world.SetSendEquipment(packets.SetEquipment2)
+	world.SetSendEquipment(packets.SetEquipment3)
 	world.SetDespawnEntity(packets.NewEntityDespawnPacket)
 
 	gameLoop(world, entityTracker)
@@ -135,7 +135,7 @@ func handleKeepAlive(connection net.Conn, stop chan struct{}) {
 	}()
 }
 
-func handleConnection(connection net.Conn, world *level.World, tracker *level.EntityTracker) {
+func handleConnection(connection net.Conn, world *level.World, tracker *entities.EntityTracker) {
 	pl := player.NewPlayer(connection)
 	done := make(chan struct{})
 	handleKeepAlive(connection, done)
@@ -165,7 +165,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *level.En
 	}
 }
 
-func gameLoop(world *level.World, entityTracker *level.EntityTracker) {
+func gameLoop(world *level.World, entityTracker *entities.EntityTracker) {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()

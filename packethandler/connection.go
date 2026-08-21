@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -37,7 +38,7 @@ func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {
 	}
 }
 
-func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *level.EntityTracker) {
+func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *entities.EntityTracker) {
 	pl.Username = p.Username
 	unlock := world.LockSession(p.Username)
 	defer unlock()

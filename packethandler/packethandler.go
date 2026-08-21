@@ -6,6 +6,7 @@ import (
 
 	"bufio"
 
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 	"github.com/leNicDev/retromc/packet/packets"
@@ -21,7 +22,7 @@ func NewFillContainerPacket(connection net.Conn, pl *player.Player) {
 	connection.Write(windowItemsPacket.Serialize())
 }
 
-func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player, tracker *level.EntityTracker) error {
+func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player, tracker *entities.EntityTracker) error {
 	packetId, err := reader.ReadByte()
 	if err != nil {
 		log.Println("Failed to read packet id:", err.Error())

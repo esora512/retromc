@@ -14,6 +14,43 @@ type MovementState struct {
 
 	Yaw   float32
 	Pitch float32
+
+	UntrackVelocityIn            int
+	UntrackPositionIn            int
+	UntrackPositionAndRotationIn int
+	UntrackRotationIn            int
+}
+
+func (m *MovementState) VChanged() bool {
+	if m.UntrackVelocityIn > 0 {
+		m.UntrackVelocityIn--
+		return true
+	}
+	return m.VelocityChanged
+}
+
+func (m *MovementState) PosChanged() bool {
+	if m.UntrackPositionIn > 0 {
+		m.UntrackPositionIn--
+		return true
+	}
+	return m.PositionChanged
+}
+
+func (m *MovementState) RotChanged() bool {
+	if m.UntrackRotationIn > 0 {
+		m.UntrackRotationIn--
+		return true
+	}
+	return m.RotationChanged
+}
+
+func (m *MovementState) PosAndRotChanged() bool {
+	if m.UntrackPositionAndRotationIn > 0 {
+		m.UntrackPositionIn--
+		return true
+	}
+	return m.PositionAndRotationChanged
 }
 
 type EntityType int

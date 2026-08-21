@@ -1,4 +1,4 @@
-package level
+package entities
 
 import (
 	"log"
@@ -6,9 +6,10 @@ import (
 	"sync"
 
 	c "github.com/leNicDev/retromc/constants"
-	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/player"
 )
+
+const VIEW_DISTANCE = 12
 
 type EntityTracker struct {
 	visible map[int32]map[int32]bool
@@ -38,18 +39,7 @@ func (et *EntityTracker) ResetEntity(id int32) {
 	}
 }
 
-func (et *EntityTracker) Despawn(w *World, id int32) {
-	et.Mu.Lock()
-	delete(et.visible, id)
-	for _, seen := range et.visible {
-		delete(seen, id)
-	}
-	et.Mu.Unlock()
-
-	w.BroadcastPacket(w.despawnEntity(id))
-}
-
-func (et *EntityTracker) Manage(w *World) {
+func (et *EntityTracker) Manage(w WorldShared) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	const distance = VIEW_DISTANCE * 8
@@ -74,8 +64,8 @@ func (et *EntityTracker) Manage(w *World) {
 		}
 	}
 
-	viewers := make([]*player.Player, 0, len(w.Players))
-	for _, viewer := range w.Players {
+	viewers := make([]*player.Player, 0, len(w.GetPlayers()))
+	for _, viewer := range w.GetPlayers() {
 		viewerID := viewer.GetEntityId()
 		if et.visible[viewerID] == nil {
 			et.visible[viewerID] = make(map[int32]bool)
@@ -89,7 +79,7 @@ func (et *EntityTracker) Manage(w *World) {
 		viewers = append(viewers, viewer)
 	}
 
-	for _, target := range w.Entities {
+	for _, target := range w.SnapshotEntities() {
 		targetID := target.GetEntityId()
 		targetType := target.GetEntityType()
 
@@ -102,10 +92,10 @@ func (et *EntityTracker) Manage(w *World) {
 
 		ms := target.GetMovementState()
 
-		posAndRotChanged := ms.PositionAndRotationChanged
-		posChanged := ms.PositionChanged
-		rotChanged := ms.RotationChanged
-		velChanged := ms.VelocityChanged
+		posAndRotChanged := ms.PosAndRotChanged()
+		posChanged := ms.PosChanged()
+		rotChanged := ms.RotChanged()
+		velChanged := ms.VChanged()
 		teleported := ms.Teleported
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
@@ -129,42 +119,42 @@ func (et *EntityTracker) Manage(w *World) {
 				case c.Player:
 					t, _ := target.(*player.Player)
 					if posAndRotChanged {
-						viewer.Connection.Write(w.newPositionAndRotationOrTeleportPacket(w, t, msCopy))
+						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
 					if posChanged {
-						viewer.Connection.Write(w.newPositionPacket(w, t, msCopy))
+						viewer.Connection.Write(w.NewPositionPacket(t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
+						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 					if rotChanged {
-						viewer.Connection.Write(w.newRotationPacket(w, t, msCopy))
+						viewer.Connection.Write(w.NewRotationPacket(t, msCopy))
 					}
 
 				case c.Mob:
-					t, _ := target.(*entities.Mob)
+					t, _ := target.(*Mob)
 					if posAndRotChanged {
-						viewer.Connection.Write(w.newMobPositionAndRotationOrTeleportPacket(t, msCopy))
+						viewer.Connection.Write(w.NewMobPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
+						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 
 				case c.Ridable:
-					t, _ := target.(*entities.RideableEntity)
+					t, _ := target.(*RideableEntity)
 					if posAndRotChanged {
-						viewer.Connection.Write(w.newPositionAndRotationOrTeleportPacket(w, t, msCopy))
+						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
+						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 					if teleported {
-						viewer.Connection.Write(w.newTeleportPacket(w, t, msCopy))
+						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
 					}
 
 				case c.FallingBlock:
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy))
+						viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
 					}
 				}
 			}
@@ -176,23 +166,21 @@ func (et *EntityTracker) Manage(w *World) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					viewer.Connection.Write(w.spawnPlayer(t))
-					w.setEquipment(t, viewer.Connection.Write)
+					log.Printf("Spawning %s for %s", t.Username, viewer.Username)
+					viewer.Connection.Write(w.SpawnPlayerPacket(t))
+					w.SetEquipment(viewer)
 
 				case c.Ridable:
-					viewer.Connection.Write(w.spawnObject(target))
+					viewer.Connection.Write(w.SpawnObjectPacket(target))
 
 				case c.Mob:
-					t, _ := target.(*entities.Mob)
-					log.Printf("Spawning Spider for %s", viewer.Username)
-					viewer.Connection.Write(w.spawnMob(t))
+					t, _ := target.(*Mob)
+					viewer.Connection.Write(w.SpawnMobPacket(t))
 
 				case c.DroppedItem:
-					log.Printf("Spawning Drop...")
-					t, _ := target.(*DroppedItem)
-					viewer.Connection.Write(w.spawnItem(t))
+					viewer.Connection.Write(w.SpawnItemPacket(target))
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy))
+						viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
 					}
 				}
 				et.visible[viewerID][targetID] = true
@@ -200,12 +188,8 @@ func (et *EntityTracker) Manage(w *World) {
 			} else if isVisible && (!inRange || (isDespawnable(targetType) && shouldDespawn(target))) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock:
-					log.Printf("Despawning because: inRange=%t, alive=%t", inRange, alive)
 					if !inRange || !alive || shouldDespawn(target) {
-						if targetType == c.Mob {
-							log.Printf("Despawning Spider for %s", viewer.Username)
-						}
-						viewer.Connection.Write(w.despawnEntity(targetID))
+						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 					}
 					continue

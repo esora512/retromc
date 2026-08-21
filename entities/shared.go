@@ -1,6 +1,9 @@
 package entities
 
-import "github.com/leNicDev/retromc/constants"
+import (
+	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/player"
+)
 
 type GetBlock func(x int32, y byte, z int32, dim int32) constants.WBlock
 
@@ -12,4 +15,45 @@ type WorldShared interface {
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
 	BroadcastPain(entityId int32)
+
+	SpawnPlayerPacket(target constants.Entity) []byte
+	SpawnObjectPacket(target constants.Entity) []byte
+	SpawnMobPacket(target constants.Entity) []byte
+	SpawnItemPacket(target constants.Entity) []byte
+
+	NewPositionAndRotationOrTeleportPacket(
+		target constants.Entity,
+		state constants.MovementState,
+	) []byte
+
+	NewPositionPacket(
+		target constants.Entity,
+		state constants.MovementState,
+	) []byte
+
+	NewMobPositionAndRotationOrTeleportPacket(
+		target constants.Entity,
+		state constants.MovementState,
+	) []byte
+
+	NewEntityVelocityPacket(
+		entityID int32,
+		state constants.MovementState,
+	) []byte
+
+	NewRotationPacket(
+		target constants.Entity,
+		state constants.MovementState,
+	) []byte
+
+	NewTeleportPacket(
+		target constants.Entity,
+		state constants.MovementState,
+	) []byte
+
+	SetEquipment(pl *player.Player)
+
+	DespawnEntity(eId int32) []byte
+
+	GetPlayers() map[int32]*player.Player
 }

@@ -51,7 +51,6 @@ func (w *World) IsNight() bool {
 	return timeTicks >= 12541 && timeTicks < 23458
 }
 
-
 func (w *World) SnapshotEntities() []constants.Entity {
 	snapshot := make([]constants.Entity, 0, len(w.Entities))
 	for _, e := range w.Entities {
@@ -104,25 +103,80 @@ type World struct {
 	broadcastWorldMsg               func(w *World, msg string)
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
-	newMobPositionAndRotationPacket func(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) []byte
 	newEntityVelocityPacket         func(entityId int32, m constants.MovementState) []byte
 	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
 	broadcastPain func(w *World, entityId int32)
 
-	newPositionAndRotationOrTeleportPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
-	newTeleportPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
-	newRotationPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
-	newPositionPacket func(w *World, e constants.Entity, m constants.MovementState) []byte
+	newPositionAndRotationOrTeleportPacket    func(e constants.Entity, m constants.MovementState) []byte
+	newTeleportPacket                         func(e constants.Entity, m constants.MovementState) []byte
+	newRotationPacket                         func(e constants.Entity, m constants.MovementState) []byte
+	newPositionPacket                         func(e constants.Entity, m constants.MovementState) []byte
 	newMobPositionAndRotationOrTeleportPacket func(e constants.Entity, m constants.MovementState) []byte
 
-	spawnPlayer func(pl *player.Player) []byte
-	spawnObject func(e constants.Entity) []byte
-	spawnMob func(m *entities.Mob) []byte
-	spawnItem func(d *DroppedItem) []byte
+	spawnPlayer   func(pl *player.Player) []byte
+	spawnObject   func(e constants.Entity) []byte
+	spawnMob      func(m *entities.Mob) []byte
+	spawnItem     func(d *DroppedItem) []byte
 	despawnEntity func(id int32) []byte
-	setEquipment func(pl *player.Player, send func([]byte) (int, error))
+	setEquipment  func(pl *player.Player)
+}
+
+
+func (w *World) SpawnPlayerPacket(t constants.Entity) []byte {
+	pl, _ := t.(*player.Player)
+	return w.spawnPlayer(pl)
+}
+
+func (w *World) SpawnObjectPacket(t constants.Entity) []byte {
+	return w.spawnObject(t)
+}
+
+func (w *World) SpawnMobPacket(t constants.Entity) []byte {
+	m, _ := t.(*entities.Mob)
+	return w.spawnMob(m)
+}
+
+func (w *World) SpawnItemPacket(t constants.Entity) []byte {
+	d, _ := t.(*DroppedItem)
+	return w.spawnItem(d)
+}
+
+func (w *World) NewPositionAndRotationOrTeleportPacket(t constants.Entity, m constants.MovementState) []byte {
+	return w.newPositionPacket(t, m)
+}
+
+func (w *World) NewPositionPacket(t constants.Entity, m constants.MovementState) []byte {
+	return w.newPositionPacket(t, m)
+}
+
+func (w *World) NewMobPositionAndRotationOrTeleportPacket(t constants.Entity, m constants.MovementState) []byte {
+	return w.newMobPositionAndRotationOrTeleportPacket(t, m)
+}
+
+func (w *World) NewEntityVelocityPacket(eId int32, m constants.MovementState) []byte {
+	return w.newEntityVelocityPacket(eId, m)
+}
+
+func (w *World) NewRotationPacket(t constants.Entity, m constants.MovementState) []byte {
+	return w.newRotationPacket(t, m)
+}
+
+func (w *World) NewTeleportPacket(t constants.Entity, m constants.MovementState) []byte {
+	return w.newTeleportPacket(t, m)
+}
+
+func (w *World) SetEquipment(pl *player.Player) {
+	w.setEquipment(pl)
+}
+
+func (w *World) DespawnEntity(id int32) []byte {
+	return w.despawnEntity(id)
+}
+
+func (w *World) GetPlayers() map[int32]*player.Player {
+	return w.Players
 }
 
 func (w *World) SetSpawnPlayer(f func(pl *player.Player) []byte) {
@@ -145,27 +199,27 @@ func (w *World) SetDespawnEntity(f func(id int32) []byte) {
 	w.despawnEntity = f
 }
 
-func (w *World) SetSendEquipment(f func(pl *player.Player, send func([]byte) (int, error))) {
-	w.setEquipment = f 
+func (w *World) SetSendEquipment(f func(pl *player.Player)) {
+	w.setEquipment = f
 }
 
 func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newMobPositionAndRotationOrTeleportPacket = f
 }
 
-func (w *World) SetNewRotationPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewRotationPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newPositionPacket = f
 }
 
-func (w *World) SetNewPositionPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewPositionPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newRotationPacket = f
 }
 
-func (w *World) SetNewTeleportPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewTeleportPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newTeleportPacket = f
 }
 
-func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(w *World, e constants.Entity, m constants.MovementState) []byte) {
+func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
 	w.newPositionAndRotationOrTeleportPacket = f
 }
 
@@ -181,9 +235,6 @@ func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, m constants.Mo
 	w.newEntityVelocityPacket = f
 }
 
-func (w *World) SetNewMobPositionAndRotationPacket(f func(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) []byte) {
-	w.newMobPositionAndRotationPacket = f
-}
 
 func (w *World) BroadcastPain(entityId int32) {
 	w.broadcastPain(w, entityId)

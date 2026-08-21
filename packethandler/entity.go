@@ -19,7 +19,7 @@ func DropInventory(
 	inv *inventory.Inventory,
 	x, y, z float64,
 	dim int32,
-	tracker *level.EntityTracker,
+	tracker *entities.EntityTracker,
 ) {
 	for i := range inv.Items {
 		stack := &inv.Items[i]
@@ -225,17 +225,16 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 
 	if vPl, ok := victim.(*player.Player); ok {
 		vPl.MovementState.VelocityChanged = true 
+		vPl.MovementState.UntrackPositionAndRotationIn = 3
 		vPl.MovementState.VelocityX = vX
 		vPl.MovementState.VelocityY = vY
 		vPl.MovementState.VelocityZ = vZ 
 
 		vPl.Connection.Write(ev.Serialize())
 	}
-
-	//w.BroadcastPacket(ev.Serialize())
 }
 
-func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *level.EntityTracker) {
+func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) {
 	var ok bool
 	log.Printf("%d attacks %d", p.PlayerId, p.EntityId)
 	player, ok := world.Players[p.PlayerId]

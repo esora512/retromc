@@ -256,6 +256,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.MovementState.Yaw = p.Yaw
 	pl.MovementState.Pitch = p.Pitch
 	pl.MovementState.PositionAndRotationChanged = true
+	pl.MovementState.UntrackPositionAndRotationIn = 10
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -305,6 +306,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.MovementState.Y = y
 	pl.MovementState.Z = z
 	pl.MovementState.PositionChanged = true
+	pl.MovementState.UntrackPositionIn = 10
 	applyFallDamage(world, pl, p.Y, p.OnGround)
 
 	pl.X = x
@@ -320,6 +322,7 @@ func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Playe
 	pl.MovementState.Yaw = p.Yaw
 	pl.MovementState.Pitch = p.Pitch
 	pl.MovementState.RotationChanged = true
+	pl.MovementState.UntrackPositionAndRotationIn = 10
 
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch

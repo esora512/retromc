@@ -441,6 +441,8 @@ func NewChunkLogic() *ChunkLogic {
 func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
 	return w.chunksFor(dim)[ChunkCoord{cx, cz}]
 }
 
