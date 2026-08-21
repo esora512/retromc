@@ -2,7 +2,6 @@ package level
 
 import (
 	"log"
-	"math"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -230,11 +229,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 	}
 
 	entityId := w.NextEntityId()
-	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z), u.Dimension)
-	w.BroadcastSpawnObject(entityId, objectType, int32(math.Floor((float64(u.X)+0.5)*32)), int32(math.Floor(float64(u.Y)*32)), int32(math.Floor((float64(u.Z)+0.5)*32)), 0, 0, 0, 0)
-	if falling.Dimension == -1 {
-		log.Println("Adding Falling Entity in Nether")
-	}
+	falling := entities.NewBlockEntity(entityId, int16(b.TypeId), byte(b.Metadata), float64(u.X), float64(u.Y), float64(u.Z), u.Dimension, objectType)
 	w.AddEntity(falling)
 	notifyFallableNeighbours(w, falling.X, int32(falling.Y), falling.Z, u.SetBlock, u.Dimension)
 }

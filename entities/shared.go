@@ -56,4 +56,6 @@ type WorldShared interface {
 	DespawnEntity(eId int32) []byte
 
 	GetPlayers() map[int32]*player.Player
+
+	RemoveEntity(eId int32)
 }

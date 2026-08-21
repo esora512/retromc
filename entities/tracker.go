@@ -170,7 +170,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 
-				case c.Ridable:
+				case c.Ridable, c.FallingBlock:
 					viewer.Connection.Write(w.SpawnObjectPacket(target))
 
 				case c.Mob:
@@ -191,6 +191,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					if !inRange || !alive || shouldDespawn(target) {
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
+
+						if targetType != c.Player {
+							w.RemoveEntity(targetID)
+						}
 					}
 					continue
 				default:

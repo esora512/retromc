@@ -1,6 +1,7 @@
 package packets
 
 import (
+	"log"
 	"math"
 
 	"github.com/leNicDev/retromc/constants"
@@ -169,19 +170,41 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 
 func NewSpawnObjectPacket(e constants.Entity) []byte {
 	// NOTE: Bad practice but we wing it...
-	rideable, _ := e.(*entities.RideableEntity)
-	p := SpawnObjectPacket{
-		EntityId:      e.GetEntityId(),
-		ObjectType:    rideable.ObjectType,
-		X:             int32(rideable.X * 32),
-		Y:             int32(rideable.Y * 32),
-		Z:             int32(rideable.Z * 32),
-		VelocityX:     int16(rideable.VelocityX),
-		VelocityY:     int16(rideable.VelocityY),
-		VelocityZ:     int16(rideable.VelocityZ),
-		OwnerEntityId: rideable.OwnerEntityId,
+	eType := e.GetEntityType()
+	switch eType {
+	case constants.Ridable:
+		rideable, _ := e.(*entities.RideableEntity)
+		p := SpawnObjectPacket{
+			EntityId:      e.GetEntityId(),
+			ObjectType:    rideable.ObjectType,
+			X:             int32(rideable.X * 32),
+			Y:             int32(rideable.Y * 32),
+			Z:             int32(rideable.Z * 32),
+			VelocityX:     int16(rideable.VelocityX),
+			VelocityY:     int16(rideable.VelocityY),
+			VelocityZ:     int16(rideable.VelocityZ),
+			OwnerEntityId: rideable.OwnerEntityId,
+		}
+		return p.Serialize()
+	case constants.FallingBlock:
+		f, _ := e.(*entities.BlockEntity)
+		p := SpawnObjectPacket{
+			EntityId:      f.EntityId,
+			ObjectType:    f.ObjectType,
+			X:             int32(math.Floor((float64(f.X) + 0.5) * 32)),
+			Y:             int32(math.Floor((float64(f.Y) + 0.5) * 32)),
+			Z:             int32(math.Floor((float64(f.Z) + 0.5) * 32)),
+			VelocityX:     0,
+			VelocityY:     int16(f.MovementState.VelocityY),
+			VelocityZ:     0,
+			OwnerEntityId: 0,
+		}
+		return p.Serialize()
+	default:
+		p := SpawnObjectPacket{}
+		log.Println("WARNING: Sending empty SpawnObject packet!")
+		return p.Serialize()
 	}
-	return p.Serialize()
 }
 
 func SetEquipment(pl *player.Player, send func([]byte)) {

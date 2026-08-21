@@ -20,6 +20,7 @@ type BlockEntity struct {
 	Dimension     int32
 	ShouldDespawn bool
 	MovementState constants.MovementState
+	ObjectType byte
 }
 
 func (b *BlockEntity) GetEntityType() constants.EntityType {
@@ -54,7 +55,7 @@ func (r *BlockEntity) SetTeleportMovement(nextX, nextY, nextZ float64, yaw byte)
 	r.MovementState.Teleported = true
 }
 
-func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32) *BlockEntity {
+func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64, dim int32, oType byte) *BlockEntity {
 	return &BlockEntity{
 		EntityId:      entityId,
 		TypeId:        typeId,
@@ -67,6 +68,7 @@ func NewBlockEntity(entityId int32, typeId int16, metadata byte, x, y, z float64
 		IsFalling:     false,
 		Dimension:     dim,
 		ShouldDespawn: false,
+		ObjectType: oType,
 	}
 }
 
