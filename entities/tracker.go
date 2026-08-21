@@ -28,6 +28,14 @@ func (et *EntityTracker) ResetViewer(playerID int32) {
 	delete(et.visible, playerID)
 }
 
+func (et *EntityTracker) Unregister(id int32) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	for _, seen := range et.visible {
+		delete(seen, id)
+	}
+}
+
 // Clears the entity server side, so if it is still present in w.Entities, it gets re-spawned
 func (et *EntityTracker) ResetEntity(id int32) {
 	et.Mu.Lock()

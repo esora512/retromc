@@ -48,7 +48,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 
 	loc := int32(0)
 	pl.SentChunks = make(player.ChunkSet)
-	pl.HasInitializedChunks = false
+	pl.HasInitializedChunks = true
 
 	sendRespawn(connection, byte(loc))
 
@@ -56,7 +56,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	//world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
-	pl.MovementState.Teleported = true 
+	pl.MovementState.Teleported = true
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -76,7 +76,7 @@ func SendSetHealth(connection net.Conn, health uint16) {
 func NewEntityEventPacket(eId int32, action byte) []byte {
 	p := packets.EntityEventPacket{
 		EntityId: eId,
-		Action: action,
+		Action:   action,
 	}
 	return p.Serialize()
 }
@@ -364,7 +364,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	if pl.IsRiding != -1 {
 		return
 	}
-	pl.MovementState.ArmSwing = true 
+	pl.MovementState.ArmSwing = true
 
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
 	if !shouldProcessDigging(p, pl, oldBlock) {

@@ -301,7 +301,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
 
 				// NOTE: has to be done so tracker can handle respawn correctly; re-renders entities
-				tracker.ResetViewer(other.GetEntityId()) 
+				//tracker.ResetViewer(other.GetEntityId()) 
 			}
 
 			if other.GetEntityType() == constants.Ridable {
