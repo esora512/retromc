@@ -418,7 +418,6 @@ func (d *DroppedItem) GetDim() int32 { return d.Dim }
 
 func (d *DroppedItem) GetVelocity() (float64, float64, float64) { return d.VelX, d.VelY, d.VelZ }
 
-
 type ChunkLogic struct {
 	Growables    map[BlockKey]Growable
 	DroppedItems map[int32]*DroppedItem
@@ -442,8 +441,9 @@ func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
 	w.Mu.RLock()
+	c := w.chunksFor(dim)[ChunkCoord{cx, cz}]
 	defer w.Mu.RUnlock()
-	return w.chunksFor(dim)[ChunkCoord{cx, cz}]
+	return c
 }
 
 func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {

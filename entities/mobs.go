@@ -162,6 +162,7 @@ func (m *Mob) wander(w WorldShared) {
 	m.MovementState.PrevY = m.Y
 	m.MovementState.PrevZ = m.Z
 	m.MovementState.PositionAndRotationChanged = true
+	m.MovementState.UntrackPositionAndRotationIn = 2
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -238,6 +239,7 @@ func (m *Mob) tickKnockback(w WorldShared) {
 	m.MovementState.PrevY = m.Y
 	m.MovementState.PrevZ = m.Z
 	m.MovementState.PositionAndRotationChanged = true
+	m.MovementState.UntrackPositionAndRotationIn = 2
 
 	m.MovementState.Yaw = float32(yaw)
 	m.MovementState.Pitch = float32(pitch)
@@ -343,6 +345,7 @@ func (m *Mob) moveTowardTarget(w WorldShared) {
 	m.MovementState.Yaw = float32(yaw)
 	m.MovementState.Pitch = float32(pitch)
 	m.MovementState.PositionAndRotationChanged = true
+	m.MovementState.UntrackPositionAndRotationIn = 2
 
 	m.OnGround = onGround
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
@@ -382,11 +385,13 @@ func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float6
 	m.MovementState.Yaw = float32(yaw)
 	m.MovementState.Pitch = float32(pitch)
 	m.MovementState.PositionAndRotationChanged = true
+	m.MovementState.UntrackPositionAndRotationIn = 2
 
 	m.MovementState.VelocityX = vx
 	m.MovementState.VelocityY = vy
 	m.MovementState.VelocityZ = vz
 	m.MovementState.VelocityChanged = true
+	m.MovementState.UntrackVelocityIn = 2
 
 	m.Vx, m.Vy, m.Vz = vx, vy, vz
 	m.SetPosition(newX, newY, newZ)

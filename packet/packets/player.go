@@ -224,7 +224,7 @@ func SetEquipment2(pl *player.Player, send func([]byte) (int, error)) {
 	}
 }
 
-func SetEquipment3(pl *player.Player) {
+func SetEquipment3(pl *player.Player, viewer *player.Player) {
 	heldItem := pl.Inventory.PeekItem(pl.HotbarSlot)
 	data := map[int16]int16{
 		0: heldItem.TypeId,
@@ -240,7 +240,7 @@ func SetEquipment3(pl *player.Player) {
 			ItemId:        itemId,
 			ItemMetadata:  0,
 		}
-		pl.Connection.Write(p.Serialize())
+		viewer.Connection.Write(p.Serialize())
 	}
 }
 

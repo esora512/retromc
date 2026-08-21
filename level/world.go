@@ -120,7 +120,7 @@ type World struct {
 	spawnMob      func(m *entities.Mob) []byte
 	spawnItem     func(d *DroppedItem) []byte
 	despawnEntity func(id int32) []byte
-	setEquipment  func(pl *player.Player)
+	setEquipment  func(pl *player.Player, v *player.Player)
 }
 
 
@@ -144,7 +144,7 @@ func (w *World) SpawnItemPacket(t constants.Entity) []byte {
 }
 
 func (w *World) NewPositionAndRotationOrTeleportPacket(t constants.Entity, m constants.MovementState) []byte {
-	return w.newPositionPacket(t, m)
+	return w.newPositionAndRotationOrTeleportPacket(t, m)
 }
 
 func (w *World) NewPositionPacket(t constants.Entity, m constants.MovementState) []byte {
@@ -167,8 +167,8 @@ func (w *World) NewTeleportPacket(t constants.Entity, m constants.MovementState)
 	return w.newTeleportPacket(t, m)
 }
 
-func (w *World) SetEquipment(pl *player.Player) {
-	w.setEquipment(pl)
+func (w *World) SetEquipment(pl, v *player.Player) {
+	w.setEquipment(pl, v)
 }
 
 func (w *World) DespawnEntity(id int32) []byte {
@@ -199,7 +199,7 @@ func (w *World) SetDespawnEntity(f func(id int32) []byte) {
 	w.despawnEntity = f
 }
 
-func (w *World) SetSendEquipment(f func(pl *player.Player)) {
+func (w *World) SetSendEquipment(f func(pl *player.Player, v *player.Player)) {
 	w.setEquipment = f
 }
 

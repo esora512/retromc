@@ -47,7 +47,7 @@ func (m *MovementState) RotChanged() bool {
 
 func (m *MovementState) PosAndRotChanged() bool {
 	if m.UntrackPositionAndRotationIn > 0 {
-		m.UntrackPositionIn--
+		m.UntrackPositionAndRotationIn--
 		return true
 	}
 	return m.PositionAndRotationChanged

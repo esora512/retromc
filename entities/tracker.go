@@ -168,7 +168,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					t, _ := target.(*player.Player)
 					log.Printf("Spawning %s for %s", t.Username, viewer.Username)
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
-					w.SetEquipment(viewer)
+					w.SetEquipment(t, viewer)
 
 				case c.Ridable:
 					viewer.Connection.Write(w.SpawnObjectPacket(target))
@@ -201,20 +201,20 @@ func (et *EntityTracker) Manage(w WorldShared) {
 
 		// Notify server that information has been sent to clients
 		// TODO: Atm, we disable this since it leads to jank AF client rendering; need to fix this at some point
-		// if posAndRotChanged {
-		// 	ms.PositionAndRotationChanged = false
-		// }
-		// if velChanged {
-		// 	ms.VelocityChanged = false
-		// }
-		// if teleported {
-		// 	ms.Teleported = false
-		// }
-		// if rotChanged {
-		// 	ms.RotationChanged = false
-		// }
-		// if posChanged {
-		// 	ms.PositionChanged = false
-		// }
+		if posAndRotChanged {
+			ms.PositionAndRotationChanged = false
+		}
+		if velChanged {
+			ms.VelocityChanged = false
+		}
+		if teleported {
+			ms.Teleported = false
+		}
+		if rotChanged {
+			ms.RotationChanged = false
+		}
+		if posChanged {
+			ms.PositionChanged = false
+		}
 	}
 }

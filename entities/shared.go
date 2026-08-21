@@ -51,7 +51,7 @@ type WorldShared interface {
 		state constants.MovementState,
 	) []byte
 
-	SetEquipment(pl *player.Player)
+	SetEquipment(pl, viewer *player.Player)
 
 	DespawnEntity(eId int32) []byte
 
