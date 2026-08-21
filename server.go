@@ -65,6 +65,7 @@ func main() {
 	world.SetNewTeleportPacket(packethandler.NewTeleportPacket)
 	world.SetNewPositionPacket(packethandler.NewPositionOrTeleportPacket)
 	world.SetNewRotationPacket(packethandler.NewRotationPacket)
+	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
 
 	world.SetBroadcastPositionAndRotation(packethandler.BroadcastPositionAndRotation)
 	world.SetBroadcastEntityVelocity(packethandler.BroadcastEntityVelocity)
@@ -85,7 +86,6 @@ func main() {
 	world.SetSendSetHealth(packethandler.SendSetHealth)
 	world.SetBroadcastPain(packethandler.BroadcastPain)
 	world.SetNewMobPositionAndRotationPacket(packets.NewMobPositionAndRotationPacket)
-	world.SetNewEntityVelocityPacket(packethandler.NewEntityVelocityPacket)
 	world.SetAndCreateAndSetMovementDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
 
 	world.SetOppedUsernames(ops)

@@ -105,7 +105,7 @@ type World struct {
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
 	newMobPositionAndRotationPacket func(m *entities.Mob, nX, nY, nZ, yaw, pitch float64) []byte
-	newEntityVelocityPacket         func(entityId int32, vx, vy, vz float64) []byte
+	newEntityVelocityPacket         func(entityId int32, m constants.MovementState) []byte
 	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
@@ -177,7 +177,7 @@ func (w *World) CreateAndSetMovementDroppedItem(x, y, z float64, blockItem int16
 	w.createAndSetMovementDroppedItem(w, x, y, z, blockItem, blockMeta, count, dim, delay)
 }
 
-func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, vx, vy, vz float64) []byte) {
+func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, m constants.MovementState) []byte) {
 	w.newEntityVelocityPacket = f
 }
 

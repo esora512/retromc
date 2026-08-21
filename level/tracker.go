@@ -38,26 +38,6 @@ func (et *EntityTracker) ResetEntity(id int32) {
 	}
 }
 
-// func (et *EntityTracker) Add(playerId int32, otherId int32) {
-// 	et.Mu.Lock()
-// 	defer et.Mu.Unlock()
-// 	if et.visible[playerId] == nil {
-// 		et.visible[playerId] = make(map[int32]bool)
-// 	}
-// 	et.visible[playerId][otherId] = true
-// }
-
-// func (et *EntityTracker) AddForAll(w *World, otherId int32) {
-// 	et.Mu.Lock()
-// 	defer et.Mu.Unlock()
-// 	for p := range w.Players {
-// 		if et.visible[p] == nil {
-// 			et.visible[p] = make(map[int32]bool)
-// 		}
-// 		et.visible[p][otherId] = true
-// 	}
-// }
-
 func (et *EntityTracker) Despawn(w *World, id int32) {
 	et.Mu.Lock()
 	delete(et.visible, id)
@@ -155,7 +135,7 @@ func (et *EntityTracker) Manage(w *World) {
 						viewer.Connection.Write(w.newPositionPacket(w, t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
+						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 					if rotChanged {
 						viewer.Connection.Write(w.newRotationPacket(w, t, msCopy))
@@ -167,7 +147,7 @@ func (et *EntityTracker) Manage(w *World) {
 						viewer.Connection.Write(w.newMobPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
+						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 
 				case c.Ridable:
@@ -176,7 +156,7 @@ func (et *EntityTracker) Manage(w *World) {
 						viewer.Connection.Write(w.newPositionAndRotationOrTeleportPacket(w, t, msCopy))
 					}
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
+						viewer.Connection.Write(w.newEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
 					if teleported {
 						viewer.Connection.Write(w.newTeleportPacket(w, t, msCopy))
@@ -184,7 +164,7 @@ func (et *EntityTracker) Manage(w *World) {
 
 				case c.FallingBlock:
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
+						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy))
 					}
 				}
 			}
@@ -212,7 +192,7 @@ func (et *EntityTracker) Manage(w *World) {
 					t, _ := target.(*DroppedItem)
 					viewer.Connection.Write(w.spawnItem(t))
 					if velChanged {
-						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy.VelocityX, msCopy.VelocityY, msCopy.VelocityZ))
+						viewer.Connection.Write(w.newEntityVelocityPacket(targetID, msCopy))
 					}
 				}
 				et.visible[viewerID][targetID] = true

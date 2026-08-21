@@ -486,12 +486,12 @@ func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64)
 	w.BroadcastPacket(packet.Serialize())
 }
 
-func NewEntityVelocityPacket(entityId int32, vx, vy, vz float64) []byte {
+func NewEntityVelocityPacket(entityId int32, m constants.MovementState) []byte {
 	p := packets.EntityVelocityPacket{
 		EntityId: entityId,
-		Vx:       vx,
-		Vy:       vy,
-		Vz:       vz,
+		Vx:       m.VelocityX,
+		Vy:       m.VelocityY,
+		Vz:       m.VelocityZ,
 	}
 	return p.Serialize()
 }
