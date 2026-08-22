@@ -18,7 +18,6 @@ func DropInventory(
 	inv *inventory.Inventory,
 	x, y, z float64,
 	dim int32,
-	tracker *entities.EntityTracker,
 ) {
 	for i := range inv.Items {
 		stack := &inv.Items[i]
@@ -71,10 +70,6 @@ func DropInventory(
 		}
 		inv.Items[i] = inventory.EmptyItem()
 	}
-}
-
-func quantizeSpawnVelocity(v float64) int8 {
-	return int8(v * 128.0)
 }
 
 func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) *entities.DroppedItem {
@@ -295,8 +290,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				x, y, z := other.GetPosition()
 				otherPl, _ := world.Players[other.GetEntityId()]
 				otherPl.DespawnIn = 21
-				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim(), tracker)
-
+				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
 				tracker.ResetViewerV2(world, other.GetEntityId())
 			}
 
@@ -305,13 +299,13 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				if ridable.ObjectType == constants.ObjectBoat {
 					ridable.ShouldDespawn = true
 					x, y, z := other.GetPosition()
-					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5)
+					world.DropItemFromMinedBlock(x, y, z, constants.Boat.Value, 0, 1, other.GetDim(), 5)
 
 				}
 				if ridable.ObjectType == constants.ObjectMinecart {
 					ridable.ShouldDespawn = true
 					x, y, z := other.GetPosition()
-					world.CreateAndSetMovementDroppedItem(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
+					world.DropItemFromMinedBlock(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
 				}
 			}
 
@@ -319,8 +313,8 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				m, _ := other.(*entities.Mob)
 				m.DespawnIn = 21
 				if m.MobType == 52 {
-					x, y, z := other.GetPosition()
-					world.CreateAndSetMovementDroppedItem(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
+					x, y, z := m.GetPosition()
+					world.DropItemFromMinedBlock(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}

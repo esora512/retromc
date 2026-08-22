@@ -81,7 +81,7 @@ func main() {
 	world.SetBroadcastWakeUp(packethandler.BroadcastWakeUp)
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
-	world.SetAndCreateAndSetMovementDroppedItem(packethandler.CreateAndSetMovementDroppedItem)
+	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 
 	world.SetOppedUsernames(ops)
 

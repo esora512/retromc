@@ -19,7 +19,9 @@ type DroppedItem struct {
 
 	DespawnIn     int
 	MovementState constants.MovementState
-	InLava bool 
+	InLava bool
+
+	CollectorId int32
 }
 
 func (d *DroppedItem) GetEntityType() constants.EntityType {

@@ -40,7 +40,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	pl.X = player.SpawnX
 	pl.Y = player.SpawnY
 	pl.Z = player.SpawnZ
-	pl.MovementState.IsDead = false 
+	pl.MovementState.IsDead = false
 	pl.Stance = player.SpawnStance
 	pl.Yaw = 0
 	pl.Pitch = 0
@@ -428,7 +428,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	CreateAndSetMovementDroppedItem(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10)
+	DropItemFromMinedBlock(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -641,7 +641,7 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 	return blockItem, blockMeta, count
 }
 
-func CreateAndSetMovementDroppedItem(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+func DropItemFromMinedBlock(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
 	velX := float64(rand.Float32()-rand.Float32()) * 0.1
 	velY := float64(rand.Float32()) * 0.2
 	velZ := float64(rand.Float32()-rand.Float32()) * 0.1

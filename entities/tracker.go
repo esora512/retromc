@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"log"
 	"math"
 	"sync"
 
@@ -29,7 +28,6 @@ func (et *EntityTracker) ResetViewer(viewerId int32) {
 	delete(et.visible, viewerId)
 }
 
-
 func (et *EntityTracker) ResetViewerV2(w WorldShared, viewerId int32) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
@@ -38,13 +36,12 @@ func (et *EntityTracker) ResetViewerV2(w WorldShared, viewerId int32) {
 		return
 	}
 	for eId := range et.visible[viewerId] {
-		log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
+		//log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
 		pl.Connection.Write(w.DespawnEntity(eId))
 		et.visible[viewerId][eId] = false
 	}
 	//delete(et.visible, viewerId)
 }
-
 
 // Clears the entity server side, so if it is still present in w.Entities, it gets re-spawned
 func (et *EntityTracker) ResetEntity(id int32) {
@@ -188,6 +185,13 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
 
 					}
+				case c.DroppedItem:
+					t, _ := target.(*DroppedItem)
+					if t.CollectorId != -1 {
+						collect := w.NewCollectItemPacket(targetID, t.CollectorId)
+						viewer.Connection.Write(collect)
+						w.RemoveEntity(targetID)
+					}
 				}
 			}
 
@@ -198,7 +202,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
+					//log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 
@@ -221,7 +225,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
 					if !inRange || !alive || shouldDespawn(target) {
-						log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
+						//log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
@@ -260,7 +264,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			ms.ArmSwing = false
 		}
 		if !alive {
-			ms.IsDead = true 
+			ms.IsDead = true
 		}
 	}
 }

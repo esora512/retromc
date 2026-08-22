@@ -124,10 +124,7 @@ func (w *World) CollectNearbyItems() {
 			}
 			t := pl.Inventory.Items[slot]
 			w.SendSetSlot(pl.Connection, 0, slot, t)
-
-			collect := w.CollectItem(d.EntityId, int32(pl.GetEntityId()))
-			w.BroadcastPacket(collect)
-			w.RemoveEntity(d.EntityId)
+			d.CollectorId = pl.GetEntityId()
 			break
 		}
 	}

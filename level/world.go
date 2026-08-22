@@ -88,7 +88,7 @@ type World struct {
 	sleepers        map[int32]int
 
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
-	collectItem                     func(itemId, collectorId int32) []byte
+	newCollectItemPacket            func(itemId, collectorId int32) []byte
 	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
 	broadcastEntityVelocity         func(w *World, entityId int32, vx, vy, vz float64)
 	broascastDespawn                func(w *World, id int32)
@@ -104,7 +104,7 @@ type World struct {
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
 	newEntityVelocityPacket         func(entityId int32, m constants.MovementState) []byte
-	createAndSetMovementDroppedItem func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
+	dropItemFromMinedBlock          func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	sendSetHealth func(conn net.Conn, hp uint16)
 
@@ -240,12 +240,12 @@ func (w *World) SetNewPositionAndRotationOrTeleportPacket(f func(e constants.Ent
 	w.newPositionAndRotationOrTeleportPacket = f
 }
 
-func (w *World) SetAndCreateAndSetMovementDroppedItem(f func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)) {
-	w.createAndSetMovementDroppedItem = f
+func (w *World) SetDropItemFromMinedBlock(f func(world *World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)) {
+	w.dropItemFromMinedBlock = f
 }
 
-func (w *World) CreateAndSetMovementDroppedItem(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
-	w.createAndSetMovementDroppedItem(w, x, y, z, blockItem, blockMeta, count, dim, delay)
+func (w *World) DropItemFromMinedBlock(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+	w.dropItemFromMinedBlock(w, x, y, z, blockItem, blockMeta, count, dim, delay)
 }
 
 func (w *World) SetNewEntityVelocityPacket(f func(entityId int32, m constants.MovementState) []byte) {
@@ -295,8 +295,8 @@ func (w *World) BroadcastDespawn(id int32) {
 	w.broascastDespawn(w, id)
 }
 
-func (w *World) CollectItem(itemId, collectorId int32) []byte {
-	return w.collectItem(itemId, collectorId)
+func (w *World) NewCollectItemPacket(itemId, collectorId int32) []byte {
+	return w.newCollectItemPacket(itemId, collectorId)
 }
 
 func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item inventory.Item) {
@@ -304,7 +304,7 @@ func (w *World) SendSetSlot(connection net.Conn, windowId byte, slot int16, item
 }
 
 func (w *World) SetCollectItem(f func(itemId, collectorId int32) []byte) {
-	w.collectItem = f
+	w.newCollectItemPacket = f
 }
 
 func (w *World) SetSendSetSlot(f func(connection net.Conn, windowId byte, slot int16, item inventory.Item)) {
@@ -445,8 +445,9 @@ func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte,
 		X:        x, Y: y, Z: z,
 		PickupDelay: pickupDelay,
 		VelX:        velX, VelY: velY, VelZ: velZ,
-		DespawnIn: -1,
-		InLava: false,
+		DespawnIn:   -1,
+		InLava:      false,
+		CollectorId: -1,
 	}
 	return entityId
 }
