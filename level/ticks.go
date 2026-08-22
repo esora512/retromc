@@ -21,17 +21,20 @@ const (
 	bounceFactor    = -0.5
 )
 
-func (w *World) ItemPhysicsTick(tracker *entities.EntityTracker) {
+func (w *World) ItemPhysicsTick() {
 	for _, e := range w.Entities {
-		d, ok := e.(*DroppedItem)
+		d, ok := e.(*entities.DroppedItem)
 		if !ok {
 			continue
 		}
-		w.tickDroppedItem(d, tracker)
+		w.tickDroppedItem(d)
 	}
 }
 
-func (w *World) tickDroppedItem(d *DroppedItem, tracker *entities.EntityTracker) {
+func (w *World) tickDroppedItem(d *entities.DroppedItem) {
+	if d.InLava {
+		return
+	}
 	if d.PickupDelay > 0 {
 		d.PickupDelay--
 	}
@@ -51,12 +54,11 @@ func (w *World) tickDroppedItem(d *DroppedItem, tracker *entities.EntityTracker)
 	)
 
 	if blockAtFeet.IsLava() {
-		delete(w.Entities, d.EntityId)
-		w.BroadcastDespawn(d.EntityId)
-		tracker.ResetEntity(d.EntityId)
+		d.DespawnIn = 3
 		d.VelX = 0
 		d.VelY = 0
 		d.VelZ = 0
+		d.InLava = true
 		return
 	}
 
@@ -78,14 +80,14 @@ func (w *World) tickDroppedItem(d *DroppedItem, tracker *entities.EntityTracker)
 	d.VelY *= 0.9800000190734863
 }
 
-func (w *World) DroppedItemPhysics(tracker *entities.EntityTracker) {
+func (w *World) DroppedItemPhysics() {
 	w.CollectNearbyItems()
-	w.ItemPhysicsTick(tracker)
+	w.ItemPhysicsTick()
 }
 
 func (w *World) CollectNearbyItems() {
 	for _, e := range w.Entities {
-		d, ok := e.(*DroppedItem)
+		d, ok := e.(*entities.DroppedItem)
 		if !ok {
 			continue
 		}
@@ -208,7 +210,7 @@ func maybeSetVelocityMovement(ridable *entities.RideableEntity, vx, vy, vz float
 	ridable.VelocityX, ridable.VelocityY, ridable.VelocityZ = vx, vy, vz
 }
 
-func (world *World) RidablePhysics(tacker *entities.EntityTracker) {
+func (world *World) RidablePhysics() {
 	allEntities := world.SnapshotEntities()
 	var ridables []*entities.RideableEntity
 	var players []entities.PlayerPosition
@@ -289,21 +291,21 @@ func (w *World) TickFurnaces() {
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
-func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
+func (w *World) AdvanceTick(nextTick int64) {
 	w.Tick = nextTick
 	w.AdvanceTime()
 	w.TickFluids()
 	w.TickFallables()
 	w.TickLeaves()
 	w.FallingBlocksPhysics()
-	w.RidablePhysics(tracker)
+	w.RidablePhysics()
 	w.GrowPhysics()
-	w.DroppedItemPhysics(tracker)
+	w.DroppedItemPhysics()
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()
-	w.TickMobs(tracker)
-	w.SpawnSpiders(tracker)
+	w.TickMobs()
+	w.SpawnSpiders()
 }
 
 func (w *World) TickSleep() {
@@ -319,15 +321,9 @@ func (w *World) TickPlayers() {
 	}
 }
 
-func (w *World) TickMobs(tracker *entities.EntityTracker) {
-	var toRemove []int32
+func (w *World) TickMobs() {
 	for _, e := range w.Entities {
 		if m, ok := e.(*entities.Mob); ok {
-			if m.HP <= 0 {
-				toRemove = append(toRemove, m.EntityId)
-				continue
-			}
-			// TODO: Re-enable
 			m.Move(w)
 		}
 	}
@@ -341,7 +337,7 @@ func (w *World) SendHealth(entityId int32, newHp int16) {
 	w.sendSetHealth(pl.Connection, uint16(newHp))
 }
 
-func (w *World) SpawnSpiders(tracker *entities.EntityTracker) {
+func (w *World) SpawnSpiders() {
 	if !w.IsNight() {
 		return
 	}

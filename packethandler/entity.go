@@ -77,10 +77,10 @@ func quantizeSpawnVelocity(v float64) int8 {
 	return int8(v * 128.0)
 }
 
-func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) *level.DroppedItem {
+func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) *entities.DroppedItem {
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim, velX, velY, velZ)
 	e, _ := w.Entities[entityId]
-	d, _ := e.(*level.DroppedItem)
+	d, _ := e.(*entities.DroppedItem)
 	d.MovementState.VelocityX = velX
 	d.MovementState.VelocityY = velY
 	d.MovementState.VelocityZ = velZ

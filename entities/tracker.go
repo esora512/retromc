@@ -74,7 +74,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 
 	isDespawnable := func(t c.EntityType) bool {
 		switch t {
-		case c.FallingBlock, c.Mob, c.Player, c.Ridable:
+		case c.FallingBlock, c.Mob, c.Player, c.Ridable, c.DroppedItem:
 			return true
 		default:
 			return false
@@ -219,7 +219,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 
 			} else if isVisible && (!inRange || (isDespawnable(targetType) && shouldDespawn(target))) {
 				switch targetType {
-				case c.Player, c.Mob, c.Ridable, c.FallingBlock:
+				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
 					if !inRange || !alive || shouldDespawn(target) {
 						log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 						viewer.Connection.Write(w.DespawnEntity(targetID))

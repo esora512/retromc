@@ -128,7 +128,7 @@ func quantizeSpawnVelocity(v float64) int8 {
 	return int8(v * 128.0)
 }
 
-func NewSpawnItem(d *level.DroppedItem) []byte {
+func NewSpawnItem(d *entities.DroppedItem) []byte {
 	p := SpawnItemPacket{
 		EntityId: d.EntityId,
 		ItemId:   int16(d.ItemId),

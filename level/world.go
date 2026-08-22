@@ -120,7 +120,7 @@ type World struct {
 	spawnPlayer   func(pl *player.Player) []byte
 	spawnObject   func(e constants.Entity) []byte
 	spawnMob      func(m *entities.Mob) []byte
-	spawnItem     func(d *DroppedItem) []byte
+	spawnItem     func(d *entities.DroppedItem) []byte
 	despawnEntity func(id int32) []byte
 	setEquipment  func(pl *player.Player, v *player.Player)
 }
@@ -156,7 +156,7 @@ func (w *World) SpawnMobPacket(t constants.Entity) []byte {
 }
 
 func (w *World) SpawnItemPacket(t constants.Entity) []byte {
-	d, _ := t.(*DroppedItem)
+	d, _ := t.(*entities.DroppedItem)
 	return w.spawnItem(d)
 }
 
@@ -208,7 +208,7 @@ func (w *World) SetSpawnMob(f func(m *entities.Mob) []byte) {
 	w.spawnMob = f
 }
 
-func (w *World) SetSpawnItem(f func(m *DroppedItem) []byte) {
+func (w *World) SetSpawnItem(f func(m *entities.DroppedItem) []byte) {
 	w.spawnItem = f
 }
 
@@ -438,7 +438,16 @@ func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte,
 	entityId := w.NextEntityId()
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
-	w.Entities[entityId] = &DroppedItem{EntityId: entityId, ItemId: itemId, Amount: amount, Metadata: meta, X: x, Y: y, Z: z, PickupDelay: pickupDelay, VelX: velX, VelY: velY, VelZ: velZ}
+	w.Entities[entityId] = &entities.DroppedItem{EntityId: entityId,
+		ItemId:   itemId,
+		Amount:   amount,
+		Metadata: meta,
+		X:        x, Y: y, Z: z,
+		PickupDelay: pickupDelay,
+		VelX:        velX, VelY: velY, VelZ: velZ,
+		DespawnIn: -1,
+		InLava: false,
+	}
 	return entityId
 }
 

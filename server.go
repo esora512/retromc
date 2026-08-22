@@ -96,7 +96,8 @@ func main() {
 
 	world.SetNewAnimationPacket(packethandler.NewAnimationPacket)
 
-	gameLoop(world, entityTracker)
+	server := Server{World: world, Tracker: entityTracker}
+	server.Run()
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
@@ -162,28 +163,33 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 	}
 }
 
-func gameLoop(world *level.World, entityTracker *entities.EntityTracker) {
+type Server struct {
+	World   *level.World
+	Tracker *entities.EntityTracker
+}
+
+func (s *Server) Run() {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
 			// For fast time, set it to TickSpeed to 20
-			nextTick := (world.Tick + world.TickSpeed) % 24000
-			world.AdvanceTick(nextTick, entityTracker)
-			if world.Tick%300 == 0 {
-				if removed := world.PopUnusedChunks(0); len(removed) > 0 {
-					if err := level.SaveChunks(world, world.WorldDir, removed, 0); err != nil {
-						log.Println("Failed to save the world:", err)
+			nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
+			s.World.AdvanceTick(nextTick)
+			if s.World.Tick%300 == 0 {
+				if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
+					if err := level.SaveChunks(s.World, s.World.WorldDir, removed, 0); err != nil {
+						log.Println("Failed to save the s.World:", err)
 					}
 				}
-				if removed := world.PopUnusedChunks(-1); len(removed) > 0 {
-					if err := level.SaveChunks(world, world.WorldDir, removed, -1); err != nil {
-						log.Println("Failed to save the world:", err)
+				if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
+					if err := level.SaveChunks(s.World, s.World.WorldDir, removed, -1); err != nil {
+						log.Println("Failed to save the s.World:", err)
 					}
 				}
 			}
-			entityTracker.Manage(world)
-			world.FlushBlockQueue()
+			s.Tracker.Manage(s.World)
+			s.World.FlushBlockQueue()
 		}
 	}()
 }

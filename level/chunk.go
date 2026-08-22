@@ -361,66 +361,8 @@ const (
 	Maze
 )
 
-type DroppedItem struct {
-	EntityId    int32
-	ItemId      int32
-	Amount      byte
-	Metadata    byte
-	X, Y, Z     float64
-	PickupDelay int32
-	Dim         int32
-
-	VelX, VelY, VelZ float64
-
-	DespawnIn     int
-	MovementState constants.MovementState
-}
-
-func (d *DroppedItem) GetEntityType() constants.EntityType {
-	return constants.DroppedItem
-}
-
-func (d *DroppedItem) GetMovementState() *constants.MovementState {
-	return &d.MovementState
-}
-
-func (d *DroppedItem) Despawn() bool {
-	if d.DespawnIn <= 0 {
-		return true
-	}
-	d.DespawnIn -= 1
-	return false
-}
-
-func (d *DroppedItem) GetEntityId() int32 {
-	return d.EntityId
-}
-
-func (d *DroppedItem) GetHP() int16 {
-	return 20
-}
-
-func (d *DroppedItem) SetHP(hp int16) {}
-
-func (d *DroppedItem) GetName() string {
-	return fmt.Sprintf("Entity %d", d.EntityId)
-}
-
-func (d *DroppedItem) GetPosition() (float64, float64, float64) {
-	return float64(d.X), float64(d.Y), float64(d.Z)
-}
-
-func (d *DroppedItem) SetPosition(x, y, z float64) {}
-
-func (d *DroppedItem) GetLoggedIn() bool { return false }
-
-func (d *DroppedItem) GetDim() int32 { return d.Dim }
-
-func (d *DroppedItem) GetVelocity() (float64, float64, float64) { return d.VelX, d.VelY, d.VelZ }
-
 type ChunkLogic struct {
 	Growables    map[BlockKey]Growable
-	DroppedItems map[int32]*DroppedItem
 }
 
 func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
@@ -433,7 +375,6 @@ func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
 func NewChunkLogic() *ChunkLogic {
 	return &ChunkLogic{
 		Growables:    make(map[BlockKey]Growable),
-		DroppedItems: make(map[int32]*DroppedItem),
 	}
 }
 
@@ -472,32 +413,6 @@ func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 	for wa := range wanted {
 		if c, ok := src[wa]; ok {
 			chunks = append(chunks, c)
-		}
-	}
-	return chunks
-}
-
-func (w *World) PlayerActiveChunks(radius, dim int32) []*Chunk {
-	seen := make(map[ChunkCoord]struct{})
-	chunks := make([]*Chunk, 0, len(w.Players)*9)
-	for _, pl := range w.Players {
-		if pl.Dimension != dim {
-			continue
-		}
-		cx := WorldToChunkCoord(int32(pl.X))
-		cz := WorldToChunkCoord(int32(pl.Z))
-		for dx := -radius; dx <= radius; dx++ {
-			for dz := -radius; dz <= radius; dz++ {
-				coord := ChunkCoord{X: cx + dx, Z: cz + dz}
-				if _, dup := seen[coord]; dup {
-					continue
-				}
-				seen[coord] = struct{}{}
-				src := w.chunksFor(dim)
-				if c, ok := src[coord]; ok {
-					chunks = append(chunks, c)
-				}
-			}
 		}
 	}
 	return chunks
