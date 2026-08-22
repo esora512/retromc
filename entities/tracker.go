@@ -40,7 +40,7 @@ func (et *EntityTracker) ResetViewerV2(w WorldShared, viewerId int32) {
 		pl.Connection.Write(w.DespawnEntity(eId))
 		et.visible[viewerId][eId] = false
 	}
-	//delete(et.visible, viewerId)
+	delete(et.visible, viewerId)
 }
 
 // Clears the entity server side, so if it is still present in w.Entities, it gets re-spawned

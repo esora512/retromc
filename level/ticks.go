@@ -11,14 +11,8 @@ import (
 )
 
 const (
-	pickupRangeSq   = 1.5 * 1.5
-	pickupRangeY    = 2.5
-	gravity         = 0.04
-	airDrag         = 0.98
-	groundDragBase  = 0.58800006
-	lavaBounceY     = 0.2
-	lavaJitterScale = 0.2
-	bounceFactor    = -0.5
+	pickupRangeSq = 1.5 * 1.5
+	pickupRangeY  = 2.5
 )
 
 func (w *World) ItemPhysicsTick() {
@@ -27,57 +21,8 @@ func (w *World) ItemPhysicsTick() {
 		if !ok {
 			continue
 		}
-		w.tickDroppedItem(d)
+		d.Tick(w)
 	}
-}
-
-func (w *World) tickDroppedItem(d *entities.DroppedItem) {
-	if d.InLava {
-		return
-	}
-	if d.PickupDelay > 0 {
-		d.PickupDelay--
-	}
-
-	d.VelY -= gravity
-
-	d.X += d.VelX
-	d.Y += d.VelY
-	d.Z += d.VelZ
-
-	// Check the block the item has moved into.
-	blockAtFeet := w.GetBlock(
-		int32(math.Floor(d.X)),
-		byte(math.Floor(d.Y)),
-		int32(math.Floor(d.Z)),
-		d.Dim,
-	)
-
-	if blockAtFeet.IsLava() {
-		d.DespawnIn = 3
-		d.VelX = 0
-		d.VelY = 0
-		d.VelZ = 0
-		d.InLava = true
-		return
-	}
-
-	onGround := false
-	if !blockAtFeet.IsAir() && !blockAtFeet.IsLiquid() && d.VelY <= 0 {
-		onGround = true
-		d.Y = math.Floor(d.Y) + 1
-	}
-
-	drag := float64(airDrag)
-	if onGround {
-		// TODO: swap in real slipperiness
-		drag = groundDragBase
-		d.VelY *= bounceFactor
-	}
-
-	d.VelX *= drag
-	d.VelZ *= drag
-	d.VelY *= 0.9800000190734863
 }
 
 func (w *World) DroppedItemPhysics() {

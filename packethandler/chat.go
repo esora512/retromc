@@ -338,7 +338,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				SendSetHealth(pl.Connection, 0)
 				pl.SetHP(0)
 				pl.DespawnIn = 21
-				DropInventory(world, &pl.Inventory, pl.X, pl.Y, pl.Z, pl.GetDim(), tracker)
+				DropInventory(world, &pl.Inventory, pl.X, pl.Y, pl.Z, pl.GetDim())
 			default:
 				sendUsage(pl, "/kill")
 				return false

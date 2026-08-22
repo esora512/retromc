@@ -9,6 +9,7 @@ type GetBlock func(x int32, y byte, z int32, dim int32) constants.WBlock
 
 type WorldShared interface {
 	IsNight() bool
+	IsLoaded(x, z, dim int32) bool 
 	FindNearbyPlayer(m *Mob) (int32, bool)
 	SnapshotEntities() []constants.Entity
 	GetBlock(x int32, y byte, z int32, dim int32) constants.WBlock
