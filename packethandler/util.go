@@ -380,6 +380,11 @@ func NewPositionOrTeleportPacket(e constants.Entity, m constants.MovementState) 
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 
+	if m.KeepRotation {
+		dYaw = int32(m.Yaw)
+		dPitch = int32(m.Pitch)
+	}
+
 	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
 		tpkt := packets.TeleportEntityPacket{
 			EntityId: e.GetEntityId(),
@@ -412,6 +417,11 @@ func NewRotationPacket(e constants.Entity, m constants.MovementState) []byte {
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
 
+	if m.KeepRotation {
+		dYaw = int32(m.Yaw)
+		dPitch = int32(m.Pitch)
+	}
+
 	p := packets.EntityRotationPacket{
 		EntityId: e.GetEntityId(),
 		Yaw:      byte(dYaw),
@@ -432,6 +442,11 @@ func NewPositionAndRotationOrTeleportPacket(e constants.Entity, m constants.Move
 	dZ := encNextZ - encPrevZ
 	dYaw := int32(math.Floor(float64(m.Yaw) * 256 / 360))
 	dPitch := int32(math.Floor(float64(m.Pitch) * 256 / 360))
+
+	if m.KeepRotation {
+		dYaw = int32(m.Yaw)
+		dPitch = int32(m.Pitch)
+	}
 
 	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
 		tpkt := packets.TeleportEntityPacket{

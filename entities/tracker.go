@@ -183,9 +183,12 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					if teleported {
 						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
 					}
-					if posAndRotChanged || velChanged {
+					if posAndRotChanged {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
+					}
+					if velChanged {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
+
 					}
 				case c.DroppedItem:
 					t, _ := target.(*DroppedItem)

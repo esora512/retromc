@@ -179,6 +179,7 @@ func (world *World) RidablePhysics() {
 	for _, ridable := range ridables {
 		cx, cy, cz := ridable.GetPosition()
 		nx, ny, nz, yaw, action := ridable.Tick(getBlock, players)
+		ridable.MovementState.KeepRotation = true
 
 		switch action {
 		case entities.Moved:
