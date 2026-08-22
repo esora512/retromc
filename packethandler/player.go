@@ -50,6 +50,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	loc := int32(0)
 	pl.SentChunks = make(player.ChunkSet)
 	pl.HasInitializedChunks = false
+	pl.Dimension = 0
 
 	sendRespawn(connection, byte(loc))
 

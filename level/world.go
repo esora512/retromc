@@ -448,6 +448,7 @@ func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte,
 		DespawnIn:   -1,
 		InLava:      false,
 		CollectorId: -1,
+		Dim: dim,
 	}
 	return entityId
 }

@@ -43,9 +43,13 @@ func (w *World) CollectNearbyItems() {
 		}
 
 		x, y, z := d.GetPosition()
+		dim := d.GetDim()
 
 		for _, pl := range w.Players {
 			if pl.HP <= 0 {
+				continue
+			}
+			if dim != pl.Dimension {
 				continue
 			}
 
