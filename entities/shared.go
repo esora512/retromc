@@ -16,6 +16,8 @@ type WorldShared interface {
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
 
+	BroadcastPacket(data []byte)
+
 	SpawnPlayerPacket(target constants.Entity) []byte
 	SpawnObjectPacket(target constants.Entity) []byte
 	SpawnMobPacket(target constants.Entity) []byte

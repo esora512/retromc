@@ -531,6 +531,7 @@ func (w *World) AddRidable(entityId, ownerEntityId int32, x, y, z, vx, vy, vz fl
 		ObjectType:    objectType,
 		HP:            4,
 		Dimension:     dim,
+		ShouldDespawn: false,
 	}
 	w.Entities[int32(entityId)] = &r
 }

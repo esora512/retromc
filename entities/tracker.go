@@ -180,11 +180,12 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					if isHurt {
 						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
 					}
-					if posAndRotChanged || velChanged || teleported {
+					if teleported {
+						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
+					}
+					if posAndRotChanged || velChanged {
 						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
-						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
-
 					}
 				case c.DroppedItem:
 					t, _ := target.(*DroppedItem)
@@ -226,11 +227,21 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
 					if !inRange || !alive || shouldDespawn(target) {
-						log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
+						// if !alive {
+						// 	log.Println("Not alive")
+						// }
+						// if !inRange {
+						// 	log.Printf("Out of range (sameDim=%t) dx=%f<=dist && dz=%f<=dist, dist=%d", sameDim, dx, dz, distance)
+
+						// }
+						// if shouldDespawn(target) {
+						// 	log.Println("Should despawn")
+						// }
+						// log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if targetType != c.Player {
+						if targetType != c.Player && !alive {
 							w.RemoveEntity(targetID)
 						}
 					}

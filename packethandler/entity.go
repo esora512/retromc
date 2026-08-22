@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"log"
 	"math"
 	"math/rand"
 
@@ -295,6 +296,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			}
 
 			if other.GetEntityType() == constants.Ridable {
+				log.Println("Killing Ridable")
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					ridable.ShouldDespawn = true
@@ -326,11 +328,14 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {
+			log.Println("Getting off boat")
 			pl.IsRiding = -1
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
 			pl.Immune = 50
+			log.Printf("Player Pos x=%f, y=%f, z=%f", pl.X, pl.Y, pl.Z)
+			log.Printf("Boat Pos x=%f, y=%f, z=%f", ridable.X, ridable.Y, ridable.Z)
 		} else {
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))

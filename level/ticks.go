@@ -184,6 +184,7 @@ func (world *World) RidablePhysics() {
 		case entities.Moved:
 			ridable.SetPositionMovement(cx, cy, cz, nx, ny, nz, yaw)
 			ridable.SetPosition(nx, ny, nz)
+			ridable.MovementState.Pitch = 0
 
 			velX := nx - cx
 			velY := ny - cy
@@ -193,9 +194,6 @@ func (world *World) RidablePhysics() {
 		case entities.Stopped:
 			ridable.SetTeleportMovement(cx, cy, cz, yaw)
 			maybeSetVelocityMovement(ridable, 0, 0, 0)
-
-		case entities.Despawned:
-			ridable.ShouldDespawn = true
 		}
 	}
 }
