@@ -58,7 +58,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit, 0, level.Template)
+	world := level.NewWorld(GitCommit, 0, level.Default)
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
