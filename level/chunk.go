@@ -263,6 +263,8 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 	}
 
 	switch worldType {
+	case Noodle:
+		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz)	
 	case SkyGrid:
 		chunk.GenerateSkyGrid()
 	case Template:
@@ -359,6 +361,7 @@ const (
 	Default
 	Esorian
 	Maze
+	Noodle
 )
 
 type ChunkLogic struct {
@@ -568,7 +571,7 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 
 	worldType := w.WorldType
 	if dim == -1 {
-		worldType = Maze
+		worldType = Noodle
 	}
 	c := w.generateChunk(cx, cz, worldType)
 	c.X = cx * CHUNK_SIZE_X
