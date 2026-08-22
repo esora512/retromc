@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"log"
 	"math"
 	"sync"
 
@@ -36,7 +37,7 @@ func (et *EntityTracker) ResetViewerV2(w WorldShared, viewerId int32) {
 		return
 	}
 	for eId := range et.visible[viewerId] {
-		//log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
+		log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
 		pl.Connection.Write(w.DespawnEntity(eId))
 		et.visible[viewerId][eId] = false
 	}
@@ -225,7 +226,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
 					if !inRange || !alive || shouldDespawn(target) {
-						//log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
+						log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 

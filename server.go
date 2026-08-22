@@ -175,7 +175,7 @@ func (s *Server) Run() {
 		for range ticker.C {
 			// For fast time, set it to TickSpeed to 20
 			nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
-			s.World.AdvanceTick(nextTick)
+			s.World.AdvanceTick(nextTick, s.Tracker)
 			if s.World.Tick%300 == 0 {
 				if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
 					if err := level.SaveChunks(s.World, s.World.WorldDir, removed, 0); err != nil {

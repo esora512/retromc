@@ -177,7 +177,7 @@ func (m *Mob) pickNewWanderDirection() {
 	m.WanderTicksLeft = int32(40 + rand.Intn(80)) // 2-6 seconds at 20 ticks/sec
 }
 
-func (m *Mob) Move(w WorldShared) {
+func (m *Mob) Move(w WorldShared, tracker *EntityTracker) {
 	if m.KnockbackTicks > 0 {
 		m.tickKnockback(w)
 		return
@@ -192,7 +192,7 @@ func (m *Mob) Move(w WorldShared) {
 	}
 
 	if m.HasTarget() {
-		m.moveTowardTarget(w)
+		m.moveTowardTarget(w, tracker)
 		return
 	}
 
@@ -273,7 +273,7 @@ func (m *Mob) resolveGroundCollision(w WorldShared, newX, newY, newZ, vy float64
 	return newY, vy, false
 }
 
-func (m *Mob) moveTowardTarget(w WorldShared) {
+func (m *Mob) moveTowardTarget(w WorldShared, tracker *EntityTracker) {
 	t, exists := w.GetEntity(m.TargetId)
 	if !exists {
 		m.UnsetTarget()
@@ -294,7 +294,7 @@ func (m *Mob) moveTowardTarget(w WorldShared) {
 		if m.AttackCooldown > 0 {
 			m.AttackCooldown--
 		} else {
-			m.performAttack(w, t, dx, dy, dz)
+			m.performAttack(w, t, dx, dy, dz, tracker)
 			m.AttackCooldown = m.AttackSpeed()
 		}
 		m.SetYawPitch(yaw, pitch)
@@ -353,7 +353,7 @@ func (m *Mob) moveTowardTarget(w WorldShared) {
 	m.SetYawPitch(yaw, pitch)
 }
 
-func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float64) {
+func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float64, tracker *EntityTracker) {
 	const lungeSpeed = 0.55
 	const lungeUp = 0.50
 
@@ -410,6 +410,7 @@ func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float6
 
 	if newHP <= 0 {
 		m.UnsetTarget()
+		tracker.ResetViewerV2(w, t.GetEntityId())
 	}
 }
 

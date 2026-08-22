@@ -233,7 +233,7 @@ func (w *World) TickFurnaces() {
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
-func (w *World) AdvanceTick(nextTick int64) {
+func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.Tick = nextTick
 	w.AdvanceTime()
 	w.TickFluids()
@@ -246,7 +246,7 @@ func (w *World) AdvanceTick(nextTick int64) {
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()
-	w.TickMobs()
+	w.TickMobs(tracker)
 	w.SpawnSpiders()
 }
 
@@ -263,10 +263,10 @@ func (w *World) TickPlayers() {
 	}
 }
 
-func (w *World) TickMobs() {
+func (w *World) TickMobs(tracker *entities.EntityTracker) {
 	for _, e := range w.Entities {
 		if m, ok := e.(*entities.Mob); ok {
-			m.Move(w)
+			m.Move(w, tracker)
 		}
 	}
 }
