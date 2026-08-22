@@ -51,7 +51,7 @@ func wrapDegrees(angle float64) float64 {
 }
 
 func (boat *RideableEntity) TickBoat(
-	getBlock GetBlock,
+	w WorldShared,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	const (
 		maxSpeed      = 0.2
@@ -67,7 +67,7 @@ func (boat *RideableEntity) TickBoat(
 	feetBlockY := int32(math.Floor(boat.Y - BoatYOffset))
 	onWater := false
 	if feetBlockY >= 0 && feetBlockY < 128 {
-		feetBlock := getBlock(bx, byte(feetBlockY), bz, boat.Dimension)
+		feetBlock := w.GetBlock(bx, byte(feetBlockY), bz, boat.Dimension)
 		onWater = feetBlock.IsWater()
 	}
 
@@ -96,7 +96,7 @@ func (boat *RideableEntity) TickBoat(
 	feetY := newY - BoatYOffset
 	groundY := int32(math.Floor(feetY - 0.001))
 	if groundY >= 0 && groundY < 128 {
-		below := getBlock(bx, byte(groundY), bz, boat.Dimension)
+		below := w.GetBlock(bx, byte(groundY), bz, boat.Dimension)
 		if below.IsSolid() {
 			newY = float64(groundY) + 1 + BoatYOffset
 			boat.VelocityY = 0
@@ -109,14 +109,14 @@ func (boat *RideableEntity) TickBoat(
 		ox := int32(math.Floor(boat.X))
 		oz := int32(math.Floor(boat.Z))
 		fx := int32(math.Floor(newX))
-		b := getBlock(fx, byte(bodyBlockY), oz, boat.Dimension)
+		b := w.GetBlock(fx, byte(bodyBlockY), oz, boat.Dimension)
 		if fx != ox && b.IsSolid() {
 			newX = boat.X
 			boat.VelocityX = 0
 		}
 		fz := int32(math.Floor(newZ))
 		nx := int32(math.Floor(newX))
-		b = getBlock(nx, byte(bodyBlockY), fz, boat.Dimension)
+		b = w.GetBlock(nx, byte(bodyBlockY), fz, boat.Dimension)
 		if fz != oz && b.IsSolid() {
 			newZ = boat.Z
 			boat.VelocityZ = 0

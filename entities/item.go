@@ -111,16 +111,6 @@ const (
 	lavaLifetime      = 3
 )
 
-func isFluidReplaceable(b constants.WBlock) bool {
-	return b.IsAir() ||
-		b.IsSnowLayer() ||
-		b.TypeId == byte(constants.Fire.Value) ||
-		b.TypeId == byte(constants.Dandelion.Value) ||
-		b.TypeId == byte(constants.Rose.Value) ||
-		b.TypeId == byte(constants.BrownMushroom.Value) ||
-		b.TypeId == byte(constants.RedMushroom.Value) ||
-		b.TypeId == byte(constants.Tallgrass.Value)
-}
 
 func getFlowVector(w WorldShared, bx int32, by byte, bz int32, dim int32, b constants.WBlock) FlowVec {
 	isLava := b.IsLava()
@@ -140,7 +130,7 @@ func getFlowVector(w WorldShared, bx int32, by byte, bz int32, dim int32, b cons
 			nHeight = fluidHeight(nb)
 		case !isLava && nb.IsWater():
 			nHeight = fluidHeight(nb)
-		case isFluidReplaceable(nb):
+		case nb.IsFluidReplaceable():
 			// air/flowers etc: if fluid continues one block down, treat this
 			// direction as a steep drop so flow pulls toward the edge/fall
 			if by == 0 {

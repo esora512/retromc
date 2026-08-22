@@ -307,6 +307,17 @@ func (b *WBlock) IsTransparent() bool {
 		b.TypeId == byte(SnowLayer.Value)
 }
 
+func (b *WBlock) IsFluidReplaceable() bool {
+	return b.IsAir() ||
+		b.IsSnowLayer() ||
+		b.TypeId == byte(Fire.Value) ||
+		b.TypeId == byte(Dandelion.Value) ||
+		b.TypeId == byte(Rose.Value) ||
+		b.TypeId == byte(BrownMushroom.Value) ||
+		b.TypeId == byte(RedMushroom.Value) ||
+		b.TypeId == byte(Tallgrass.Value)
+}
+
 func (b *WBlock) IsRail() bool {
 	return b.TypeId == byte(Rail.Value) || b.TypeId == byte(PoweredRail.Value) || b.TypeId == byte(DetectorRail.Value)
 }

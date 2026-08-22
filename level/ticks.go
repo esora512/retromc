@@ -172,13 +172,9 @@ func (world *World) RidablePhysics() {
 		}
 	}
 
-	getBlock := func(x int32, y byte, z int32, dim int32) constants.WBlock {
-		b := world.GetBlock(x, y, z, dim)
-		return b
-	}
 	for _, ridable := range ridables {
 		cx, cy, cz := ridable.GetPosition()
-		nx, ny, nz, yaw, action := ridable.Tick(getBlock, players)
+		nx, ny, nz, yaw, action := ridable.Tick(world, players)
 		ridable.MovementState.KeepRotation = true
 
 		switch action {

@@ -126,3 +126,4 @@ func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) constants.WBl
 	}
 	e.Y = newY
 }
+

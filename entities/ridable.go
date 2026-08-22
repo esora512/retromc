@@ -123,7 +123,7 @@ const (
 )
 
 func (e *RideableEntity) Tick(
-	getBlock GetBlock,
+	w WorldShared,
 	players []PlayerPosition,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	if e.HP <= 0 {
@@ -134,9 +134,9 @@ func (e *RideableEntity) Tick(
 
 	switch e.ObjectType {
 	case constants.ObjectBoat:
-		return e.TickBoat(getBlock)
+		return e.TickBoat(w)
 	case constants.ObjectMinecart:
-		return e.TickMinecart(getBlock)
+		return e.TickMinecart(w)
 	}
 	return 0, 0, 0, 0, Despawned
 }

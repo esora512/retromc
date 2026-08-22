@@ -23,7 +23,7 @@ type PlayerPosition struct {
 }
 
 func (cart *RideableEntity) TickMinecart(
-	getBlock GetBlock,
+	w WorldShared,
 ) (newX, newY, newZ float64, yaw byte, action RidableAction) {
 	const maxSpeed = 0.4
 
@@ -34,12 +34,12 @@ func (cart *RideableEntity) TickMinecart(
 	bz := int32(math.Floor(cz))
 
 	// check one below, like the original
-	block := getBlock(bx, byte(by-1), bz, cart.Dimension)
+	block := w.GetBlock(bx, byte(by-1), bz, cart.Dimension)
 	if block.IsRail() {
 		by--
 	}
 
-	block = getBlock(bx, byte(by), bz, cart.Dimension)
+	block = w.GetBlock(bx, byte(by), bz, cart.Dimension)
 	if !block.IsRail() {
 		return 0, 0, 0, 0, Despawned
 	}
@@ -158,8 +158,8 @@ func (cart *RideableEntity) TickMinecart(
 	nextZ = cz + cart.VelocityZ
 
 	// get Y before and after for hill momentum transfer
-	_, prevY, _, hasPrev := getRailPos(getBlock, cx, cy, cz, cart.Dimension)
-	_, nextY, _, hasNext := getRailPos(getBlock, nextX, cy, nextZ, cart.Dimension)
+	_, prevY, _, hasPrev := getRailPos(w, cx, cy, cz, cart.Dimension)
+	_, nextY, _, hasNext := getRailPos(w, nextX, cy, nextZ, cart.Dimension)
 
 	if hasNext && hasPrev {
 		slope := (prevY - nextY) * 0.05
@@ -216,16 +216,16 @@ func clamp(v, min, max float64) float64 {
 	return v
 }
 
-func getRailPos(bInfo GetBlock, px, py, pz float64, dim int32) (float64, float64, float64, bool) {
+func getRailPos(w WorldShared, px, py, pz float64, dim int32) (float64, float64, float64, bool) {
 	bx := int32(math.Floor(px))
 	by := int32(math.Floor(py))
 	bz := int32(math.Floor(pz))
 
-	block := bInfo(bx, byte(by-1), bz, dim)
+	block := w.GetBlock(bx, byte(by-1), bz, dim)
 	if block.IsRail() {
 		by--
 	} else {
-		block = bInfo(bx, byte(by), bz, dim)
+		block = w.GetBlock(bx, byte(by), bz, dim)
 		if !block.IsRail() {
 			return 0, 0, 0, false
 		}
