@@ -33,7 +33,6 @@ type RideableEntity struct {
 	ShouldDespawn bool
 
 	MovementState constants.MovementState
-	getBlock      GetBlock
 }
 
 func (r *RideableEntity) GetEntityType() constants.EntityType {
