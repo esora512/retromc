@@ -87,6 +87,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	pl.LoggedIn = true
 	// TODO: Figure out a better way to op players
 	pl.IsOp = true
+	SendSetHealth(connection, uint16(pl.HP))
 
 	// if world.OppedUsernames[pl.Username] {
 	// 	pl.IsOp = true

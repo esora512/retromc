@@ -135,23 +135,25 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 
 func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
 	if pl.Immune >= 0 {
-		// 10s spawn immunity
 		return
 	}
+
+	oldY := pl.Y
+	dy := newY - oldY
+
+	if dy < 0 {
+		pl.FallDistance += -dy
+	}
+
 	x := int32(math.Floor(pl.X))
-	y := byte(math.Floor(newY - 0.01))
 	z := int32(math.Floor(pl.Z))
 
-	block := world.GetBlock(x, y, z, pl.Dimension)
+	y := int32(math.Floor(newY - 0.01))
+
+	block := world.GetBlock(x, byte(y), z, pl.Dimension)
 
 	inWater := block.IsWater()
 	onSolidGround := block.IsSolid() && !inWater
-
-	diff := pl.Y - newY
-
-	if !pl.OnGround && diff > 0 {
-		pl.FallDistance += diff
-	}
 
 	if inWater {
 		pl.FallDistance = 0
@@ -160,7 +162,9 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 		return
 	}
 
-	if onSolidGround && !pl.OnGround {
+	landed := onSolidGround && dy <= 0 && pl.FallDistance > 0
+
+	if landed {
 		if pl.FallDistance > 3 {
 			dmg := int16(math.Ceil(pl.FallDistance - 3))
 
@@ -189,12 +193,12 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 				world.BroadcastPacket(p.Serialize())
 			}
 		}
-
 		pl.FallDistance = 0
 	}
 
 	pl.OnGround = onSolidGround
 	pl.Y = newY
+	_ = clientOnGround
 }
 
 func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
