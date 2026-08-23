@@ -779,10 +779,6 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting)
 
-	if oldExisting.IsSnowLayer() {
-		return
-	}
-
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
 	}
