@@ -19,13 +19,23 @@ func handlePreLoginPacket(connection net.Conn, p packets.PreLoginPacket) {
 	connection.Write(outData)
 }
 
-func handleDisconnectPacket(connection net.Conn, p packets.DisconnectPacket, world *level.World, pl *player.Player) {
-	log.Printf("%s", p.Reason)
+func NewLeftGameMsg(username string) []byte {
+	chatPacket := packets.ChatMessagePacket{
+		Message: "\u00a7e" + username + " left the game",
+	}
+	return chatPacket.Serialize()
+}
+
+func handleDisconnectPacket(p packets.DisconnectPacket, world *level.World, pl *player.Player) {
+	log.Printf("%s left the game (%s)", pl.Username, p.Reason)
 	chatPacket := packets.ChatMessagePacket{
 		Message: "\u00a7e" + pl.Username + " left the game",
 	}
+
+	world.SavePlayer(pl)
 	world.BroadcastPacket(chatPacket.Serialize())
 	world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
+	pl.LoggedIn = false
 }
 
 func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {

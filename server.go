@@ -85,8 +85,6 @@ func main() {
 
 	world.SetOppedUsernames(ops)
 
-	entityTracker := entities.NewEntityTracker()
-
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)
 	world.SetSpawnMob(packets.SpawnMob)
@@ -96,6 +94,7 @@ func main() {
 
 	world.SetNewAnimationPacket(packethandler.NewAnimationPacket)
 
+	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	server.Run()
 	// go func() {
@@ -151,7 +150,13 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
 						log.Println("Failed to save inventory:", saveErr)
 					}
-					world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
+
+					if pl.LoggedIn {
+						p := packethandler.NewLeftGameMsg(pl.Username)
+						world.BroadcastPacket(p)
+						world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
+
+					}
 					world.RemovePlayer(pl)
 					tracker.ResetEntity(pl.GetEntityId())
 				}

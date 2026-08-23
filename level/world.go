@@ -46,6 +46,19 @@ func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
 	return nil, false
 }
 
+func (w *World) SavePlayer(pl *player.Player) {
+	if pl.Username != "" {
+		unlock := w.LockSession(pl.Username)
+		defer unlock()
+		if cur, ok := w.GetPlayerByUsername(pl.Username); !ok || cur == pl {
+			pData := ToPlayerData(pl)
+			if saveErr := SavePlayerData(w.WorldDir, pl.Username, pData); saveErr != nil {
+				log.Println("Failed to save inventory:", saveErr)
+			}
+		}
+	}
+}
+
 func (w *World) IsNight() bool {
 	timeTicks := w.TimeTick % 24000
 	return timeTicks >= 12541 && timeTicks < 23458
@@ -448,7 +461,7 @@ func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte,
 		DespawnIn:   -1,
 		InLava:      false,
 		CollectorId: -1,
-		Dim: dim,
+		Dim:         dim,
 	}
 	return entityId
 }
