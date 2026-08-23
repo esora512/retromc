@@ -23,6 +23,7 @@ type DroppedItem struct {
 	InLava        bool
 
 	CollectorId int32
+	HP          int16
 }
 
 func (d *DroppedItem) GetEntityType() constants.EntityType {
@@ -50,10 +51,12 @@ func (d *DroppedItem) GetEntityId() int32 {
 }
 
 func (d *DroppedItem) GetHP() int16 {
-	return 20
+	return d.HP
 }
 
-func (d *DroppedItem) SetHP(hp int16) {}
+func (d *DroppedItem) SetHP(hp int16) {
+	d.HP = hp
+}
 
 func (d *DroppedItem) GetName() string {
 	return fmt.Sprintf("Entity %d", d.EntityId)
@@ -240,18 +243,27 @@ func touchingLava(d *DroppedItem, w WorldShared) bool {
 }
 
 func (d *DroppedItem) Tick(w WorldShared) {
+	if d.InLava {
+		return
+	}
+
+	if touchingLava(d, w) {
+		d.DespawnIn = 3
+		d.VelX = 0
+		d.VelY = 0
+		d.VelZ = 0
+		d.MovementState.VelocityX = 0
+		d.MovementState.VelocityY = 0
+		d.MovementState.VelocityZ = 0
+		d.InLava = true
+		return
+	}
+
 	if d.PickupDelay > 0 {
 		d.PickupDelay--
 	}
 
 	handleFluidAcceleration(d, w)
-
-	if touchingLava(d, w) {
-		if d.DespawnIn < 0 {
-			d.DespawnIn = lavaLifetime
-			return
-		}
-	}
 
 	d.VelY -= gravity
 
@@ -354,7 +366,7 @@ func collectSolidBoxes(w WorldShared, dim int32, box aabb) []aabb {
 					continue
 				}
 				b := w.GetBlock(bx, byte(by), bz, dim)
-				if !b.IsSolid() { // however you expose "can entities stand on / clip against this"
+				if b.IsLiquid() || !b.IsSolid() {
 					continue
 				}
 				boxes = append(boxes, aabb{

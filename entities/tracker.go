@@ -219,8 +219,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					viewer.Connection.Write(w.SpawnMobPacket(t))
 
 				case c.DroppedItem:
+					//log.Printf("Tracker: Spawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 					viewer.Connection.Write(w.SpawnItemPacket(target))
 					if velChanged {
+						//log.Println("Velocity Changed")
 						viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
 					}
 				}
@@ -240,11 +242,12 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						// if shouldDespawn(target) {
 						// 	log.Println("Should despawn")
 						// }
-						// log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
+						//log.Printf("Tracker: Despawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if targetType != c.Player && !alive {
+						if (targetType != c.Player && !alive) || targetType == c.DroppedItem {
+							//log.Println("Removing Entity")
 							w.RemoveEntity(targetID)
 						}
 					}
