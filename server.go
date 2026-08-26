@@ -46,6 +46,8 @@ func main() {
 
 	ops := make(opUsernamesFlag)
 	flag.Var(&ops, "op", "Username of a player to grant operator permissions to (repeatable, e.g. --op esora512 --op PixelBrush)")
+	
+	wType := flag.String("wt", "Default", "World type for world generation")
 
 	flag.Parse()
 	l, err := net.Listen(CON_TYPE, *host+":"+*port)
@@ -58,7 +60,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit, 0, level.Default)
+	world := level.NewWorld(GitCommit, 0, level.GetWorldType(*wType))
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)

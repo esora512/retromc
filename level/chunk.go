@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -355,6 +356,25 @@ const (
 	Maze
 	Noodle
 )
+
+func GetWorldType(wType string) WorldType {
+	switch strings.ToLower(wType) {
+	case "template":
+		return Template
+	case "empty":
+		return Empty
+	case "skygrid":
+		return SkyGrid
+	case "esorian":
+		return Esorian
+	case "maze":
+		return Maze
+	case "noodle":
+		return Noodle
+	default:
+		return Default
+	}
+}
 
 type ChunkLogic struct {
 	Growables map[BlockKey]Growable
