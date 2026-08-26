@@ -2,7 +2,6 @@ package constants
 
 import (
 	"math/rand"
-
 )
 
 type Block struct {
@@ -379,101 +378,42 @@ func (b *WBlock) IsPoweredRail() bool {
 }
 
 func (b *WBlock) GetDirections() BlockDirections {
-	if b.TypeId == byte(Bed.Value) {
-		return BlockDirections{
-			North: 3,
-			South: 5,
-			West:  2,
-			East:  4,
-		}
-	}
+	switch b.TypeId {
+	case byte(Bed.Value):
+		return BlockDirections{North: 3, South: 5, West: 2, East: 4}
 
-	if b.TypeId == byte(Ladder.Value) {
-		return BlockDirections{
-			North: 4,
-			South: 5,
-			West:  3,
-			East:  2,
-		}
-	}
+	case byte(Ladder.Value):
+		return BlockDirections{North: 4, South: 5, West: 3, East: 2}
 
-	if b.TypeId == byte(SignGround.Value) {
-		return BlockDirections{
-			North: 4,
-			South: 12,
-			East:  8,
-			West:  0,
-		}
-	}
+	case byte(SignGround.Value):
+		return BlockDirections{North: 4, South: 12, East: 8, West: 0}
 
-	if b.TypeId == byte(WoodenStairs.Value) || b.TypeId == byte(CobblestoneStairs.Value) {
-		return BlockDirections{
-			North: 0,
-			South: 1,
-			East:  2,
-			West:  3,
-		}
-	}
+	case byte(WoodenStairs.Value), byte(CobblestoneStairs.Value):
+		return BlockDirections{North: 0, South: 1, East: 2, West: 3}
 
-	if b.TypeId == byte(Torch.Value) || b.TypeId == byte(RedstoneTorchOn.Value) || b.TypeId == byte(RedstoneTorchOff.Value) || b.TypeId == byte(Lever.Value) {
-		return BlockDirections{
-			North: 2,
-			South: 1,
-			East:  4,
-			West:  3,
-		}
-	}
+	case byte(Torch.Value),
+		byte(RedstoneTorchOn.Value),
+		byte(RedstoneTorchOff.Value),
+		byte(Lever.Value),
+		byte(StoneButton.Value):
+		return BlockDirections{North: 2, South: 1, East: 4, West: 3}
 
-	if b.TypeId == byte(Furnace.Value) || b.TypeId == byte(FurnaceLit.Value) || b.TypeId == byte(Dispenser.Value) || b.TypeId == byte(Chest.Value) {
-		return BlockDirections{
-			North: 4,
-			South: 5,
-			East:  2,
-			West:  3,
-		}
-	}
+	case byte(Furnace.Value),
+		byte(FurnaceLit.Value),
+		byte(Dispenser.Value),
+		byte(Chest.Value),
+		byte(Piston.Value),
+		byte(PistonHead.Value):
+		return BlockDirections{North: 4, South: 5, East: 2, West: 3}
 
-	if b.TypeId == byte(Piston.Value) || b.TypeId == byte(PistonHead.Value) {
-		return BlockDirections{
-			North: 4,
-			South: 5,
-			East:  2,
-			West:  3,
-		}
-	}
+	case byte(Pumpkin.Value), byte(PumpkinLit.Value):
+		return BlockDirections{North: 1, South: 3, East: 2, West: 0}
 
-	if b.TypeId == byte(Pumpkin.Value) || b.TypeId == byte(PumpkinLit.Value) {
-		return BlockDirections{
-			North: 1,
-			South: 3,
-			East:  2,
-			West:  0,
-		}
-	}
+	case byte(Trapdoor.Value):
+		return BlockDirections{North: 2, South: 3, East: 4, West: 1}
 
-	if b.TypeId == byte(StoneButton.Value) {
-		return BlockDirections{
-			North: 2,
-			South: 1,
-			East:  4,
-			West:  3,
-		}
-	}
-
-	if b.TypeId == byte(Trapdoor.Value) {
-		return BlockDirections{
-			North: 2,
-			South: 3,
-			East:  4,
-			West:  1,
-		}
-	}
-
-	return BlockDirections{
-		North: 0,
-		South: 1,
-		East:  2,
-		West:  3,
+	default:
+		return BlockDirections{North: 0, South: 1, East: 2, West: 3}
 	}
 }
 
