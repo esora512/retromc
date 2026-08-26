@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -74,8 +75,11 @@ func (w *World) SnapshotEntities() []constants.Entity {
 
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
-	//Mu         dlock.DebugRWMutex
-	Mu             sync.RWMutex
+	Mu sync.RWMutex
+	//Mu             deadlock.RWMutex
+	regionFilesMu sync.Mutex
+	regionFiles   map[string]*os.File
+
 	Rand           *rand.Rand
 	chunkLoadGroup singleflight.Group
 	sessionMu      sync.Map
@@ -504,6 +508,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constant
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
+	chunk.RelightColumn(lx, lz)
 
 	key := BlockKey{worldX, worldY, worldZ}
 	w.SetGrowable(block, key, dim)

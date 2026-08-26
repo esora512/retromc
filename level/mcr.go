@@ -187,7 +187,6 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 	return root
 }
 
-
 func SaveMcRegion(w *World, worldDir string) error {
 	w.Mu.RLock()
 	oChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.oChunks))
@@ -339,17 +338,19 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 					SkyLight: getNibble(skyLight, idx),
 					Light:    getNibble(blockLight, idx),
 				}
+
 				c.SetBlock(lx, y, lz, b)
 
-				key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
-				switch {
-				case b.TypeId == byte(constants.Wheat.Value):
+				if b.TypeId == byte(constants.Wheat.Value) {
+					key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
 					c.Logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
+
 				}
 			}
 		}
 	}
 
+	teCount := 0
 	if teList := lvl.Get("TileEntities"); teList != nil {
 		for _, te := range teList.List {
 			id := te.Get("id")
@@ -376,6 +377,7 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 				loadItemSlots(te, dispenser.Items[:])
 				w.Containers.Dispensers[key] = dispenser
 			}
+			teCount++
 		}
 	}
 	return &c, nil

@@ -3,6 +3,7 @@ package player
 import (
 	"log"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	"fmt"
@@ -155,8 +156,13 @@ type Player struct {
 	IsOp   bool
 
 	DespawnIn     int
-	IsDead bool
+	IsDead        bool
 	MovementState constants.MovementState
+
+	LastUpdateX  float64
+	LastUpdateZ  float64
+	LastDim      int32
+	SentChunksMu sync.Mutex
 }
 
 func (pl *Player) SetHP(hp int16) {

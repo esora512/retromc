@@ -177,12 +177,31 @@ func spiralOffsets(radius int32) []level.ChunkCoord {
 	return offsets
 }
 
-func updateChunks(world *level.World, x, z float64, pl *player.Player) {
+const (
+	chunkMoveThreshold   = level.CHUNK_SIZE_X / 2
+	chunkMoveThresholdSq = chunkMoveThreshold * chunkMoveThreshold
+)
+
+func UpdateChunks(world *level.World, x, z float64, pl *player.Player) {
+	// //NOTE: Important for debugging of how much this is halting.
+	// start := time.Now()
+	// defer func() {
+	// 	log.Printf("UpdateChunks total: %s", time.Since(start))
+	// }()
+
+	// dx := x - pl.LastUpdateX
+	// dz := z - pl.LastUpdateZ
+	// // if dx*dx+dz*dz < chunkMoveThresholdSq {
+	// // 	return
+	// // }
+
 	cx := level.WorldToChunkCoord(int32(x))
 	cz := level.WorldToChunkCoord(int32(z))
 
-	// Nothing to do if we haven't crossed a chunk boundary
-	if cx == pl.LastChunkX && cz == pl.LastChunkZ && pl.HasInitializedChunks {
+	pl.LastUpdateX = x
+	pl.LastUpdateZ = z
+
+	if cx == pl.LastChunkX && cz == pl.LastChunkZ && pl.Dimension == pl.LastDim {
 		return
 	}
 
@@ -194,7 +213,24 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 		}
 	}
 
-	for _, off := range spiralOffsets(VIEW_DISTANCE) {
+	if pl.HasInitializedChunks {
+		go applyChunkVisibility(world, pl, cx, cz, wanted)
+
+	} else {
+		applyChunkVisibility(world, pl, cx, cz, wanted)
+	}
+
+	pl.LastChunkX = cx
+	pl.LastChunkZ = cz
+	pl.LastDim = pl.Dimension
+}
+
+func applyChunkVisibility(world *level.World, pl *player.Player, cx, cz int32, wanted map[string]level.ChunkCoord) {
+	offsets := spiralOffsets(VIEW_DISTANCE)
+	pl.SentChunksMu.Lock()
+	defer pl.SentChunksMu.Unlock()
+
+	for _, off := range offsets {
 		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
 		key := coord.String()
 
@@ -210,11 +246,9 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 		mapChunk := packets.ChunkBlockRegionPacket{}
 		mapChunk.Apply(*chunk)
 		pl.Connection.Write(mapChunk.Serialize())
-
 		pl.SentChunks.Set(key, coord.X, coord.Z)
 	}
 
-	// Unload chunks that fell out of range
 	for key, coord := range pl.SentChunks {
 		if _, ok := wanted[key]; !ok {
 			unload := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: false}
@@ -222,9 +256,6 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 			delete(pl.SentChunks, key)
 		}
 	}
-	pl.LastChunkX = cx
-	pl.LastChunkZ = cz
-	pl.HasInitializedChunks = true
 }
 
 func decodeChunkCoord(key string) (level.ChunkCoord, bool) {

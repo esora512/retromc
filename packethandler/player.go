@@ -58,7 +58,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	pl.MovementState.Teleported = true
-	updateChunks(world, pl.X, pl.Z, pl)
+	UpdateChunks(world, pl.X, pl.Z, pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -231,7 +231,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, _ := maybeRidable.(*entities.RideableEntity)
 		x, y, z = ridable.X, ridable.Y, ridable.Z
-		updateChunks(world, x, z, pl)
+		UpdateChunks(world, x, z, pl)
 		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
 			return
 		}
@@ -264,7 +264,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
-	updateChunks(world, x, z, pl)
+	UpdateChunks(world, x, z, pl)
 }
 
 func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPacket, pl *player.Player, world *level.World) {
@@ -286,7 +286,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 			pl.X = ridable.X
 			pl.Y = ridable.Y
 			pl.Z = ridable.Z
-			updateChunks(world, pl.X, pl.Z, pl)
+			UpdateChunks(world, pl.X, pl.Z, pl)
 			return
 		}
 	}
@@ -312,7 +312,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
-	updateChunks(world, x, z, pl)
+	UpdateChunks(world, x, z, pl)
 
 }
 

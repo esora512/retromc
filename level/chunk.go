@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"path/filepath"
+	"time"
 	"unsafe"
 
 	"github.com/leNicDev/retromc/constants"
@@ -131,12 +133,12 @@ func (c *Chunk) GenerateEmpty() {
 
 }
 
-// relightColumn recalculates skylight for a single (lx, lz) column using a
+// RelightColumn recalculates skylight for a single (lx, lz) column using a
 // simple top-down scan: skylight is 15 until the first non-transparent
 // block is hit (going top to bottom), then 0 for everything below.
 // No flood-fill / cave handling — assumes no overhangs reachable from
 // underground gaps, which holds for this world generation.
-func (c *Chunk) relightColumn(lx, lz int) {
+func (c *Chunk) RelightColumn(lx, lz int) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 	skyOffset := blocksAmount + 2*nibbleCount
@@ -170,52 +172,42 @@ func (c *Chunk) relightColumn(lx, lz int) {
 func (c *Chunk) relightAll() {
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
-			c.relightColumn(lx, lz)
+			c.RelightColumn(lx, lz)
 		}
 	}
 }
+
+const (
+	chunkBlocksAmount = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
+	chunkNibbleCount  = chunkBlocksAmount / 2
+	chunkMetaOffset   = chunkBlocksAmount
+	chunkLightOffset  = chunkBlocksAmount + chunkNibbleCount
+	chunkSkyOffset    = chunkBlocksAmount + 2*chunkNibbleCount
+)
 
 // SetBlock mutates a single block inside an already-generated chunk.
 // lx, ly, lz are local (0-based) coordinates within the chunk.
 // The Data layout mirrors generate(): blockTypes | blockMetadata | blockLight | blockSkyLight,
 // with nibble arrays packed two 4-bit values per byte.
 func (c *Chunk) SetBlock(lx, ly, lz int, block constants.WBlock) {
-	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
-	nibbleCount := blocksAmount / 2
-
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
-
-	metaOffset := blocksAmount
-	lightOffset := blocksAmount + nibbleCount
-	skyOffset := blocksAmount + 2*nibbleCount
-
 	c.Data[i] = block.TypeId
 
-	ni := i / 2
-	if i%2 == 0 { // lower nibble (bits 0-3)
-		c.Data[metaOffset+ni] = (c.Data[metaOffset+ni] & 0xf0) | (block.Metadata & 0x0f)
-		c.Data[lightOffset+ni] = (c.Data[lightOffset+ni] & 0xf0) | (block.Light & 0x0f)
-		c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0xf0) | (block.SkyLight & 0x0f)
-	} else { // upper nibble (bits 4-7)
-		c.Data[metaOffset+ni] = (c.Data[metaOffset+ni] & 0x0f) | ((block.Metadata & 0x0f) << 4)
-		c.Data[lightOffset+ni] = (c.Data[lightOffset+ni] & 0x0f) | ((block.Light & 0x0f) << 4)
-		c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0x0f) | ((block.SkyLight & 0x0f) << 4)
-	}
-	c.relightColumn(lx, lz)
+	ni := i >> 1
+	shift := uint((i & 1) * 4) // 0 for lower nibble, 4 for upper
+	mask := byte(0x0f) << shift
+
+	c.Data[chunkMetaOffset+ni] = (c.Data[chunkMetaOffset+ni] &^ mask) | ((block.Metadata << shift) & mask)
+	c.Data[chunkLightOffset+ni] = (c.Data[chunkLightOffset+ni] &^ mask) | ((block.Light << shift) & mask)
+	c.Data[chunkSkyOffset+ni] = (c.Data[chunkSkyOffset+ni] &^ mask) | ((block.SkyLight << shift) & mask)
 }
 
 func (c *Chunk) GetBlock(lx, ly, lz int) constants.WBlock {
-	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
 
-	metaOffset := blocksAmount
-	ni := i / 2
-	var metadata byte
-	if i%2 == 0 {
-		metadata = c.Data[metaOffset+ni] & 0x0f
-	} else {
-		metadata = (c.Data[metaOffset+ni] >> 4) & 0x0f
-	}
+	ni := i >> 1
+	shift := uint((i & 1) * 4)
+	metadata := (c.Data[chunkMetaOffset+ni] >> shift) & 0x0f
 
 	return constants.WBlock{TypeId: c.Data[i], Metadata: metadata}
 }
@@ -264,7 +256,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 
 	switch worldType {
 	case Noodle:
-		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz)	
+		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz)
 	case SkyGrid:
 		chunk.GenerateSkyGrid()
 	case Template:
@@ -365,7 +357,7 @@ const (
 )
 
 type ChunkLogic struct {
-	Growables    map[BlockKey]Growable
+	Growables map[BlockKey]Growable
 }
 
 func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
@@ -377,7 +369,7 @@ func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
 
 func NewChunkLogic() *ChunkLogic {
 	return &ChunkLogic{
-		Growables:    make(map[BlockKey]Growable),
+		Growables: make(map[BlockKey]Growable),
 	}
 }
 
@@ -546,6 +538,24 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	return v.(*Chunk)
 }
 
+func (w *World) getRegionFile(path string) (*os.File, error) {
+	w.regionFilesMu.Lock()
+	defer w.regionFilesMu.Unlock()
+
+	if f, ok := w.regionFiles[path]; ok {
+		return f, nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	if w.regionFiles == nil {
+		w.regionFiles = make(map[string]*os.File)
+	}
+	w.regionFiles[path] = f
+	return f, nil
+}
+
 func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 	if w.WorldDir != "" {
 		dir := w.WorldDir
@@ -556,15 +566,27 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 		lx, lz := cx&31, cz&31
 		regionPath := filepath.Join(dir, "region", mcregion.RegionFileName(rx*32, rz*32))
 
-		lvl, err := mcregion.ReadChunk(regionPath, lx, lz)
+		f, err := w.getRegionFile(regionPath)
 		if err != nil {
-			log.Printf("chunk (%d,%d) dim %d: read failed, regenerating: %v", cx, cz, dim, err)
-		} else if lvl != nil {
-			c, err := w.readChunkFromNBT(lvl, cx, cz)
+			//log.Printf("chunk (%d,%d) dim %d: region open failed, regenerating: %v", cx, cz, dim, err)
+		} else {
+			t0 := time.Now()
+			lvl, err := mcregion.ReadChunk(f, lx, lz)
+			readTime := time.Since(t0)
 			if err != nil {
-				log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
-			} else {
-				return c
+				//log.Printf("chunk (%d,%d) dim %d: read failed, regenerating: %v", cx, cz, dim, err)
+			} else if lvl != nil {
+				t1 := time.Now()
+				c, err := w.readChunkFromNBT(lvl, cx, cz)
+				decodeTime := time.Since(t1)
+				if err != nil {
+					//log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
+				} else {
+					if readTime+decodeTime > 5*time.Millisecond {
+						//log.Printf("chunk (%d,%d): read=%s decode=%s", cx, cz, readTime, decodeTime)
+					}
+					return c
+				}
 			}
 		}
 	}

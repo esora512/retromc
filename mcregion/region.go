@@ -121,16 +121,7 @@ func RegionFileName(chunkX, chunkZ int32) string {
 
 // ReadChunk reads one chunk's Level tag from a .mcr file at local-in-region
 // position (lx, lz), each 0-31
-func ReadChunk(path string, lx, lz int32) (*Tag, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer f.Close()
-
+func ReadChunk(f *os.File, lx, lz int32) (*Tag, error) {
 	var header [4]byte
 	if _, err := f.ReadAt(header[:], 4*(int64(lx)+int64(lz)*32)); err != nil {
 		return nil, err
@@ -152,7 +143,7 @@ func ReadChunk(path string, lx, lz int32) (*Tag, error) {
 	}
 	compressionType := lenBuf[4]
 	if compressionType != 2 {
-		return nil, fmt.Errorf("%s: chunk (%d,%d) unsupported compression %d", path, lx, lz, compressionType)
+		return nil, fmt.Errorf("chunk (%d,%d) unsupported compression %d", lx, lz, compressionType)
 	}
 
 	payload := make([]byte, length-1)
@@ -162,12 +153,12 @@ func ReadChunk(path string, lx, lz int32) (*Tag, error) {
 
 	zr, err := zlib.NewReader(bytes.NewReader(payload))
 	if err != nil {
-		return nil, fmt.Errorf("%s: chunk (%d,%d) zlib: %w", path, lx, lz, err)
+		return nil, fmt.Errorf("chunk (%d,%d) zlib: %w", lx, lz, err)
 	}
 	defer zr.Close()
 	raw, err := io.ReadAll(zr)
 	if err != nil {
-		return nil, fmt.Errorf("%s: chunk (%d,%d) inflate: %w", path, lx, lz, err)
+		return nil, fmt.Errorf("chunk (%d,%d) inflate: %w", lx, lz, err)
 	}
 
 	root, err := ParseRoot(raw)
