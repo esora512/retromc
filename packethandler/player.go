@@ -58,7 +58,7 @@ func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *
 	SendSetHealth(connection, 20.0)
 	sendPlayerPositionAndLook(connection, 0, 0, 80)
 	pl.MovementState.Teleported = true
-	UpdateChunks(world, pl.X, pl.Z, pl)
+	updateChunks(world, pl.X, pl.Z, pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -134,7 +134,7 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 }
 
 func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
-	if pl.Immune >= 0 {
+	if pl.Immune >= 0 || pl.IsRiding != -1 {
 		return
 	}
 
@@ -165,6 +165,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 	landed := onSolidGround && dy <= 0 && pl.FallDistance > 0
 
 	if landed {
+		log.Printf("Fall Dist %f", pl.FallDistance)
 		if pl.FallDistance > 3 {
 			dmg := int16(math.Ceil(pl.FallDistance - 3))
 
@@ -231,7 +232,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 		maybeRidable := world.Entities[pl.IsRiding]
 		ridable, _ := maybeRidable.(*entities.RideableEntity)
 		x, y, z = ridable.X, ridable.Y, ridable.Z
-		UpdateChunks(world, x, z, pl)
+		updateChunks(world, x, z, pl)
 		if p.Yaw == pl.Yaw && p.Pitch == pl.Pitch {
 			return
 		}
@@ -255,7 +256,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.MovementState.Pitch = p.Pitch
 	pl.MovementState.PositionAndRotationChanged = true
 	pl.MovementState.UntrackPositionAndRotationIn = 10
-	applyFallDamage(world, pl, p.Y, p.OnGround)
+	applyFallDamage(world, pl, y, p.OnGround)
 
 	pl.X = x
 	pl.Y = y
@@ -264,7 +265,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
-	UpdateChunks(world, x, z, pl)
+	updateChunks(world, x, z, pl)
 }
 
 func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPacket, pl *player.Player, world *level.World) {
@@ -286,7 +287,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 			pl.X = ridable.X
 			pl.Y = ridable.Y
 			pl.Z = ridable.Z
-			UpdateChunks(world, pl.X, pl.Z, pl)
+			updateChunks(world, pl.X, pl.Z, pl)
 			return
 		}
 	}
@@ -305,14 +306,14 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.MovementState.Z = z
 	pl.MovementState.PositionChanged = true
 	pl.MovementState.UntrackPositionIn = 10
-	applyFallDamage(world, pl, p.Y, p.OnGround)
+	applyFallDamage(world, pl, y, p.OnGround)
 
 	pl.X = x
 	pl.Y = y
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
-	UpdateChunks(world, x, z, pl)
+	updateChunks(world, x, z, pl)
 
 }
 

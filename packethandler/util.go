@@ -182,7 +182,7 @@ const (
 	chunkMoveThresholdSq = chunkMoveThreshold * chunkMoveThreshold
 )
 
-func UpdateChunks(world *level.World, x, z float64, pl *player.Player) {
+func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	// //NOTE: Important for debugging of how much this is halting.
 	// start := time.Now()
 	// defer func() {
