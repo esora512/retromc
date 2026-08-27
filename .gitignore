@@ -13,7 +13,7 @@ recipes.txt
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 saves/
-save/
+skyblock/
 mcr_saves/
 
 # Dependency directories (remove the comment below to include it)

@@ -246,7 +246,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if (targetType != c.Player && !alive) || targetType == c.DroppedItem {
+						if (targetType != c.Player && !alive) || targetType == c.DroppedItem || targetType == c.FallingBlock{
 							//log.Println("Removing Entity")
 							w.RemoveEntity(targetID)
 						}

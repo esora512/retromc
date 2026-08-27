@@ -108,11 +108,11 @@ func (e *BlockEntity) Tick(getBlock func(x int32, y byte, z int32) constants.WBl
 
 	newY := e.Y + e.VelocityY
 
-	if newY < 0 {
-		e.Landed = true
-		e.Y = 0
-		return
-	}
+	// if newY < 0 {
+	// 	e.Landed = true
+	// 	e.Y = 0
+	// 	return
+	// }
 
 	groundY := int32(math.Floor(newY))
 	if groundY >= 1 {
