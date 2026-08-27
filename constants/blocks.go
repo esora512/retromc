@@ -236,6 +236,7 @@ var BlockCommandMap = map[string]Block{
 	"lit_redstone_repeater":   RedstoneRepeaterOn,
 	"locked_chest":            LockedChest,
 	"trapdoor":                Trapdoor,
+	"lever": Lever,
 }
 
 func GetBlockByName(name string) Block {
