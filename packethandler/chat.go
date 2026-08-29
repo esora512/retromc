@@ -184,8 +184,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			pl.SetHP(20)
 			SendSetHealth(pl.Connection, 20.0)
 			sendPlayerPositionAndLook(pl.Connection, 0, 0, 80)
-			world.MulticastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1), pl)
-			world.MulticastPacket(packets.NewTeleportPlayerPacket(pl, pl.X, pl.Y, pl.Z, float64(pl.Yaw), float64(pl.Pitch), world), pl)
 		}
 
 		if strings.HasPrefix(message, "/place") {

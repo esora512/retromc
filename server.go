@@ -64,6 +64,7 @@ func main() {
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
+	world.SetNewInteractWithBlockPacket(packets.NewInteractWithBlockPacket)
 
 	world.SetNewMobPositionAndRotationOrTeleportPacket(packets.NewMobPositionAndRotationPacketV2)
 	world.SetNewPositionAndRotationOrTeleportPacket(packethandler.NewPositionAndRotationOrTeleportPacket)
@@ -80,7 +81,6 @@ func main() {
 	world.SetBroadcastBlockChange(packets.BroadcastBlockChange)
 	world.SetBroadcastMultiBlockChange(packets.BroadcastMultiBlockChange)
 	world.SetBroadcastTime(packethandler.BroadcastTime)
-	world.SetBroadcastWakeUp(packethandler.BroadcastWakeUp)
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
@@ -95,6 +95,7 @@ func main() {
 	world.SetDespawnEntity(packets.NewEntityDespawnPacket)
 
 	world.SetNewAnimationPacket(packethandler.NewAnimationPacket)
+	world.SetNewEntityMetadataPacket(packets.NewEntityMetadataPacket)
 
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}

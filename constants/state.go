@@ -22,9 +22,12 @@ type MovementState struct {
 
 	IsHurt   bool
 	ArmSwing bool
-	IsDead bool
+	IsDead   bool
 
-	KeepRotation bool
+	KeepRotation   bool
+	SneakChanged   bool
+	WentToBed      bool
+	GotUp          bool
 }
 
 func (m *MovementState) VChanged() bool {

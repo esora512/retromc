@@ -443,23 +443,6 @@ type EntityMetadataPacket struct {
 	Metadata []byte
 }
 
-func sneakMetadata(sneaking bool) []byte {
-	var flags byte = 0x00
-	if sneaking {
-		flags = 0x02
-	}
-	metadataType := byte(0)                       // 0 = byte type
-	metadataIndex := byte(0)                      // 0 = entity flags field
-	header := (metadataType << 5) | metadataIndex // encode type and index into single byte
-
-	// S->C: Contains byte of id flag with value 0x02 if sneaking, 0x00 if not sneaking
-	return []byte{
-		header,
-		flags, // 0x02 = sneaking, 0x00 = not sneaking
-		0x7F,  // end of metadata
-	}
-}
-
 func ridingMetadata(riding bool) []byte {
 	var flags byte = 0x00
 	if riding {
@@ -483,10 +466,10 @@ func (p *EntityMetadataPacket) Serialize() []byte {
 	return w.Bytes()
 }
 
-func NewPlayerMetadataPacketSneak(pl *player.Player, sneaking bool) []byte {
+func NewEntityMetadataPacket(e constants.Entity, metadata []byte) []byte {
 	p := EntityMetadataPacket{
-		EntityId: int32(pl.EntityId),
-		Metadata: sneakMetadata(sneaking),
+		EntityId: e.GetEntityId(),
+		Metadata: metadata,
 	}
 	return p.Serialize()
 }

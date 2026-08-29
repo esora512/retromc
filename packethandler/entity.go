@@ -292,7 +292,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				otherPl, _ := world.Players[other.GetEntityId()]
 				otherPl.DespawnIn = 21
 				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
-				tracker.ResetViewerV2(world, other.GetEntityId())
+				tracker.ResetViewer(world, other.GetEntityId())
 			}
 
 			if other.GetEntityType() == constants.Ridable {
@@ -328,8 +328,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {
-			pl.OnGround = true 
-			log.Println("Getting off boat")
+			pl.OnGround = true
 			pl.IsRiding = -1
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
@@ -352,15 +351,19 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 
 func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, world *level.World) {
 	if p.ActionId == 1 {
-		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, true), pl)
+		pl.MovementState.SneakChanged = true
+		pl.IsSneaking = true
 	}
 	if p.ActionId == 2 {
-		world.MulticastPacket(packets.NewPlayerMetadataPacketSneak(pl, false), pl)
+		pl.MovementState.SneakChanged = true
+		pl.IsSneaking = false
 	}
 	if p.ActionId == 3 {
+		log.Println("Clicked Leave Bed Button")
 		world.RemoveSleeper(pl)
 		p := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 3}
-		world.BroadcastPacket(p.Serialize())
+		pl.Connection.Write(p.Serialize())
+		pl.MovementState.GotUp = true
 	}
 }
 

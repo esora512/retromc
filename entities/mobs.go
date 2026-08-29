@@ -406,11 +406,11 @@ func (m *Mob) performAttack(w WorldShared, t constants.Entity, dx, dy, dz float6
 	t.SetHP(newHP)
 	w.SendHealth(t.GetEntityId(), newHP)
 	ms := t.GetMovementState()
-	ms.IsHurt = true 
+	ms.IsHurt = true
 
 	if newHP <= 0 {
 		m.UnsetTarget()
-		tracker.ResetViewerV2(w, t.GetEntityId())
+		tracker.ResetViewer(w, t.GetEntityId())
 	}
 }
 

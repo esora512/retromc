@@ -116,7 +116,6 @@ type World struct {
 	broadcastBlockChange            func(w *World, x, y, z int32, blockType, blockMeta byte)
 	broadcastTime                   func(w *World, tick int64)
 	broadcastSpawnObject            func(w *World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16)
-	broadcastWakeUp                 func(w *World, id int32)
 	broadcastWorldMsg               func(w *World, msg string)
 	broadcastMobSpawn               func(w *World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32)
 	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
@@ -133,6 +132,7 @@ type World struct {
 
 	newEntityEventPacket func(eId int32, action byte) []byte
 	newAnimationPacket   func(pId int32, anim byte) []byte
+	newInteractWithBlockPacket func(eId int32, bedType byte, x int32, y byte, z int32) []byte 
 
 	spawnPlayer   func(pl *player.Player) []byte
 	spawnObject   func(e constants.Entity) []byte
@@ -140,6 +140,24 @@ type World struct {
 	spawnItem     func(d *entities.DroppedItem) []byte
 	despawnEntity func(id int32) []byte
 	setEquipment  func(pl *player.Player, v *player.Player)
+
+	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
+}
+
+func (w *World) SetNewInteractWithBlockPacket(f func (eId int32, bedType byte, x int32, y byte, z int32) []byte) {
+	w.newInteractWithBlockPacket = f
+} 
+
+func (w *World) NewInteractWithBlockPacket(pl *player.Player, bedType byte) []byte {
+	return w.newInteractWithBlockPacket(pl.GetEntityId(), bedType, pl.BedX, pl.BedY, pl.BedZ)
+}
+
+func (w *World) SetNewEntityMetadataPacket(f func(e constants.Entity, m []byte) []byte) {
+	w.newEntityMetadataPacket = f
+}
+
+func (w *World) NewEntityMetadataPacket(e constants.Entity, m []byte) []byte {
+	return w.newEntityMetadataPacket(e, m)
 }
 
 func (w *World) NewAnimationPacket(pl *player.Player, anim byte) []byte {
@@ -284,9 +302,6 @@ func (w *World) BroadcastWorldMsg(msg string) {
 	w.broadcastWorldMsg(w, msg)
 }
 
-func (w *World) BroadcastWakeUp(id int32) {
-	w.broadcastWakeUp(w, id)
-}
 
 func (w *World) BroadcastTime(tick int64) {
 	w.broadcastTime(w, tick)
@@ -350,10 +365,6 @@ func (w *World) SetBroadcastMultiBlockChange(f func(world *World, chunkX, chunkZ
 
 func (w *World) SetBroadcastTime(f func(w *World, tick int64)) {
 	w.broadcastTime = f
-}
-
-func (w *World) SetBroadcastWakeUp(f func(w *World, id int32)) {
-	w.broadcastWakeUp = f
 }
 
 func (w *World) SetBroadcastWorldMsg(f func(w *World, msg string)) {
@@ -424,7 +435,12 @@ func (w *World) SleepThroughNight() {
 		if s > 30 {
 			toNextDay := 24000 - (w.TimeTick % 24000)
 			w.TimeTick += toNextDay
-			w.BroadcastWakeUp(k)
+			pl, ok := w.GetPlayer(k)
+			if !ok {
+				continue
+			}
+			pl.MovementState.GotUp = true
+			pl.Connection.Write(w.NewAnimationPacket(pl, 3))
 			wokeUp = true
 			w.BroadcastWorldMsg("Sleeping through the night...")
 			break
@@ -586,14 +602,6 @@ func (w *World) GetPlayer(pId int32) (*player.Player, bool) {
 func (w *World) BroadcastPacket(data []byte) {
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
-			pl.Connection.Write(data)
-		}
-	}
-}
-
-func (w *World) MulticastPacket(data []byte, exclude *player.Player) {
-	for _, pl := range w.Players {
-		if pl.LoggedIn && pl != exclude {
 			pl.Connection.Write(data)
 		}
 	}

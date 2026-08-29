@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"runtime"
-	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/crafting"
@@ -726,12 +725,10 @@ func interactWithBed(oldExisting *constants.WBlock, world *level.World, pl *play
 		}
 
 		if world.IsNight() {
+			pl.GoToBed(hX, p.Y, hZ)
 			p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
-			mP := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 1}
 			pl.Connection.Write(p)
-			world.MulticastPacket(mP.Serialize(), pl)
 			world.AddSleeper(pl)
-			go func() { time.Sleep(time.Millisecond * 500); world.MulticastPacket(p, pl) }()
 		} else {
 			sendDebugMessage(pl, fmt.Sprintln("Can only sleep at night..."))
 		}

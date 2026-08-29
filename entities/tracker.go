@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/player"
@@ -22,14 +23,7 @@ func NewEntityTracker() *EntityTracker {
 	}
 }
 
-// Use case: Server has to resend entity packets if the viewer died & respawned, so client has them again
-func (et *EntityTracker) ResetViewer(viewerId int32) {
-	et.Mu.Lock()
-	defer et.Mu.Unlock()
-	delete(et.visible, viewerId)
-}
-
-func (et *EntityTracker) ResetViewerV2(w WorldShared, viewerId int32) {
+func (et *EntityTracker) ResetViewer(w WorldShared, viewerId int32) {
 	et.Mu.Lock()
 	defer et.Mu.Unlock()
 	pl, ok := w.GetPlayer(viewerId)
@@ -70,15 +64,6 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		return res
 	}
 
-	isDespawnable := func(t c.EntityType) bool {
-		switch t {
-		case c.FallingBlock, c.Mob, c.Player, c.Ridable, c.DroppedItem:
-			return true
-		default:
-			return false
-		}
-	}
-
 	viewers := make([]*player.Player, 0, len(w.GetPlayers()))
 	for _, viewer := range w.GetPlayers() {
 		viewerID := viewer.GetEntityId()
@@ -115,6 +100,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		isHurt := ms.IsHurt
 		isDead := ms.IsDead
 		armSwung := ms.ArmSwing
+		sneakChanged := ms.SneakChanged
+		wentToBed := ms.WentToBed
+		gotUp := ms.GotUp
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
@@ -143,6 +131,24 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				switch targetType {
 				case c.Player:
 					t, _ := target.(*player.Player)
+					if gotUp {
+						viewer.Connection.Write(w.NewAnimationPacket(t, 3))
+					}
+
+					if wentToBed {
+						// TODO: Figure out a better solution; 
+						// Goal: interact animation has to be visible before player goes to bed
+						viewer.Connection.Write(w.NewAnimationPacket(t, 1))
+						go func() {
+							time.Sleep(time.Millisecond * 500)
+							viewer.Connection.Write(w.NewInteractWithBlockPacket(t, 0))
+						}()
+					}
+
+					if sneakChanged {
+						viewer.Connection.Write(w.NewEntityMetadataPacket(t, t.SneakingMetadata()))
+					}
+
 					if isHurt {
 						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
 					}
@@ -228,7 +234,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				}
 				et.visible[viewerID][targetID] = true
 
-			} else if isVisible && (!inRange || (isDespawnable(targetType) && shouldDespawn(target))) {
+			} else if isVisible && (!inRange || shouldDespawn(target)) {
 				switch targetType {
 				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
 					if !inRange || !alive || shouldDespawn(target) {
@@ -246,7 +252,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.DespawnEntity(targetID))
 						delete(et.visible[viewerID], targetID)
 
-						if (targetType != c.Player && !alive) || targetType == c.DroppedItem || targetType == c.FallingBlock{
+						if (targetType != c.Player && !alive) || targetType == c.DroppedItem || targetType == c.FallingBlock {
 							//log.Println("Removing Entity")
 							w.RemoveEntity(targetID)
 						}
@@ -283,6 +289,15 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 		if !alive {
 			ms.IsDead = true
+		}
+		if sneakChanged {
+			ms.SneakChanged = false
+		}
+		if wentToBed {
+			ms.WentToBed = false
+		}
+		if gotUp {
+			ms.GotUp = false
 		}
 	}
 }

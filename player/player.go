@@ -163,6 +163,33 @@ type Player struct {
 	LastUpdateZ  float64
 	LastDim      int32
 	SentChunksMu sync.Mutex
+
+	IsSneaking bool
+
+	BedX, BedZ int32
+	BedY       byte
+}
+
+func (pl *Player) GoToBed(x int32, y byte, z int32) {
+	pl.MovementState.WentToBed = true
+	pl.BedX, pl.BedY, pl.BedZ = x, y, z
+}
+
+func (pl *Player) SneakingMetadata() []byte {
+	var flags byte = 0x00
+	if pl.IsSneaking {
+		flags = 0x02
+	}
+	metadataType := byte(0)                       // 0 = byte type
+	metadataIndex := byte(0)                      // 0 = entity flags field
+	header := (metadataType << 5) | metadataIndex // encode type and index into single byte
+
+	// S->C: Contains byte of id flag with value 0x02 if sneaking, 0x00 if not sneaking
+	return []byte{
+		header,
+		flags, // 0x02 = sneaking, 0x00 = not sneaking
+		0x7F,  // end of metadata
+	}
 }
 
 func (pl *Player) SetHP(hp int16) {

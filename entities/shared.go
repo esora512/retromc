@@ -6,6 +6,8 @@ import (
 )
 
 type WorldShared interface {
+	NewInteractWithBlockPacket(pl *player.Player, bedType byte) []byte
+	NewEntityMetadataPacket(e constants.Entity, m []byte) []byte
 	IsNight() bool
 	IsLoaded(x, z, dim int32) bool
 	FindNearbyPlayer(m *Mob) (int32, bool)
