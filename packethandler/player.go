@@ -165,7 +165,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 	landed := onSolidGround && dy <= 0 && pl.FallDistance > 0
 
 	if landed {
-		log.Printf("Fall Dist %f", pl.FallDistance)
+		//log.Printf("Fall Dist %f", pl.FallDistance)
 		if pl.FallDistance > 3 {
 			dmg := int16(math.Ceil(pl.FallDistance - 3))
 

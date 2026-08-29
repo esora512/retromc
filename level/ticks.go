@@ -99,14 +99,14 @@ func (world *World) FallingBlocksPhysics() {
 			return world.GetBlock(x, y, z, falling.Dimension)
 		})
 
-		if (falling.Landed) {
+		if falling.Landed {
 			falling.ShouldDespawn = true
 			block := constants.NewBlockById(falling.TypeId, falling.Metadata)
 			world.SetBlockInQueue(falling.X, int32(falling.Y), falling.Z, block, falling.Dimension)
 		}
 
 		if falling.Y < 0 {
-			falling.ShouldDespawn = true 
+			falling.ShouldDespawn = true
 		}
 	}
 }

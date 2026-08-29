@@ -102,11 +102,9 @@ const (
 	gravity           = 0.04
 	airDrag           = 0.98
 	groundDragBase    = 0.58800006
-	bounceFactor      = -0.5
 	waterFlowStrength = 0.014
 	buoyancy          = 0.02
 	buoyancyMaxUp     = 0.06
-	lavaLifetime      = 3
 )
 
 func getFlowVector(w WorldShared, bx int32, by byte, bz int32, dim int32, b constants.WBlock) FlowVec {
@@ -301,11 +299,7 @@ func (d *DroppedItem) Tick(w WorldShared) {
 		d.VelZ = 0
 	}
 	if dy != d.VelY {
-		if onGround {
-			d.VelY *= bounceFactor
-		} else {
-			d.VelY = 0
-		}
+		d.VelY = 0
 	}
 
 	drag := float64(airDrag)
