@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/leNicDev/retromc/constants"
@@ -792,8 +793,13 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
-	if oldExisting.TypeId == byte(constants.Lever.Value) {
+	if oldExisting.IsLever() {
 		interactWithLever(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		return
+	}
+
+	if oldExisting.IsButton() {
+		interactWithButton(world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
 	}
 
@@ -1194,8 +1200,28 @@ func interactWithTrapDoor(world *level.World, x, y, z int32, dimension int32) {
 
 func interactWithLever(world *level.World, x, y, z int32, dimension int32) {
 	block := world.GetBlock(x, byte(y), z, dimension)
-	block.Metadata ^= 1 << 3   
+	block.Metadata ^= 1 << 3
 	world.SetBlockInQueue(x, y, z, block, dimension)
+}
+
+func interactWithButton(world *level.World, x, y, z int32, dimension int32) {
+	block := world.GetBlock(x, byte(y), z, dimension)
+
+	oldMetadata := block.Metadata
+	block.Metadata ^= 1 << 3
+
+	world.SetBlockInQueue(x, y, z, block, dimension)
+
+	restoreAt := world.Tick + 16
+
+	go func() {
+		for world.Tick < restoreAt {
+			runtime.Gosched()
+		}
+
+		block.Metadata = oldMetadata
+		world.SetBlockInQueue(x, y, z, block, dimension)
+	}()
 }
 
 func interactWithDoor(world *level.World, x, y, z int32, dimension int32) {

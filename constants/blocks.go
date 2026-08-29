@@ -236,7 +236,7 @@ var BlockCommandMap = map[string]Block{
 	"lit_redstone_repeater":   RedstoneRepeaterOn,
 	"locked_chest":            LockedChest,
 	"trapdoor":                Trapdoor,
-	"lever": Lever,
+	"lever":                   Lever,
 }
 
 func GetBlockByName(name string) Block {
@@ -436,6 +436,14 @@ func (b *WBlock) IsAir() bool {
 
 func (b *WBlock) IsDoor() bool {
 	return b.TypeId == byte(WoodenDoor.Value) || b.TypeId == byte(IronDoor.Value)
+}
+
+func (b *WBlock) IsLever() bool {
+	return b.TypeId == byte(Lever.Value)
+}
+
+func (b *WBlock) IsButton() bool {
+	return b.TypeId == byte(StoneButton.Value)
 }
 
 func (b *WBlock) IsTrapdoor() bool {
