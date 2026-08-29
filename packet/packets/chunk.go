@@ -55,3 +55,22 @@ func (p *ChunkBlockRegionPacket) Serialize() []byte {
 	writer.Write(p.CompressedData)      // write compressed chunk data
 	return writer.Bytes()
 }
+
+type WorldEventPacket struct {
+	EffectId int32
+	X        int32
+	Y        byte
+	Z        int32
+	Data     int32
+}
+
+func (p *WorldEventPacket) Serialize() []byte {
+	writer := packet.NewPacketWriter()
+	writer.WriteByte(packet.WorldEvent)
+	writer.WriteInt32(p.EffectId)
+	writer.WriteInt32(p.X)
+	writer.WriteByte(p.Y)
+	writer.WriteInt32(p.Z)
+	writer.WriteInt32(p.Data)
+	return writer.Bytes()
+}

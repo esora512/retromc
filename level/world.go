@@ -684,3 +684,24 @@ func (w *World) FlushBlockQueue() {
 		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta)
 	}
 }
+
+func (w *World) SendNearby(source *player.Player, data []byte) {
+	const distance = VIEW_DISTANCE * 4
+	x1, _, z1 := source.GetPosition()
+	dim1 := source.GetDim()
+
+	for _, target := range w.Players {
+		x2, _, z2 := target.GetPosition()
+		dim2 := target.GetDim()
+		sameDim := dim1 == dim2
+
+		dx := math.Abs(x1 - x2)
+		dz := math.Abs(z1 - z2)
+
+		inRange := sameDim && dx <= distance && dz <= distance
+
+		if inRange {
+			target.Connection.Write(data)
+		}
+	}
+}

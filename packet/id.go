@@ -40,6 +40,7 @@ const (
 	ChunkBlockRegion          byte = 0x33
 	SetMultipleBlocks         byte = 0x34
 	SetBlock                  byte = 0x35
+	WorldEvent                byte = 0x3D
 	OpenContainer             byte = 0x64
 	CloseContainer            byte = 0x65
 	ClickSlot                 byte = 0x66

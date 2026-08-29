@@ -374,6 +374,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	pl.MovementState.ArmSwing = true
 
 	oldBlock := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension)
+
 	if !shouldProcessDigging(p, pl, oldBlock) {
 		return
 	}
@@ -383,6 +384,9 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	if oldBlock.TypeId == 0x00 {
 		return
 	}
+
+	pkt := packets.WorldEventPacket{EffectId: 2001, X: p.X, Y: p.Y, Z: p.Z, Data: int32(oldBlock.TypeId)}
+	world.SendNearby(pl, pkt.Serialize())
 
 	removeMinedBlockEntity(world, p, oldBlock)
 
@@ -791,22 +795,22 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 
 	if oldExisting.IsLever() {
-		interactWithLever(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		interactWithLever(pl, world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
 	}
 
 	if oldExisting.IsButton() {
-		interactWithButton(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		interactWithButton(pl, world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
 	}
 
 	if oldExisting.IsTrapdoor() {
-		interactWithTrapDoor(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		interactWithTrapDoor(pl, world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
 	}
 
 	if oldExisting.IsDoor() {
-		interactWithDoor(world, p.X, int32(p.Y), p.Z, pl.Dimension)
+		interactWithDoor(pl, world, p.X, int32(p.Y), p.Z, pl.Dimension)
 		return
 	}
 
@@ -1185,7 +1189,7 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
-func interactWithTrapDoor(world *level.World, x, y, z int32, dimension int32) {
+func interactWithTrapDoor(pl *player.Player, world *level.World, x, y, z int32, dimension int32) {
 	block := world.GetBlock(x, byte(y), z, dimension)
 	state := trapDoorStates[block.Metadata]
 
@@ -1193,21 +1197,28 @@ func interactWithTrapDoor(world *level.World, x, y, z int32, dimension int32) {
 	block.Metadata = trapDoorMeta(newOpen, state.facing)
 	world.SetBlockInQueue(x, y, z, block, dimension)
 
+	p := packets.WorldEventPacket{EffectId: 1003, X: x, Y: byte(y), Z: z}
+	world.SendNearby(pl, p.Serialize())
 }
 
-func interactWithLever(world *level.World, x, y, z int32, dimension int32) {
+func interactWithLever(pl *player.Player, world *level.World, x, y, z int32, dimension int32) {
 	block := world.GetBlock(x, byte(y), z, dimension)
 	block.Metadata ^= 1 << 3
 	world.SetBlockInQueue(x, y, z, block, dimension)
+	p := packets.WorldEventPacket{EffectId: 1000, X: x, Y: byte(y), Z: z}
+	world.SendNearby(pl, p.Serialize())
 }
 
-func interactWithButton(world *level.World, x, y, z int32, dimension int32) {
+func interactWithButton(pl *player.Player, world *level.World, x, y, z int32, dimension int32) {
 	block := world.GetBlock(x, byte(y), z, dimension)
 
 	oldMetadata := block.Metadata
 	block.Metadata ^= 1 << 3
 
 	world.SetBlockInQueue(x, y, z, block, dimension)
+
+	p := packets.WorldEventPacket{EffectId: 1000, X: x, Y: byte(y), Z: z}
+	world.SendNearby(pl, p.Serialize())
 
 	restoreAt := world.Tick + 16
 
@@ -1218,10 +1229,13 @@ func interactWithButton(world *level.World, x, y, z int32, dimension int32) {
 
 		block.Metadata = oldMetadata
 		world.SetBlockInQueue(x, y, z, block, dimension)
+
+		p := packets.WorldEventPacket{EffectId: 1001, X: x, Y: byte(y), Z: z}
+		world.SendNearby(pl, p.Serialize())
 	}()
 }
 
-func interactWithDoor(world *level.World, x, y, z int32, dimension int32) {
+func interactWithDoor(pl *player.Player, world *level.World, x, y, z int32, dimension int32) {
 	block := world.GetBlock(x, byte(y), z, dimension)
 	if int(block.Metadata) >= len(doorStates) {
 		return
@@ -1242,6 +1256,9 @@ func interactWithDoor(world *level.World, x, y, z int32, dimension int32) {
 
 	world.SetBlockInQueue(x, y, z, block, dimension)
 	world.SetBlockInQueue(x, otherY, z, other, dimension)
+
+	p := packets.WorldEventPacket{EffectId: 1003, X: x, Y: byte(y), Z: z}
+	world.SendNearby(pl, p.Serialize())
 }
 
 func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player) {
