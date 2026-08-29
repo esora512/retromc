@@ -76,6 +76,7 @@ func (w *World) SnapshotEntities() []constants.Entity {
 // World holds all loaded chunks and is the single source of truth for block state.
 type World struct {
 	Mu sync.RWMutex
+	//Mu dlock.DebugRWMutex
 	//Mu             deadlock.RWMutex
 	regionFilesMu sync.Mutex
 	regionFiles   map[string]*os.File
@@ -130,9 +131,9 @@ type World struct {
 	newPositionPacket                         func(e constants.Entity, m constants.MovementState) []byte
 	newMobPositionAndRotationOrTeleportPacket func(e constants.Entity, m constants.MovementState) []byte
 
-	newEntityEventPacket func(eId int32, action byte) []byte
-	newAnimationPacket   func(pId int32, anim byte) []byte
-	newInteractWithBlockPacket func(eId int32, bedType byte, x int32, y byte, z int32) []byte 
+	newEntityEventPacket       func(eId int32, action byte) []byte
+	newAnimationPacket         func(pId int32, anim byte) []byte
+	newInteractWithBlockPacket func(eId int32, bedType byte, x int32, y byte, z int32) []byte
 
 	spawnPlayer   func(pl *player.Player) []byte
 	spawnObject   func(e constants.Entity) []byte
@@ -144,9 +145,9 @@ type World struct {
 	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
 }
 
-func (w *World) SetNewInteractWithBlockPacket(f func (eId int32, bedType byte, x int32, y byte, z int32) []byte) {
+func (w *World) SetNewInteractWithBlockPacket(f func(eId int32, bedType byte, x int32, y byte, z int32) []byte) {
 	w.newInteractWithBlockPacket = f
-} 
+}
 
 func (w *World) NewInteractWithBlockPacket(pl *player.Player, bedType byte) []byte {
 	return w.newInteractWithBlockPacket(pl.GetEntityId(), bedType, pl.BedX, pl.BedY, pl.BedZ)
@@ -301,7 +302,6 @@ func (w *World) GetEntity(id int32) (constants.Entity, bool) {
 func (w *World) BroadcastWorldMsg(msg string) {
 	w.broadcastWorldMsg(w, msg)
 }
-
 
 func (w *World) BroadcastTime(tick int64) {
 	w.broadcastTime(w, tick)

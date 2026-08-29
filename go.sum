@@ -1,3 +1,5 @@
+github.com/esora512/dlock v0.0.1 h1:YgnDTONryD038ZDFZqQVE3aCmIOBMpawt9lOjN4jg5s=
+github.com/esora512/dlock v0.0.1/go.mod h1:rnpY0xxVknmwfNMX6sgL6kWFJ3UNZGU0LpaqpYmTV9s=
 github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe h1:vHpqOnPlnkba8iSxU4j/CvDSS9J4+F4473esQsYLGoE=
 github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
 github.com/sasha-s/go-deadlock v0.3.9 h1:fiaT9rB7g5sr5ddNZvlwheclN9IP86eFW9WgqlEQV+w=
