@@ -145,6 +145,7 @@ type World struct {
 	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
 }
 
+
 func (w *World) SetNewInteractWithBlockPacket(f func(eId int32, bedType byte, x int32, y byte, z int32) []byte) {
 	w.newInteractWithBlockPacket = f
 }
@@ -524,7 +525,7 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constant
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
-	chunk.RelightColumn(lx, lz)
+	//chunk.RelightColumn(lx, lz)
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) constants.WBlock {

@@ -129,6 +129,7 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
 		}
 
 		chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
+		chunk.RelightAll()
 
 		pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
 		pl.Connection.Write(pre.Serialize())
@@ -151,6 +152,10 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
 	pl.LastChunkX = cx
 	pl.LastChunkZ = cz
 	pl.HasInitializedChunks = true
+}
+
+func WorldToLocalCoord(world int32) int {
+	return int(world & 15)
 }
 
 func spiralOffsets(radius int32) []level.ChunkCoord {

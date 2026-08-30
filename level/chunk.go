@@ -102,7 +102,7 @@ func (c *Chunk) GenerateTemplate() {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
-	c.relightAll()
+	c.RelightAll()
 	c.HasChanged = false
 }
 
@@ -128,7 +128,7 @@ func (c *Chunk) GenerateEmpty() {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
-	c.relightAll()
+	c.RelightAll()
 	c.HasChanged = false
 
 }
@@ -168,8 +168,8 @@ func (c *Chunk) RelightColumn(lx, lz int) {
 	}
 }
 
-// relightAll relights every column in the chunk.
-func (c *Chunk) relightAll() {
+// RelightAll relights every column in the chunk.
+func (c *Chunk) RelightAll() {
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
 			c.RelightColumn(lx, lz)
@@ -433,7 +433,6 @@ func (w *World) GetNearbyChunks(dim int32) []*Chunk {
 	}
 	return chunks
 }
-
 
 func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
 	wanted := w.wantedChunks(dim, VIEW_DISTANCE)

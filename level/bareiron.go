@@ -569,5 +569,5 @@ func (c *Chunk) GenerateBareironBiomes(seed uint32, cx, cz int32) {
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
 	applySnowToTrees(c, anchors)
-	c.relightAll()
+	c.RelightAll()
 }

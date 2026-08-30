@@ -815,7 +815,8 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
-	if tryTillSoil(world, p, oldExisting, heldItem, pl.Dimension) {
+	if heldItem.IsHoe() {
+		tryTillSoil(world, p, oldExisting, heldItem, pl.Dimension, pl)
 		return
 	}
 
@@ -1310,12 +1311,13 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket
 	}
 }
 
-func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting constants.WBlock, heldItem inventory.Item, dim int32) bool {
+func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting constants.WBlock, heldItem inventory.Item, dim int32, pl *player.Player) bool {
 	if (oldExisting.TypeId != byte(constants.Dirt.Value) && oldExisting.TypeId != byte(constants.Grass.Value)) || !heldItem.IsHoe() {
 		return false
 	}
 	tilled := constants.NewBlockById(constants.Farmland.Value, 0)
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled, dim)
+	damageHeldItemOnDig(pl)
 	return true
 }
 

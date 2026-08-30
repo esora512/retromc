@@ -46,7 +46,7 @@ func main() {
 
 	ops := make(opUsernamesFlag)
 	flag.Var(&ops, "op", "Username of a player to grant operator permissions to (repeatable, e.g. --op esora512 --op PixelBrush)")
-	
+
 	wType := flag.String("wt", "Default", "World type for world generation")
 
 	flag.Parse()

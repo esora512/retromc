@@ -163,5 +163,5 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 	c.Data = append(c.Data, blockMetadata...)
 	c.Data = append(c.Data, blockLight...)
 	c.Data = append(c.Data, blockSkyLight...)
-	c.relightAll()
+	c.RelightAll()
 }

@@ -13,7 +13,7 @@ const (
 	MinTickY          = 60
 	MaxTickY          = 80
 	ScanRadius        = 16
-	GrowChancePerScan = 10
+	GrowChancePerScan = 1024
 )
 
 type GrowHandler func(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32)
@@ -198,25 +198,6 @@ func playerYWindow(playerY float64) (byte, byte) {
 		yMax = yMin + 1
 	}
 	return byte(yMin), byte(yMax)
-}
-
-func (w *World) randomTickChunk(chunk *Chunk, dim int32, yMin, yMax byte) {
-	baseX := chunk.X * 16
-	baseZ := chunk.Z * 16
-	yRange := int(yMax - yMin)
-
-	for i := 0; i < RandomTickSpeed; i++ {
-		x := baseX + int32(rand.Intn(16))
-		z := baseZ + int32(rand.Intn(16))
-		y := yMin + byte(rand.Intn(yRange))
-
-		block := w.GetBlock(x, y, z, dim)
-		handler, ok := GrowHandlers[block.TypeId]
-		if !ok {
-			continue
-		}
-		handler(w, x, y, z, block, dim)
-	}
 }
 
 func (w *World) randomScan(dim int32) {
