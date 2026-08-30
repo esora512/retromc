@@ -340,12 +340,6 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 				}
 
 				c.SetBlock(lx, y, lz, b)
-
-				if b.TypeId == byte(constants.Wheat.Value) {
-					key := BlockKey{cx*16 + int32(lx), byte(y), cz*16 + int32(lz)}
-					c.Logic.Growables[key] = &Wheat{StartTick: w.Tick, State: b.Metadata}
-
-				}
 			}
 		}
 	}

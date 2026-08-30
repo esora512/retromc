@@ -38,7 +38,7 @@ var commandHelp = []struct {
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
 	{"/time", "/time <set | tickspeed> <value>"},
-	{"/debug", "/debug <water | fallables | entities | growables | time | block | furnaces>"},
+	{"/debug", "/debug <water | entities | time | block | furnaces>"},
 	{"/help", "/help [command]"},
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 	{"/size", "/size"},
@@ -425,35 +425,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					}
 					if falling, ok := e.(*entPack.BlockEntity); ok {
 						lines = append(lines, fmt.Sprintf("    falling block, type=%d, meta=%d, landed=%t", falling.TypeId, falling.Metadata, falling.Landed))
-					}
-				}
-				sendDebugMessage(pl, lines...)
-			case "growables":
-				loadedGrowables := make(map[level.BlockKey]level.Growable)
-				chunks := world.LoadChunks(0)
-				chunks = append(chunks, world.LoadChunks(-1)...)
-				for _, chunk := range chunks {
-					logic := chunk.Logic
-					for key, growable := range logic.Growables {
-						loadedGrowables[key] = growable
-					}
-				}
-				lines := []string{fmt.Sprintf("Growables in world: %d", len(loadedGrowables))}
-				for key, e := range loadedGrowables {
-					if crops, ok := e.(*level.Wheat); ok {
-						lines = append(lines, fmt.Sprintf("  Type=Wheat, State=%d, StartTick=%d at x=%d, y=%d, z=%d", crops.State, crops.StartTick, key.X, key.Y, key.Z))
-					}
-					if cactus, ok := e.(*level.Cactus); ok {
-						lines = append(lines, fmt.Sprintf("  Type=Cactus, StartTick=%d at x=%d, y=%d, z=%d", cactus.StartTick, key.X, key.Y, key.Z))
-					}
-					if sapling, ok := e.(*level.Sapling); ok {
-						lines = append(lines, fmt.Sprintf("  Type=Sapling, WoodType=%d, StartTick=%d at x=%d, y=%d, z=%d", sapling.WoodType, sapling.StartTick, key.X, key.Y, key.Z))
-					}
-					if sugarcane, ok := e.(*level.Sugarcane); ok {
-						lines = append(lines, fmt.Sprintf("  Type=Sugarcane, StartTick=%d at x=%d, y=%d, z=%d", sugarcane.StartTick, key.X, key.Y, key.Z))
-					}
-					if dirt, ok := e.(*level.GrowableDirt); ok {
-						lines = append(lines, fmt.Sprintf("  Type=GrowableDirt, StartTick=%d at x=%d, y=%d, z=%d", dirt.StartTick, key.X, key.Y, key.Z))
 					}
 				}
 				sendDebugMessage(pl, lines...)

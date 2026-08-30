@@ -2,6 +2,7 @@ package level
 
 import (
 	"log"
+	"math/rand"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -9,6 +10,11 @@ import (
 
 const (
 	MaxFluidSpreadHeight = 7
+)
+
+const (
+	LeafDecayChance  = 20
+	LeafRecheckDelay = 20
 )
 
 func fluidDelay(b *constants.WBlock, decay bool) int64 {
@@ -163,6 +169,7 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	if b.TypeId != byte(constants.Leaves.Value) {
 		return
 	}
+
 	foundLog := false
 	for _, n := range neighbours {
 		l := w.GetBlock(u.X+n.Dx, byte(u.Y+n.Dy), u.Z+n.Dz, u.Dimension)
@@ -173,17 +180,22 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	}
 	if foundLog {
 		return
-	} else {
-		air := constants.NewAirBlock()
-		maybeSnow := w.GetBlock(u.X, byte(u.Y+1), u.Z, u.Dimension)
-		if maybeSnow.IsSnowLayer() {
-			u.SetBlock(u.X, u.Y+1, u.Z, air, u.Dimension)
-			w.SetBlockInQueue(u.X, u.Y+1, u.Z, air, u.Dimension)
-		}
-		u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
-		w.SetBlockInQueue(u.X, u.Y, u.Z, air, u.Dimension)
-		notifyLeafNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 	}
+
+	if rand.Intn(LeafDecayChance) != 0 {
+		w.Scheduler.scheduleLeafUpdate(w.Tick+LeafRecheckDelay, u.X, u.Y, u.Z, w.SetBlockInQueue, u.Dimension)
+		return
+	}
+
+	air := constants.NewAirBlock()
+	maybeSnow := w.GetBlock(u.X, byte(u.Y+1), u.Z, u.Dimension)
+	if maybeSnow.IsSnowLayer() {
+		u.SetBlock(u.X, u.Y+1, u.Z, air, u.Dimension)
+		w.SetBlockInQueue(u.X, u.Y+1, u.Z, air, u.Dimension)
+	}
+	u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
+	w.SetBlockInQueue(u.X, u.Y, u.Z, air, u.Dimension)
+	notifyLeafNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 }
 
 func processFluidUpdate(w *World, u *BlockUpdate) {

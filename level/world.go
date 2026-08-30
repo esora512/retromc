@@ -525,9 +525,6 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constant
 	lz := WorldToLocalCoord(worldZ)
 	chunk.SetBlock(lx, int(worldY), lz, block)
 	chunk.RelightColumn(lx, lz)
-
-	key := BlockKey{worldX, worldY, worldZ}
-	w.SetGrowable(block, key, dim)
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) constants.WBlock {

@@ -244,7 +244,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.TickLeaves()
 	w.FallingBlocksPhysics()
 	w.RidablePhysics()
-	w.GrowPhysics()
+	w.RandomTickPhysics()
 	w.DroppedItemPhysics()
 	w.TickFurnaces()
 	w.TickSleep()

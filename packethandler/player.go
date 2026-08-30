@@ -587,10 +587,6 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 		} else {
 			blockItem = constants.WheatItem.Value
 		}
-		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
-		logic := chunk.Logic
-		delete(logic.Growables, bk)
 	}
 
 	if blockItem == constants.Leaves.Value {
@@ -610,11 +606,6 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 			blockItem = constants.SugarcaneItem.Value
 		}
 		blockMeta = 0
-
-		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
-		delete(chunk.Logic.Growables, bk)
-
 		for i := 1; i <= 3; i++ {
 			aboveY := p.Y + byte(i)
 			above := world.GetBlock(p.X, aboveY, p.Z, pl.Dimension)
@@ -627,25 +618,16 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 		}
 	}
 
-	if blockItem == constants.Sapling.Value {
-		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
-		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(chunk.Logic.Growables, bk)
-	}
-
-	if blockItem == constants.Grass.Value {
-		chunk := world.GetLoadedChunk(p.X, p.Z, pl.Dimension)
-		blockItem = constants.Dirt.Value
-		bk := level.BlockKey{X: p.X, Y: p.Y, Z: p.Z}
-		delete(chunk.Logic.Growables, bk)
-	}
-
 	if blockItem == constants.WoodenDoor.Value {
 		return constants.WoodenDoorItem.Value, 0, 1
 	}
 
 	if blockItem == constants.IronDoor.Value {
-		return constants.IronDoor.Value, 0, 1
+		return constants.IronDoorItem.Value, 0, 1
+	}
+
+	if blockItem == constants.Grass.Value || blockItem == constants.Farmland.Value {
+		return constants.Dirt.Value, 0, 1
 	}
 
 	return blockItem, blockMeta, count
@@ -784,7 +766,7 @@ func placementCollidesWithPlayer(pl *player.Player, x, y, z int32) bool {
 
 func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
-	logPlacementDebug(pl, oldExisting)
+	logPlacementDebug(pl, oldExisting, p)
 
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
@@ -928,11 +910,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	finalizePlacement(connection, world, pl, block, newX, newY, newZ, p, slot)
 }
 
-func logPlacementDebug(pl *player.Player, oldExisting constants.WBlock) {
+func logPlacementDebug(pl *player.Player, oldExisting constants.WBlock, p packets.PlaceBlockPacket) {
 	if !pl.DebugBlock {
 		return
 	}
-	sendDebugMessage(pl, fmt.Sprintf("Block type=%d meta=%d, light=%d, skylight=%d", oldExisting.TypeId, oldExisting.Metadata, oldExisting.Light, oldExisting.SkyLight))
+	sendDebugMessage(pl, fmt.Sprintf("Block type=%d meta=%d, light=%d, skylight=%d (x=%d, y=%d, z=%d)", oldExisting.TypeId, oldExisting.Metadata, oldExisting.Light, oldExisting.SkyLight, p.X, p.Y, p.Z))
 }
 
 func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Player, p packets.PlaceBlockPacket, oldExisting constants.WBlock) bool {

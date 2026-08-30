@@ -30,7 +30,6 @@ type Chunk struct {
 	SizeY      byte
 	SizeZ      byte
 	Data       []byte
-	Logic      *ChunkLogic
 	HasChanged bool
 }
 
@@ -221,7 +220,6 @@ func NewChunk() Chunk {
 		SizeX: CHUNK_SIZE_X - 1,
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
-		Logic: NewChunkLogic(),
 	}
 	chunk.GenerateEmpty()
 	chunk.HasChanged = false
@@ -252,7 +250,6 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		SizeX: CHUNK_SIZE_X - 1,
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
-		Logic: NewChunkLogic(),
 	}
 
 	switch worldType {
@@ -376,21 +373,11 @@ func GetWorldType(wType string) WorldType {
 	}
 }
 
-type ChunkLogic struct {
-	Growables map[BlockKey]Growable
-}
-
 func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
 	if dim == -1 {
 		return w.nChunks
 	}
 	return w.oChunks
-}
-
-func NewChunkLogic() *ChunkLogic {
-	return &ChunkLogic{
-		Growables: make(map[BlockKey]Growable),
-	}
 }
 
 func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
@@ -402,7 +389,7 @@ func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 	return c
 }
 
-func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {
+func (w *World) wantedChunks(dim int32, viewDist int) map[ChunkCoord]struct{} {
 	wanted := make(map[ChunkCoord]struct{})
 	for _, pl := range w.Players {
 		if pl.Dimension != dim {
@@ -410,8 +397,8 @@ func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {
 		}
 		cx := WorldToChunkCoord(int32(pl.X))
 		cz := WorldToChunkCoord(int32(pl.Z))
-		for dx := -VIEW_DISTANCE; dx <= VIEW_DISTANCE; dx++ {
-			for dz := -VIEW_DISTANCE; dz <= VIEW_DISTANCE; dz++ {
+		for dx := -viewDist; dx <= viewDist; dx++ {
+			for dz := -viewDist; dz <= viewDist; dz++ {
 				wanted[ChunkCoord{X: cx + int32(dx), Z: cz + int32(dz)}] = struct{}{}
 			}
 		}
@@ -420,7 +407,7 @@ func (w *World) wantedChunks(dim int32) map[ChunkCoord]struct{} {
 }
 
 func (w *World) GetRenderedChunks(dim int32) []*Chunk {
-	wanted := w.wantedChunks(dim)
+	wanted := w.wantedChunks(dim, VIEW_DISTANCE)
 	w.Mu.RLock()
 	defer w.Mu.RUnlock()
 	src := w.chunksFor(dim)
@@ -433,8 +420,23 @@ func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 	return chunks
 }
 
+func (w *World) GetNearbyChunks(dim int32) []*Chunk {
+	wanted := w.wantedChunks(dim, 4)
+	w.Mu.RLock()
+	defer w.Mu.RUnlock()
+	src := w.chunksFor(dim)
+	chunks := make([]*Chunk, 0, len(wanted))
+	for wa := range wanted {
+		if c, ok := src[wa]; ok {
+			chunks = append(chunks, c)
+		}
+	}
+	return chunks
+}
+
+
 func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
-	wanted := w.wantedChunks(dim)
+	wanted := w.wantedChunks(dim, VIEW_DISTANCE)
 
 	w.Mu.Lock()
 	defer w.Mu.Unlock()
