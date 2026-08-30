@@ -106,11 +106,18 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
+
 		for _, viewer := range viewers {
 			viewerID := viewer.GetEntityId()
 			if viewerID == targetID {
 				continue
 			}
+
+			// viewerHP := viewer.GetHP()
+			// if viewerHP <= 0 {
+			// 	et.ResetViewer(w, viewerID)
+			// 	continue
+			// }
 
 			x1, _, z1 := viewer.GetPosition()
 			dx := math.Abs(x1 - x2)
@@ -136,7 +143,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					}
 
 					if wentToBed {
-						// TODO: Figure out a better solution; 
+						// TODO: Figure out a better solution;
 						// Goal: interact animation has to be visible before player goes to bed
 						viewer.Connection.Write(w.NewAnimationPacket(t, 1))
 						go func() {
@@ -213,7 +220,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					//log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
+					log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 

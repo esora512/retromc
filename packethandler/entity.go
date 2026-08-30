@@ -334,8 +334,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
 			pl.Immune = 75
-			//log.Printf("Player Pos x=%f, y=%f, z=%f", pl.X, pl.Y, pl.Z)
-			//log.Printf("Boat Pos x=%f, y=%f, z=%f", ridable.X, ridable.Y, ridable.Z)
+			log.Printf("%s got off", pl.Username)
 		} else {
 			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
 			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))
@@ -345,6 +344,8 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			pl.Ly = pl.Y
 			pl.Lz = pl.Z
 			pl.OnGround = false
+			log.Printf("%s got on", pl.Username)
+
 		}
 	}
 }

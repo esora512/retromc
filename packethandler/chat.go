@@ -402,7 +402,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				for _, e := range entities {
 					if e.GetEntityType() == constants.Player {
 						x, y, z := e.GetPosition()
-						lines = append(lines, fmt.Sprintf("  [%d] HP=%d at x=%.2f, y=%.2f, z=%.2f", e.GetEntityId(), e.GetHP(), x, y, z))
+						lines = append(lines, fmt.Sprintf("  [%d] HP=%d at x=%.2f, y=%.2f, z=%.2f, isRiding=%d", e.GetEntityId(), e.GetHP(), x, y, z, pl.IsRiding))
 					}
 				}
 				sendDebugMessage(pl, lines...)
