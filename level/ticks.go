@@ -8,6 +8,7 @@ import (
 	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
+	"github.com/leNicDev/retromc/player"
 )
 
 const (
@@ -267,10 +268,44 @@ func (w *World) TickPlayers() {
 }
 
 func (w *World) TickMobs(tracker *entities.EntityTracker) {
+	var players []*player.Player
+	var mobs []*entities.Mob
+
 	for _, e := range w.Entities {
-		if m, ok := e.(*entities.Mob); ok {
-			m.Move(w, tracker)
+		switch v := e.(type) {
+		case *player.Player:
+			players = append(players, v)
+		case *entities.Mob:
+			mobs = append(mobs, v)
 		}
+	}
+
+	const despawnDistSq = (VIEW_DISTANCE * 8) * (VIEW_DISTANCE * 8)
+
+	for _, m := range mobs {
+		mx, my, mz := m.GetPosition()
+
+		inRange := false
+		for _, p := range players {
+			px, py, pz := p.GetPosition()
+
+			dx := mx - px
+			dy := my - py
+			dz := mz - pz
+			distSq := dx*dx + dy*dy + dz*dz
+
+			if distSq <= despawnDistSq {
+				inRange = true
+				break
+			}
+		}
+
+		if !inRange {
+			m.DespawnIn = 1
+			m.SetHP(0)
+		}
+
+		m.Move(w, tracker)
 	}
 }
 
