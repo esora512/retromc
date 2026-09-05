@@ -51,3 +51,6 @@ Then you can access it via:
 ```sh
 ./retromc --external-chunkgen-bin bin/chunkgen 
 ```
+
+You can download the binary also from [![Google Drive](https://img.shields.io/badge/Google%20Drive-Open%20File-4285F4?logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1Wrw3ePTMh3mM0Dzk1-4r4pwuzkGMCoQN/view?usp=sharing)
+
