@@ -105,6 +105,11 @@ type World struct {
 	Seed            int64
 	sleepers        map[int32]int
 
+	// ExternalChunkGenBin is the path to an optional external chunk-generation
+	// binary (see level/externalchunkgen.go). When empty (the default),
+	// chunk generation always goes through the built-in Go generators.
+	ExternalChunkGenBin string
+
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	newCollectItemPacket            func(itemId, collectorId int32) []byte
 	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
@@ -378,6 +383,10 @@ func (w *World) SetSendSetHealth(f func(connection net.Conn, health uint16)) {
 
 func (w *World) SetOppedUsernames(names map[string]bool) {
 	w.OppedUsernames = names
+}
+
+func (w *World) SetExternalChunkGenBin(path string) {
+	w.ExternalChunkGenBin = path
 }
 
 func (w *World) LockSession(username string) func() {

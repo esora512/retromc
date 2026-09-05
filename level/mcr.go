@@ -300,13 +300,6 @@ func saveLevelDat(worldDir string, tick int64) error {
 	return os.WriteFile(filepath.Join(worldDir, "level.dat"), buf.Bytes(), 0o644)
 }
 
-func (w *World) ReadChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
-	// Locking because of w.Containers
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
-	return w.readChunkFromNBT(lvl, cx, cz)
-}
-
 func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
 	blocks := lvl.Get("Blocks").ByteArr
 	data := lvl.Get("Data").ByteArr

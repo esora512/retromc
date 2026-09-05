@@ -40,3 +40,14 @@ curl -fsSL https://go.dev/dl/go1.24.0.linux-amd64.tar.gz | sudo tar -C /usr/loca
 ```
 Then just clone the repo and run `bash build.sh`
 Finally, run the server with `./retromc --host 0.0.0.0`
+
+## External Vibe-coded world gen
+It is possible to get somewhat identical world generation to B1.7.3 by having a server that has this already and just creating a tool that spits out the chunks: I VIBE-CODED this using BetrockPlusPlus: https://github.com/esora512/BetrockPlusPlus/tree/vibe-gen/chunkgen
+* I have no idea about C++ but I know their world gen is solid, so I just asked Claude Code to generate a tool that uses their code and spits out the data I need for my chunk generation to work.
+* It is not 100% perfect but good enough for now, so I can more or less postpone work on world generation while still having it more or less. Plan is that me in the future (or perhaps other contributor) sets up world gen but at the moment I do not care.
+
+To use this world gen approach, you have to clone my fork of the BetrockPlusPlus repo, checkout into the `vibe-gen` branch, build the binary and move it wherever you want, for example `/bin/chunkgen`
+Then you can access it via:
+```sh
+./retromc --external-chunkgen-bin bin/chunkgen 
+```

@@ -49,6 +49,8 @@ func main() {
 
 	wType := flag.String("wt", "Default", "World type for world generation")
 
+	externalChunkGenBin := flag.String("external-chunkgen-bin", "", "Path to an external chunk-generation binary (e.g. bin/chunkgen); if set, routes normal terrain generation through it instead of the built-in Go generator, falling back to Go on failure")
+
 	flag.Parse()
 	l, err := net.Listen(CON_TYPE, *host+":"+*port)
 	if err != nil {
@@ -60,7 +62,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit, 0, level.GetWorldType(*wType))
+	world := level.NewWorld(GitCommit, 3101107241, level.GetWorldType(*wType))
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
@@ -86,6 +88,14 @@ func main() {
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 
 	world.SetOppedUsernames(ops)
+
+	if *externalChunkGenBin != "" {
+		if _, err := os.Stat(*externalChunkGenBin); err != nil {
+			log.Printf("external-chunkgen-bin set to %q but not accessible (%v); will fall back to the Go generator for every chunk until this is fixed", *externalChunkGenBin, err)
+		}
+		world.SetExternalChunkGenBin(*externalChunkGenBin)
+		log.Printf("External chunk generation enabled via %s", *externalChunkGenBin)
+	}
 
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)

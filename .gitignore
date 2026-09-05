@@ -16,6 +16,7 @@ saves/
 skyblock/
 mcr_saves/
 .vscode/
+bin/
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

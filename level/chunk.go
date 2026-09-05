@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	"unsafe"
 
 	"github.com/leNicDev/retromc/constants"
@@ -239,7 +238,20 @@ func chunkRand(worldSeed int64, cx, cz int32) *rand.Rand {
 	return rand.New(rand.NewSource(int64(h)))
 }
 
-func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
+// externalChunkGenEligible reports whether the requested chunk is one the
+// external generator should be given a chance to produce: the "real" terrain
+// case in each dimension (Default in the Overworld, Noodle -- the hardcoded
+// Nether path -- in the Nether), not an explicitly-chosen gimmick world type
+// like Maze/SkyGrid/Esorian/Template/Empty. A user who explicitly asked for
+// one of those via -wt still gets it even with external chunkgen configured.
+func externalChunkGenEligible(dim int32, worldType WorldType) bool {
+	if dim == -1 {
+		return worldType == Noodle
+	}
+	return worldType == Default
+}
+
+func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chunk {
 	worldX := cx * CHUNK_SIZE_X
 	worldZ := cz * CHUNK_SIZE_Z
 
@@ -250,6 +262,14 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType) *Chunk {
 		SizeX: CHUNK_SIZE_X - 1,
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
+	}
+
+	if w.ExternalChunkGenBin != "" && externalChunkGenEligible(dim, worldType) {
+		if ext, err := w.generateChunkExternal(cx, cz, dim); err == nil {
+			return ext
+		} else {
+			log.Printf("external chunkgen failed for chunk (%d,%d) dim %d, falling back to Go generator: %v", cx, cz, dim, err)
+		}
 	}
 
 	switch worldType {
@@ -591,21 +611,14 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 		if err != nil {
 			//log.Printf("chunk (%d,%d) dim %d: region open failed, regenerating: %v", cx, cz, dim, err)
 		} else {
-			t0 := time.Now()
 			lvl, err := mcregion.ReadChunk(f, lx, lz)
-			readTime := time.Since(t0)
 			if err != nil {
 				//log.Printf("chunk (%d,%d) dim %d: read failed, regenerating: %v", cx, cz, dim, err)
 			} else if lvl != nil {
-				t1 := time.Now()
 				c, err := w.readChunkFromNBT(lvl, cx, cz)
-				decodeTime := time.Since(t1)
 				if err != nil {
 					//log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
 				} else {
-					if readTime+decodeTime > 5*time.Millisecond {
-						//log.Printf("chunk (%d,%d): read=%s decode=%s", cx, cz, readTime, decodeTime)
-					}
 					return c
 				}
 			}
@@ -616,14 +629,14 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 	if dim == -1 {
 		worldType = Noodle
 	}
-	c := w.generateChunk(cx, cz, worldType)
+	c := w.generateChunk(cx, cz, worldType, dim)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 	return c
 }
 
 func (w *World) NewEmptyChunk(cx, cz int32) *Chunk {
-	c := w.generateChunk(cx, cz, Empty)
+	c := w.generateChunk(cx, cz, Empty, 0)
 	c.X = cx * CHUNK_SIZE_X
 	c.Z = cz * CHUNK_SIZE_Z
 	return c
