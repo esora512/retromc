@@ -1256,24 +1256,20 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 	var dx, dz int32
 	switch face {
 	case 3:
-		// West
-		headDir = directions.West
+		headDir = directions.North
 		dx, dz = 0, -1
 	case 2:
-		// East
-		headDir = directions.East
+		headDir = directions.South
 		dx, dz = 0, 1
 	case 4:
-		// North
-		headDir = directions.North
+		headDir = directions.East
 		dx, dz = 1, 0
 	case 5:
-		// South
-		headDir = directions.South
+		headDir = directions.West
 		dx, dz = -1, 0
 	default:
-		headDir = directions.South
-		dx, dz = 0, 1
+		log.Printf("WARNING: Not using correct directions...")
+		dx, dz = 0, 0
 	}
 
 	footBlock := constants.NewBedBlock(headDir)
@@ -1500,21 +1496,17 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *con
 	}
 	switch face {
 	case 3:
-		// West
-		block.Metadata = directions.West
-		log.Println("West")
-	case 2:
-		// East
-		block.Metadata = directions.East
-		log.Println("East")
-	case 4:
-		// North
-		block.Metadata = directions.North
-		log.Println("North")
-	case 5:
-		// South
 		block.Metadata = directions.South
 		log.Println("South")
+	case 2:
+		block.Metadata = directions.North
+		log.Println("North")
+	case 4:
+		block.Metadata = directions.West
+		log.Println("West")
+	case 5:
+		block.Metadata = directions.East
+		log.Println("East")
 	default:
 		block.Metadata = 0
 	}
@@ -1527,16 +1519,15 @@ func yawToFace(yaw float32) byte {
 	if y < 0 {
 		y += 360
 	}
-
 	switch {
 	case y >= 321 || y < 48:
-		return 2 // East
+		return 2
 	case y < 137:
-		return 5 // South
+		return 5
 	case y < 230:
-		return 3 // West
+		return 3
 	default:
-		return 4 // North
+		return 4
 	}
 }
 

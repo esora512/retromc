@@ -381,37 +381,37 @@ func (b *WBlock) IsPoweredRail() bool {
 func (b *WBlock) GetDirections() BlockDirections {
 	switch b.TypeId {
 	case byte(Bed.Value):
-		return BlockDirections{North: 3, South: 5, West: 2, East: 4}
+		return BlockDirections{North: 2, South: 0, East: 3, West: 1}
 
-	case byte(Ladder.Value):
-		return BlockDirections{North: 4, South: 5, West: 3, East: 2}
+	case byte(Ladder.Value),
+		byte(Furnace.Value),
+		byte(FurnaceLit.Value),
+		byte(Dispenser.Value),
+		byte(Chest.Value):
+		return BlockDirections{North: 2, South: 3, East: 5, West: 4}
 
 	case byte(SignGround.Value):
 		return BlockDirections{North: 4, South: 12, East: 8, West: 0}
 
 	case byte(WoodenStairs.Value), byte(CobblestoneStairs.Value):
-		return BlockDirections{North: 0, South: 1, East: 2, West: 3}
+		return BlockDirections{North: 3, South: 2, East: 0, West: 1}
 
 	case byte(Torch.Value),
 		byte(RedstoneTorchOn.Value),
 		byte(RedstoneTorchOff.Value),
 		byte(Lever.Value),
 		byte(StoneButton.Value):
-		return BlockDirections{North: 2, South: 1, East: 4, West: 3}
+		return BlockDirections{North: 4, South: 3, East: 1, West: 2}
 
-	case byte(Furnace.Value),
-		byte(FurnaceLit.Value),
-		byte(Dispenser.Value),
-		byte(Chest.Value),
-		byte(Piston.Value),
+	case byte(Piston.Value),
 		byte(PistonHead.Value):
-		return BlockDirections{North: 4, South: 5, East: 2, West: 3}
+		return BlockDirections{North: 2, South: 3, East: 4, West: 5}
 
 	case byte(Pumpkin.Value), byte(PumpkinLit.Value):
-		return BlockDirections{North: 1, South: 3, East: 2, West: 0}
+		return BlockDirections{North: 2, South: 0, East: 3, West: 1}
 
 	case byte(Trapdoor.Value):
-		return BlockDirections{North: 2, South: 3, East: 4, West: 1}
+		return BlockDirections{North: 1, South: 0, East: 2, West: 3}
 
 	default:
 		return BlockDirections{North: 0, South: 1, East: 2, West: 3}
