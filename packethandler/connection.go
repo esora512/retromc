@@ -50,8 +50,6 @@ func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *entities.EntityTracker) {
 	pl.Username = p.Username
-	unlock := world.LockSession(p.Username)
-	defer unlock()
 
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
 		world.BroadcastPacket(packets.NewEntityDespawnPacket(old.GetEntityId()))

@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/singleflight"
-
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
@@ -47,17 +45,23 @@ func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
 	return nil, false
 }
 
+
 func (w *World) SavePlayer(pl *player.Player) {
-	if pl.Username != "" {
-		unlock := w.LockSession(pl.Username)
-		defer unlock()
-		if cur, ok := w.GetPlayerByUsername(pl.Username); !ok || cur == pl {
-			pData := ToPlayerData(pl)
-			if saveErr := SavePlayerData(w.WorldDir, pl.Username, pData); saveErr != nil {
-				log.Println("Failed to save inventory:", saveErr)
-			}
-		}
+	if pl.Username == "" {
+		return
 	}
+	if cur, ok := w.GetPlayerByUsername(pl.Username); ok && cur != pl {
+		return
+	}
+	pData := ToPlayerData(pl)
+	username := pl.Username
+	go func() {
+		unlock := w.LockSession(username)
+		defer unlock()
+		if saveErr := SavePlayerData(w.WorldDir, username, pData); saveErr != nil {
+			log.Println("Failed to save inventory:", saveErr)
+		}
+	}()
 }
 
 func (w *World) IsNight() bool {
@@ -73,27 +77,26 @@ func (w *World) SnapshotEntities() []constants.Entity {
 	return snapshot
 }
 
-// World holds all loaded chunks and is the single source of truth for block state.
+
 type World struct {
-	Mu sync.RWMutex
-	//Mu dlock.DebugRWMutex
-	//Mu             deadlock.RWMutex
+	// To avoid locking, all world state changing commands are handled by a single goroutine
+	Commands chan func()
+
 	regionFilesMu sync.Mutex
 	regionFiles   map[string]*os.File
 
-	Rand           *rand.Rand
-	chunkLoadGroup singleflight.Group
-	sessionMu      sync.Map
-	blockQueue     map[[4]int32]QueueBlock
-	oChunks        map[ChunkCoord]*Chunk
-	nChunks        map[ChunkCoord]*Chunk
-	Tick           int64
-	TimeTick       int64
-	Players        map[int32]*player.Player
-	Entities       map[int32]constants.Entity
-	EntityCount    int32
-	WorldType      WorldType
-	Scheduler      BlockUpdateScheduler
+	Rand        *rand.Rand
+	sessionMu   sync.Map
+	blockQueue  map[[4]int32]QueueBlock
+	oChunks     map[ChunkCoord]*Chunk
+	nChunks     map[ChunkCoord]*Chunk
+	Tick        int64
+	TimeTick    int64
+	Players     map[int32]*player.Player
+	Entities    map[int32]constants.Entity
+	EntityCount int32
+	WorldType   WorldType
+	Scheduler   BlockUpdateScheduler
 
 	OppedUsernames map[string]bool
 
@@ -106,8 +109,6 @@ type World struct {
 	sleepers        map[int32]int
 
 	// ExternalChunkGenBin is the path to an optional external chunk-generation
-	// binary (see level/externalchunkgen.go). When empty (the default),
-	// chunk generation always goes through the built-in Go generators.
 	ExternalChunkGenBin string
 
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
@@ -149,7 +150,6 @@ type World struct {
 
 	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
 }
-
 
 func (w *World) SetNewInteractWithBlockPacket(f func(eId int32, bedType byte, x int32, y byte, z int32) []byte) {
 	w.newInteractWithBlockPacket = f
@@ -389,6 +389,18 @@ func (w *World) SetExternalChunkGenBin(path string) {
 	w.ExternalChunkGenBin = path
 }
 
+// Schedule world state changes
+func (w *World) Enqueue(fn func()) {
+	w.Commands <- fn
+}
+
+// Runs world state changing commands
+func (w *World) RunCommands() {
+	for fn := range w.Commands {
+		fn()
+	}
+}
+
 func (w *World) LockSession(username string) func() {
 	muIface, _ := w.sessionMu.LoadOrStore(username, &sync.Mutex{})
 	mu := muIface.(*sync.Mutex)
@@ -398,7 +410,7 @@ func (w *World) LockSession(username string) func() {
 
 func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	return &World{
-		//Mu:          *dlock.NewDebugRWMutex("World"),
+		Commands:    make(chan func(), 1024),
 		Seed:        seed,
 		CommitHash:  commitHash,
 		WorldDir:    "saves",
@@ -479,8 +491,6 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 
 func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte, pickupDelay, dim int32, velX, velY, velZ float64) int32 {
 	entityId := w.NextEntityId()
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 	w.Entities[entityId] = &entities.DroppedItem{EntityId: entityId,
 		ItemId:   itemId,
 		Amount:   amount,
@@ -553,8 +563,6 @@ func (w *World) NextEntityId() int32 {
 }
 
 func (w *World) AddPlayer(p *player.Player) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 	p.EntityId = int(w.NextEntityId())
 	w.Players[int32(p.EntityId)] = p
 	w.Entities[int32(p.EntityId)] = p
@@ -583,15 +591,11 @@ func (w *World) AddEntity(e constants.Entity) {
 }
 
 func (w *World) RemovePlayer(p *player.Player) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 	delete(w.Players, int32(p.EntityId))
 	delete(w.Entities, int32(p.EntityId))
 }
 
 func (w *World) RemoveEntity(entityId int32) {
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 	delete(w.Entities, entityId)
 }
 

@@ -219,8 +219,8 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 	}
 
 	if pl.HasInitializedChunks {
-		go applyChunkVisibility(world, pl, cx, cz, wanted)
-
+		// If initial chunks are visible, generate the rest later on as the player is already in the world
+		world.Enqueue(func() { applyChunkVisibility(world, pl, cx, cz, wanted) })
 	} else {
 		applyChunkVisibility(world, pl, cx, cz, wanted)
 	}
@@ -342,8 +342,6 @@ func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz floa
 	}
 	data := tpkt.Serialize()
 
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	for _, pl := range w.Players {
 		if !pl.LoggedIn {
 			continue

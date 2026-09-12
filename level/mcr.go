@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -188,7 +189,6 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 }
 
 func SaveMcRegion(w *World, worldDir string) error {
-	w.Mu.RLock()
 	oChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.oChunks))
 	for coord, ch := range w.oChunks {
 		oChunksSnapshot[coord] = ch
@@ -198,16 +198,22 @@ func SaveMcRegion(w *World, worldDir string) error {
 		nChunksSnapshot[coord] = ch
 	}
 	tick := w.Tick
-	w.Mu.RUnlock()
 
-	if err := saveChunksToRegion(w, worldDir, oChunksSnapshot, tick); err != nil {
-		return err
-	}
-	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunksSnapshot, tick); err != nil {
-		return err
-	}
+	go func() {
+		if err := saveChunksToRegion(w, worldDir, oChunksSnapshot, tick); err != nil {
+			log.Println("Failed to save overworld region:", err)
+			return
+		}
+		if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunksSnapshot, tick); err != nil {
+			log.Println("Failed to save nether region:", err)
+			return
+		}
+		if err := saveLevelDat(worldDir, tick); err != nil {
+			log.Println("Failed to save level.dat:", err)
+		}
+	}()
 
-	return saveLevelDat(worldDir, tick)
+	return nil
 }
 
 func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick int64) error {
@@ -252,14 +258,10 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick
 	return nil
 }
 
-func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, dimension int32) error {
+func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, dimension int32, tick int64) error {
 	if len(chunks) == 0 {
 		return nil
 	}
-
-	w.Mu.RLock()
-	tick := w.Tick
-	w.Mu.RUnlock()
 
 	dir := worldDir
 	if dimension == -1 {

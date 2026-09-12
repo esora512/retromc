@@ -39,71 +39,107 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handlePreLoginPacket(connection, packet)
 	case packet.Login:
 		packet := packets.ReadLoginPacket(packetReader)
-		handleLoginRequestInPacket(connection, packet, world, pl, tracker)
+		world.Enqueue(func() {
+			handleLoginRequestInPacket(connection, packet, world, pl, tracker)
+		})
 	case packet.PlayerPositionAndRotation:
 		p := packets.ReadPlayerPositionAndRotationPacket(packetReader)
-		handlePlayerPositionAndRotationPacket(connection, p, pl, world)
+		world.Enqueue(func() {
+			handlePlayerPositionAndRotationPacket(connection, p, pl, world)
+		})
 	case packet.PlayerPosition:
 		p := packets.ReadPlayerPositionPacket(packetReader)
-		handlePlayerPositionPacket(connection, p, pl, world)
+		world.Enqueue(func() {
+			handlePlayerPositionPacket(connection, p, pl, world)
+		})
 	case packet.PlayerMovement:
 		p := packets.ReadPlayerMovementPacket(packetReader)
-		pl.OnGround = p.OnGround
-		// TODO: Unhandled, should broadcast player movement to other players
+		world.Enqueue(func() {
+			pl.OnGround = p.OnGround
+			// TODO: Unhandled, should broadcast player movement to other players
+		})
 	case packet.PlayerRotation:
 		p := packets.ReadPlayerRotationPacket(packetReader)
-		handlePlayerRotationPacket(p, pl, world)
+		world.Enqueue(func() {
+			handlePlayerRotationPacket(p, pl, world)
+		})
 	case packet.PlayerAction:
 		p := packets.ReadPlayerActionPacket(packetReader)
-		handlePlayerActionPacket(p, pl, world)
+		world.Enqueue(func() {
+			handlePlayerActionPacket(p, pl, world)
+		})
 	case packet.Animation:
 		p := packets.ReadAnimationPacket(packetReader)
 		if p.Animation == 1 {
-			pl.MovementState.ArmSwing = true 
+			world.Enqueue(func() {
+				pl.MovementState.ArmSwing = true
+			})
 		}
 	case packet.MineBlock:
 		p := packets.ReadPlayerMineBlockPacket(packetReader)
-		handleMineBlockPacket(connection, p, world, pl)
+		world.Enqueue(func() {
+			handleMineBlockPacket(connection, p, world, pl)
+		})
 	case packet.SetHotbarSlot:
 		p := packets.ReadSetHotbarSlot(packetReader)
-		handleSetHotbarSlot(p, pl, world)
+		world.Enqueue(func() {
+			handleSetHotbarSlot(p, pl, world)
+		})
 	case packet.PlaceBlock:
 		p := packets.ReadPlaceBlockPacket(packetReader)
-		handlePlaceBlockPacket(connection, p, world, pl)
+		world.Enqueue(func() {
+			handlePlaceBlockPacket(connection, p, world, pl)
+		})
 	case packet.ClickSlot:
 		p := packets.ReadClickSlotPacket(packetReader)
-		before := pl.Inventory.PeekItem(pl.HotbarSlot)
-		handleClickSlotPacket(connection, p, world, pl)
-		NewFillContainerPacket(connection, pl)
-		after := pl.Inventory.PeekItem(pl.HotbarSlot)
-		if before != after {
-			sendEquipmentChangeForHotbarSlot(world, pl)
-		}
+		world.Enqueue(func() {
+			before := pl.Inventory.PeekItem(pl.HotbarSlot)
+			handleClickSlotPacket(connection, p, world, pl)
+			NewFillContainerPacket(connection, pl)
+			after := pl.Inventory.PeekItem(pl.HotbarSlot)
+			if before != after {
+				sendEquipmentChangeForHotbarSlot(world, pl)
+			}
+		})
 	case packet.Respawn:
 		p := packets.ReadRespawnPacket(packetReader)
-		handleRespawnInPacket(connection, p, world, pl)
+		world.Enqueue(func() {
+			handleRespawnInPacket(connection, p, world, pl)
+		})
 	case packet.CloseContainer:
 		p := packets.ReadCloseContainerPacket(packetReader, pl)
-		handleCloseContainerPacket(p, pl)
+		world.Enqueue(func() {
+			handleCloseContainerPacket(p, pl)
+		})
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityPacket(packetReader)
-		handleInteractWithEntityPacket(p, pl, world, tracker)
+		world.Enqueue(func() {
+			handleInteractWithEntityPacket(p, pl, world, tracker)
+		})
 	case packet.Disconnect:
 		p := packets.ReadDisconnectPacket(packetReader)
-		handleDisconnectPacket(p, world, pl)
+		world.Enqueue(func() {
+			handleDisconnectPacket(p, world, pl)
+		})
 	case packet.ChatMessage:
 		p := packets.ReadChatMessagePacket(packetReader)
-		isCommand := handleChatMessageInPacket(p, pl, world, tracker)
-		if isCommand {
-			NewFillContainerPacket(connection, pl)
-		}
+		world.Enqueue(func() {
+			isCommand := handleChatMessageInPacket(p, pl, world, tracker)
+			if isCommand {
+				NewFillContainerPacket(connection, pl)
+			}
+		})
 	case packet.UpdateSign:
 		p := packets.ReadUpdateSignPacket(packetReader)
-		handleUpdateSignPacket(p, world, pl)
+		world.Enqueue(func() {
+			handleUpdateSignPacket(p, world, pl)
+		})
 	case packet.PlayerInput:
 		log.Println("Received PlayerInput packet")
 		p := packets.ReadPlayerInputPacket(packetReader)
-		handlePlayerInputPacket(p, pl, world)
+		world.Enqueue(func() {
+			handlePlayerInputPacket(p, pl, world)
+		})
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}

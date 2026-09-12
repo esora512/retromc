@@ -403,10 +403,7 @@ func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
 func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 	cx := WorldToChunkCoord(x)
 	cz := WorldToChunkCoord(z)
-	w.Mu.RLock()
-	c := w.chunksFor(dim)[ChunkCoord{cx, cz}]
-	defer w.Mu.RUnlock()
-	return c
+	return w.chunksFor(dim)[ChunkCoord{cx, cz}]
 }
 
 func (w *World) wantedChunks(dim int32, viewDist int) map[ChunkCoord]struct{} {
@@ -428,8 +425,6 @@ func (w *World) wantedChunks(dim int32, viewDist int) map[ChunkCoord]struct{} {
 
 func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 	wanted := w.wantedChunks(dim, VIEW_DISTANCE)
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	src := w.chunksFor(dim)
 	chunks := make([]*Chunk, 0, len(wanted))
 	for wa := range wanted {
@@ -442,8 +437,6 @@ func (w *World) GetRenderedChunks(dim int32) []*Chunk {
 
 func (w *World) GetNearbyChunks(dim int32) []*Chunk {
 	wanted := w.wantedChunks(dim, 4)
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	src := w.chunksFor(dim)
 	chunks := make([]*Chunk, 0, len(wanted))
 	for wa := range wanted {
@@ -456,9 +449,6 @@ func (w *World) GetNearbyChunks(dim int32) []*Chunk {
 
 func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
 	wanted := w.wantedChunks(dim, VIEW_DISTANCE)
-
-	w.Mu.Lock()
-	defer w.Mu.Unlock()
 
 	src := w.chunksFor(dim)
 	var removed map[ChunkCoord]*Chunk
@@ -485,8 +475,6 @@ func (w *World) IsLoaded(x, z, dim int32) bool {
 }
 
 func (w *World) Size() int64 {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	var total int64
 	for _, c := range w.oChunks {
 		if c == nil {
@@ -530,8 +518,6 @@ func formatBytes(b int64) string {
 }
 
 func (w *World) LoadChunks(dim int32) []*Chunk {
-	w.Mu.RLock()
-	defer w.Mu.RUnlock()
 	src := w.chunksFor(dim)
 	chunks := make([]*Chunk, 0, len(src))
 	for _, c := range src {
@@ -545,38 +531,18 @@ func (w *World) ChunkExists(cx, cz, dim int32) bool {
 	return ok
 }
 
+
 func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	key := ChunkCoord{cx, cz}
 	chunks := w.chunksFor(dim)
 
-	w.Mu.RLock()
-	ch, ok := chunks[key]
-	w.Mu.RUnlock()
-	if ok {
+	if ch, ok := chunks[key]; ok {
 		return ch
 	}
 
-	sfKey := fmt.Sprintf("%d|%d|%d", dim, cx, cz)
-	v, err, _ := w.chunkLoadGroup.Do(sfKey, func() (interface{}, error) {
-		w.Mu.RLock()
-		if ch, ok := chunks[key]; ok {
-			w.Mu.RUnlock()
-			return ch, nil
-		}
-		w.Mu.RUnlock()
-
-		c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
-
-		w.Mu.Lock()
-		chunks[key] = c
-		w.Mu.Unlock()
-
-		return c, nil
-	})
-	if err != nil {
-		return nil
-	}
-	return v.(*Chunk)
+	c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
+	chunks[key] = c
+	return c
 }
 
 func (w *World) getRegionFile(path string) (*os.File, error) {

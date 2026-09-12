@@ -6,7 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net"
-	"runtime"
+	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/crafting"
@@ -1206,15 +1206,23 @@ func interactWithButton(pl *player.Player, world *level.World, x, y, z int32, di
 	restoreAt := world.Tick + 16
 
 	go func() {
-		for world.Tick < restoreAt {
-			runtime.Gosched()
+		ticker := time.NewTicker(50 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			reachedTick := make(chan bool, 1)
+			world.Enqueue(func() { reachedTick <- world.Tick >= restoreAt })
+			if <-reachedTick {
+				break
+			}
 		}
 
-		block.Metadata = oldMetadata
-		world.SetBlockInQueue(x, y, z, block, dimension)
+		world.Enqueue(func() {
+			block.Metadata = oldMetadata
+			world.SetBlockInQueue(x, y, z, block, dimension)
 
-		p := packets.WorldEventPacket{EffectId: 1001, X: x, Y: byte(y), Z: z}
-		world.SendNearby(pl, p.Serialize())
+			p := packets.WorldEventPacket{EffectId: 1001, X: x, Y: byte(y), Z: z}
+			world.SendNearby(pl, p.Serialize())
+		})
 	}()
 }
 

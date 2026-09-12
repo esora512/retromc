@@ -201,14 +201,12 @@ func playerYWindow(playerY float64) (byte, byte) {
 }
 
 func (w *World) randomScan(dim int32) {
-	w.Mu.RLock()
 	var players []*player.Player
 	for _, pl := range w.Players {
 		if pl.Dimension == dim {
 			players = append(players, pl)
 		}
 	}
-	w.Mu.RUnlock()
 
 	for _, pl := range players {
 		yMin, yMax := playerYWindow(pl.Y)

@@ -120,7 +120,7 @@ func main() {
 			log.Fatalln("Failed to accept connection: ", err.Error())
 			continue
 		}
-		go handleConnection(connection, world, entityTracker)
+		go handleConnection(player.NewAsyncConn(connection), world, entityTracker)
 	}
 
 }
@@ -156,23 +156,18 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 			//log.Println("Connection closed:", err.Error())
 			log.Println("Connection closed...")
 			if pl.Username != "" {
-				unlock := world.LockSession(pl.Username)
-				defer unlock()
-				if cur, ok := world.GetPlayerByUsername(pl.Username); !ok || cur == pl {
-					pData := level.ToPlayerData(pl)
-					if saveErr := level.SavePlayerData(world.WorldDir, pl.Username, pData); saveErr != nil {
-						log.Println("Failed to save inventory:", saveErr)
+				world.Enqueue(func() {
+					if cur, ok := world.GetPlayerByUsername(pl.Username); !ok || cur == pl {
+						world.SavePlayer(pl)
+						if pl.LoggedIn {
+							p := packethandler.NewLeftGameMsg(pl.Username)
+							world.BroadcastPacket(p)
+							world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
+						}
+						world.RemovePlayer(pl)
+						tracker.ResetEntity(pl.GetEntityId())
 					}
-
-					if pl.LoggedIn {
-						p := packethandler.NewLeftGameMsg(pl.Username)
-						world.BroadcastPacket(p)
-						world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
-
-					}
-					world.RemovePlayer(pl)
-					tracker.ResetEntity(pl.GetEntityId())
-				}
+				})
 			}
 			close(done)
 			connection.Close()
@@ -186,28 +181,38 @@ type Server struct {
 	Tracker *entities.EntityTracker
 }
 
+
 func (s *Server) Run() {
+	go s.World.RunCommands()
+
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			// For fast time, set it to TickSpeed to 20
-			nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
-			s.World.AdvanceTick(nextTick, s.Tracker)
-			if s.World.Tick%300 == 0 {
-				if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
-					if err := level.SaveChunks(s.World, s.World.WorldDir, removed, 0); err != nil {
-						log.Println("Failed to save the s.World:", err)
+			s.World.Enqueue(func() {
+				// For fast time, set it to TickSpeed to 20
+				nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
+				s.World.AdvanceTick(nextTick, s.Tracker)
+				if s.World.Tick%300 == 0 {
+					tick := s.World.Tick
+					if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
+						go func() {
+							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, 0, tick); err != nil {
+								log.Println("Failed to save the s.World:", err)
+							}
+						}()
+					}
+					if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
+						go func() {
+							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, -1, tick); err != nil {
+								log.Println("Failed to save the s.World:", err)
+							}
+						}()
 					}
 				}
-				if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
-					if err := level.SaveChunks(s.World, s.World.WorldDir, removed, -1); err != nil {
-						log.Println("Failed to save the s.World:", err)
-					}
-				}
-			}
-			s.Tracker.Manage(s.World)
-			s.World.FlushBlockQueue()
+				s.Tracker.Manage(s.World)
+				s.World.FlushBlockQueue()
+			})
 		}
 	}()
 }
