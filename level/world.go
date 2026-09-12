@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -397,8 +398,17 @@ func (w *World) Enqueue(fn func()) {
 // Runs world state changing commands
 func (w *World) RunCommands() {
 	for fn := range w.Commands {
-		fn()
+		runCommand(fn)
 	}
+}
+
+func runCommand(fn func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("recovered from panic in game loop command: %v\n%s", r, debug.Stack())
+		}
+	}()
+	fn()
 }
 
 func (w *World) LockSession(username string) func() {

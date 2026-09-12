@@ -1,8 +1,10 @@
 package packethandler
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"runtime/debug"
 
 	"bufio"
 
@@ -22,7 +24,15 @@ func NewFillContainerPacket(connection net.Conn, pl *player.Player) {
 	connection.Write(windowItemsPacket.Serialize())
 }
 
-func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player, tracker *entities.EntityTracker) error {
+
+func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World, pl *player.Player, tracker *entities.EntityTracker) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("recovered from panic decoding packet from %s: %v\n%s", connection.RemoteAddr(), r, debug.Stack())
+			err = fmt.Errorf("panic decoding packet: %v", r)
+		}
+	}()
+
 	packetId, err := reader.ReadByte()
 	if err != nil {
 		log.Println("Failed to read packet id:", err.Error())
