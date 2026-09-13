@@ -114,6 +114,8 @@ func Craft2x2(grid [4]int16) Result {
 	switch count {
 	case 1:
 		switch itemId {
+		case constants.Bone.Value:
+			return Result{constants.Dye.Value, 15, 3}
 		case constants.Log.Value:
 			return Result{constants.Planks.Value, 0, 4}
 		case constants.IronBlock.Value:
@@ -372,6 +374,8 @@ func Craft3x3(grid [9]int16) Result {
 	switch count {
 	case 1:
 		switch itemId {
+		case constants.Bone.Value:
+			return Result{constants.Dye.Value, 15, 3}
 		case constants.Log.Value:
 			return Result{constants.Planks.Value, 0, 4}
 		case constants.IronBlock.Value:

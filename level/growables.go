@@ -38,11 +38,17 @@ func growWheat(w *World, x int32, y byte, z int32, block constants.WBlock, dim i
 	w.BroadcastBlockChange(x, int32(y), z, crop.TypeId, crop.Metadata)
 }
 
+func BuildWheat(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
+	crop := constants.NewBlockById(constants.Wheat.Value, CROP_MAX_STATE)
+	w.SetBlock(x, y, z, crop, dim)
+	w.BroadcastBlockChange(x, int32(y), z, crop.TypeId, crop.Metadata)
+}
+
 func growSapling(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
 	if rand.Intn(20) != 0 {
 		return
 	}
-	buildTree(w, x, y, z, block.Metadata, dim)
+	BuildTree(w, x, y, z, block.Metadata, dim)
 }
 
 func growSugarcane(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
@@ -101,7 +107,7 @@ func growDirtToGrass(w *World, x int32, y byte, z int32, block constants.WBlock,
 	}
 }
 
-func buildTree(w *World, x int32, y byte, z int32, woodType byte, dim int32) {
+func BuildTree(w *World, x int32, y byte, z int32, woodType byte, dim int32) {
 	log := constants.NewBlockById(constants.Log.Value, woodType)
 	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {

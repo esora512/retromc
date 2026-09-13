@@ -815,6 +815,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if heldItem.IsBoneMeal() {
+		tryBoneMeal(world, p, oldExisting, heldItem, pl.Dimension, pl)
+		return
+	}
+
 	if heldItem.IsHoe() {
 		tryTillSoil(world, p, oldExisting, heldItem, pl.Dimension, pl)
 		return
@@ -989,7 +994,8 @@ func canPlaceHeldItem(heldItem inventory.Item) bool {
 		heldItem.TypeId != constants.FlintAndSteel.Value &&
 		heldItem.TypeId != constants.BedItem.Value &&
 		heldItem.TypeId != constants.IronDoorItem.Value &&
-		heldItem.TypeId != constants.WoodenDoorItem.Value {
+		heldItem.TypeId != constants.WoodenDoorItem.Value &&
+		!heldItem.IsBoneMeal() {
 		return false
 	}
 	return true
@@ -1325,6 +1331,26 @@ func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting con
 	tilled := constants.NewBlockById(constants.Farmland.Value, 0)
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, tilled, dim)
 	damageHeldItemOnDig(pl)
+	return true
+}
+
+func tryBoneMeal(world *level.World, p packets.PlaceBlockPacket, oldExisting constants.WBlock, heldItem inventory.Item, dim int32, pl *player.Player) bool {
+	if oldExisting.TypeId != byte(constants.Sapling.Value) && oldExisting.TypeId != byte(constants.Wheat.Value) {
+		return false
+	}
+	if oldExisting.TypeId == byte(constants.Sapling.Value) {
+		level.BuildTree(world, p.X, p.Y, p.Z, oldExisting.Metadata, dim)
+
+	}
+	if oldExisting.TypeId == byte(constants.Wheat.Value) {
+		level.BuildWheat(world, p.X, p.Y, p.Z, oldExisting, dim)
+		
+	}
+	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+	if pl.Inventory.PeekItem(pl.HotbarSlot).TypeId == -1 {
+		sendEquipmentChangeForHotbarSlot(world, pl)
+	}
 	return true
 }
 
