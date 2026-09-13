@@ -1,6 +1,7 @@
 package level
 
 import (
+	"log"
 	"math"
 	"math/rand"
 
@@ -234,6 +235,10 @@ func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool, dim int32) {
 
 func (w *World) TickFurnaces() {
 	furnaces := w.GetAllFurnaces()
+	if len(furnaces) > 0 {
+		log.Printf("Furnaces %d", len(furnaces))
+
+	}
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
@@ -252,6 +257,8 @@ func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.TickPlayers()
 	w.TickMobs(tracker)
 	w.SpawnSpiders()
+	w.SpawnSkeletons()
+	w.SpawnPigs()
 }
 
 func (w *World) TickSleep() {
@@ -321,6 +328,30 @@ func (w *World) SpawnSpiders() {
 	if !w.IsNight() {
 		return
 	}
+	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
+		w.SpawnSpider(x, y, z, dim, -1)
+	})
+}
+
+func (w *World) SpawnSkeletons() {
+	if !w.IsNight() {
+		return
+	}
+	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
+		w.SpawnSkeleton(x, y, z, dim, -1)
+	})
+}
+
+func (w *World) SpawnPigs() {
+	if w.IsNight() {
+		return
+	}
+	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
+		w.SpawnPig(x, y, z, dim)
+	})
+}
+
+func (w *World) spawnMobsAroundPlayers(spawn func(x, y, z, dim int32)) {
 	count := 0
 	for _, e := range w.Entities {
 		if _, ok := e.(*entities.Mob); ok {
@@ -346,7 +377,7 @@ func (w *World) SpawnSpiders() {
 			return
 		}
 
-		w.SpawnSpider(int32(spawnX), spawnY, int32(spawnZ), dim, -1)
+		spawn(int32(spawnX), spawnY, int32(spawnZ), dim)
 		count++
 	}
 }

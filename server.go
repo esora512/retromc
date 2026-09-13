@@ -62,7 +62,7 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
-	world := level.NewWorld(GitCommit, 3101107241, level.GetWorldType(*wType))
+	world := level.NewWorld(GitCommit, 404, level.GetWorldType(*wType))
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
@@ -193,7 +193,7 @@ func (s *Server) Run() {
 				// For fast time, set it to TickSpeed to 20
 				nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
 				s.World.AdvanceTick(nextTick, s.Tracker)
-				if s.World.Tick%300 == 0 {
+				if s.World.Tick%120 == 0 {
 					tick := s.World.Tick
 					if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
 						go func() {

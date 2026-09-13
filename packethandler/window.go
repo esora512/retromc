@@ -45,7 +45,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 	}
 
 	if windowId == 1 && pl.InventoryType == player.ChestInventory {
-		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
 		if slot >= int16(chest.Size) {
 			windowId = 0
 			slot = chest.ShiftSlot(slot)
@@ -62,7 +62,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 	}
 
 	if windowId == 1 && pl.InventoryType == player.DispenserInventory {
-		dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z)
+		dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim)
 		if dispenser == nil {
 			return
 		}
@@ -82,7 +82,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 	}
 
 	if windowId == 1 && pl.InventoryType == player.FurnaceInventory {
-		furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+		furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim)
 		if furnace == nil {
 			return
 		}
@@ -149,7 +149,7 @@ func handleClickSlotPacket(connection net.Conn, p packets.ClickSlotPacket, world
 			shiftClick(pl, slot, world)
 			// shiftClick may move items from the player inventory into an open chest
 			if pl.InventoryType == player.ChestInventory {
-				chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+				chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
 				if chest != nil {
 					broadcastChestContents(world, pl, chest)
 				}
@@ -258,7 +258,7 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 }
 
 func shiftClickFurnace(pl *player.Player, slot int16, world *level.World) {
-	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim)
 	if furnace == nil {
 		return
 	}
@@ -273,7 +273,7 @@ func shiftClickFurnace(pl *player.Player, slot int16, world *level.World) {
 }
 
 func shiftClickChest(pl *player.Player, slot int16, world *level.World) {
-	chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+	chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
 	if chest == nil {
 		return
 	}
@@ -323,7 +323,7 @@ func shiftClick(pl *player.Player, slot int16, world *level.World) {
 	if pl.Inventory.IsCraftingSlot(slot) {
 		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
 	} else if pl.InventoryType == player.ChestInventory {
-		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
 		targetContainer = chest
 		chestEnd := chest.Size - 1
 		shiftMoveToRegion(slot, inventory.ChestStart, int(chestEnd), sourceContainer, targetContainer)
@@ -366,7 +366,7 @@ func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceConta
 }
 
 func furnaceOutputClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
-	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim)
 	if furnace == nil {
 		return
 	}
@@ -509,7 +509,7 @@ func normalClick(pl *player.Player, slot int16, rightClick bool, world *level.Wo
 }
 
 func chestClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
-	chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z)
+	chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
 	if chest == nil {
 		return
 	}
@@ -518,7 +518,7 @@ func chestClick(pl *player.Player, slot int16, rightClick bool, world *level.Wor
 }
 
 func dispenserClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
-	dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z)
+	dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim)
 	if dispenser == nil {
 		return
 	}
@@ -527,7 +527,7 @@ func dispenserClick(pl *player.Player, slot int16, rightClick bool, world *level
 }
 
 func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
-	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z)
+	furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim)
 	if furnace == nil {
 		return
 	}

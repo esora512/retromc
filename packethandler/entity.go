@@ -314,9 +314,17 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			if other.GetEntityType() == constants.Mob {
 				m, _ := other.(*entities.Mob)
 				m.DespawnIn = 21
-				if m.MobType == 52 {
-					x, y, z := m.GetPosition()
+				x, y, z := m.GetPosition()
+				switch m.MobType {
+				case constants.Spider:
 					world.DropItemFromMinedBlock(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
+					m.Vx, m.Vy, m.Vz = 0, 0, 0
+				case constants.Skeleton:
+					world.DropItemFromMinedBlock(x, y, z, constants.Bone.Value, 0, 1, other.GetDim(), 5)
+					world.DropItemFromMinedBlock(x, y, z, constants.Arrow.Value, 0, 1, other.GetDim(), 5)
+					m.Vx, m.Vy, m.Vz = 0, 0, 0
+				case constants.Pig:
+					world.DropItemFromMinedBlock(x, y, z, constants.Porkchop.Value, 0, 1, other.GetDim(), 5)
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}

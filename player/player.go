@@ -21,15 +21,15 @@ const (
 type InventoryType int
 
 type PlayerChest struct {
-	X, Y, Z int32
+	X, Y, Z, Dim int32
 }
 
 type PlayerDispenser struct {
-	X, Y, Z int32
+	X, Y, Z, Dim int32
 }
 
 type PlayerFurnace struct {
-	X, Y, Z int32
+	X, Y, Z, Dim int32
 }
 
 const (

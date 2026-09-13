@@ -32,9 +32,10 @@ func (c *ChunkCoord) String() string {
 
 // BlockKey is the map key for a single block's world position.
 type BlockKey struct {
-	X int32
-	Y byte
-	Z int32
+	X   int32
+	Y   byte
+	Z   int32
+	Dim int32
 }
 
 func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {

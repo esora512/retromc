@@ -388,7 +388,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	pkt := packets.WorldEventPacket{EffectId: 2001, X: p.X, Y: p.Y, Z: p.Z, Data: int32(oldBlock.TypeId)}
 	world.SendNearby(pl, pkt.Serialize())
 
-	removeMinedBlockEntity(world, p, oldBlock)
+	removeMinedBlockEntity(world, p, oldBlock, pl.Dimension)
 
 	air := constants.NewAirBlock()
 
@@ -487,17 +487,17 @@ func damageHeldItemOnDig(pl *player.Player) {
 	}
 }
 
-func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock) {
+func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock, dim int32) {
 	if oldBlock.TypeId == byte(constants.Chest.Value) {
-		world.RemoveChest(p.X, int32(p.Y), p.Z)
+		world.RemoveChest(p.X, int32(p.Y), p.Z, dim)
 	}
 
 	if oldBlock.TypeId == byte(constants.Dispenser.Value) {
-		world.RemoveDispenser(p.X, int32(p.Y), p.Z)
+		world.RemoveDispenser(p.X, int32(p.Y), p.Z, dim)
 	}
 
 	if oldBlock.TypeId == byte(constants.Furnace.Value) || oldBlock.TypeId == byte(constants.FurnaceLit.Value) {
-		world.RemoveFurnace(p.X, int32(p.Y), p.Z)
+		world.RemoveFurnace(p.X, int32(p.Y), p.Z, dim)
 	}
 }
 
@@ -927,19 +927,20 @@ func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Playe
 	}
 
 	if oldExisting.TypeId == byte(constants.Chest.Value) {
-		chest := world.GetChest(p.X, int32(p.Y), p.Z)
+		chest := world.GetChest(p.X, int32(p.Y), p.Z, pl.Dimension)
 		chestPacket := packets.NewChest(byte(chest.Size))
 		connection.Write(chestPacket.Serialize())
 		pl.InventoryType = player.ChestInventory
 		pl.Chest.X = int32(p.X)
 		pl.Chest.Y = int32(p.Y)
 		pl.Chest.Z = int32(p.Z)
+		pl.Chest.Dim = pl.Dimension
 		sendChestContents(connection, chest)
 		return true
 	}
 
 	if oldExisting.TypeId == byte(constants.Dispenser.Value) {
-		dispenser := world.GetDispenser(p.X, int32(p.Y), p.Z)
+		dispenser := world.GetDispenser(p.X, int32(p.Y), p.Z, pl.Dimension)
 		if dispenser == nil {
 			return true
 		}
@@ -949,12 +950,13 @@ func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Playe
 		pl.Dispenser.X = int32(p.X)
 		pl.Dispenser.Y = int32(p.Y)
 		pl.Dispenser.Z = int32(p.Z)
+		pl.Dispenser.Dim = pl.Dimension
 		sendDispenserContents(connection, dispenser)
 		return true
 	}
 
 	if oldExisting.TypeId == byte(constants.Furnace.Value) || oldExisting.TypeId == byte(constants.FurnaceLit.Value) {
-		furnace := world.GetFurnace(p.X, int32(p.Y), p.Z)
+		furnace := world.GetFurnace(p.X, int32(p.Y), p.Z, pl.Dimension)
 		if furnace == nil {
 			return true
 		}
@@ -964,6 +966,7 @@ func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Playe
 		pl.Furnace.X = int32(p.X)
 		pl.Furnace.Y = int32(p.Y)
 		pl.Furnace.Z = int32(p.Z)
+		pl.Furnace.Dim = pl.Dimension
 		sendFurnaceContents(connection, furnace)
 		return true
 	}
@@ -1471,21 +1474,21 @@ func placeRailBlock(world *level.World, block *constants.WBlock, newX int32, new
 
 func configureDirectionalBlock(world *level.World, pl *player.Player, block *constants.WBlock, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlaceBlockPacket) bool {
 	if block.TypeId == byte(constants.Chest.Value) {
-		check := world.PlaceChest(int32(newX), int32(newY), int32(newZ))
+		check := world.PlaceChest(int32(newX), int32(newY), int32(newZ), pl.Dimension)
 		if !check {
 			return false
 		}
 	}
 
 	if block.TypeId == byte(constants.Dispenser.Value) {
-		check := world.PlaceDispenser(int32(newX), int32(newY), int32(newZ))
+		check := world.PlaceDispenser(int32(newX), int32(newY), int32(newZ), pl.Dimension)
 		if !check {
 			return false
 		}
 	}
 
 	if block.TypeId == byte(constants.Furnace.Value) {
-		check := world.PlaceFurnace(int32(newX), int32(newY), int32(newZ))
+		check := world.PlaceFurnace(int32(newX), int32(newY), int32(newZ), pl.Dimension)
 		if !check {
 			return false
 		}

@@ -177,9 +177,23 @@ func (m *Mob) pickNewWanderDirection() {
 	m.WanderTicksLeft = int32(40 + rand.Intn(80)) // 2-6 seconds at 20 ticks/sec
 }
 
+func (m *Mob) IsPassive() bool {
+	switch m.MobType {
+	case c.Pig:
+		return true
+	default:
+		return false
+	}
+}
+
 func (m *Mob) Move(w WorldShared, tracker *EntityTracker) {
 	if m.KnockbackTicks > 0 {
 		m.tickKnockback(w)
+		return
+	}
+
+	if m.IsPassive() {
+		m.wander(w)
 		return
 	}
 
@@ -429,8 +443,10 @@ func (m *Mob) AttackSpeed() int32 {
 
 func (m *Mob) AttackDamage() int16 {
 	switch m.MobType {
-	case 52:
+	case c.Spider:
 		return 2
+	case c.Skeleton:
+		return 3
 	default:
 		return 1
 	}

@@ -62,7 +62,7 @@ func (w *World) generateChunkExternal(cx, cz, dim int32) (*Chunk, error) {
 		return nil, fmt.Errorf("reading chunkgen output: %w", err)
 	}
 
-	c, err := chunkFromNBTBytes(w, raw, cx, cz)
+	c, err := chunkFromNBTBytes(w, raw, cx, cz, dim)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (w *World) generateChunkExternal(cx, cz, dim int32) (*Chunk, error) {
 }
 
 // chunkFromNBTBytes decodes a gzip-compressed standalone chunk NBT file 
-func chunkFromNBTBytes(w *World, raw []byte, cx, cz int32) (*Chunk, error) {
+func chunkFromNBTBytes(w *World, raw []byte, cx, cz, dim int32) (*Chunk, error) {
 	gr, err := gzip.NewReader(bytes.NewReader(raw))
 	if err != nil {
 		return nil, fmt.Errorf("chunkgen output is not gzip: %w", err)
@@ -91,7 +91,7 @@ func chunkFromNBTBytes(w *World, raw []byte, cx, cz int32) (*Chunk, error) {
 		return nil, fmt.Errorf("chunkgen NBT missing Level compound")
 	}
 
-	c, err := w.readChunkFromNBT(level, cx, cz)
+	c, err := w.readChunkFromNBT(level, cx, cz, dim)
 	if err != nil {
 		return nil, fmt.Errorf("decoding chunkgen chunk: %w", err)
 	}

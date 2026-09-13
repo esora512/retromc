@@ -54,6 +54,10 @@ func SmeltsTo(smeltable int16) int16 {
 	if smeltable == constants.Log.Value {
 		return constants.Coal.Value
 	}
+
+	if smeltable == constants.Porkchop.Value {
+		return constants.CookedPorkchop.Value
+	}
 	return 0
 }
 

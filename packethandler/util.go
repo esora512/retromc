@@ -56,7 +56,7 @@ func broadcastChestContents(world *level.World, source *player.Player, chest *in
 		if pl == source || pl.InventoryType != player.ChestInventory {
 			return
 		}
-		if world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z) == chest {
+		if world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim) == chest {
 			for i := int16(0); i < int16(chest.Size); i++ {
 				SendSetSlot(pl.Connection, 1, i, chest.PeekItem(i))
 			}
@@ -69,7 +69,7 @@ func broadcastDispenserContents(world *level.World, source *player.Player, dispe
 		if pl == source || pl.InventoryType != player.DispenserInventory {
 			return
 		}
-		if world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z) == dispenser {
+		if world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim) == dispenser {
 			for i := int16(0); i < int16(dispenser.Size); i++ {
 				SendSetSlot(pl.Connection, 1, i, dispenser.PeekItem(i))
 			}
@@ -82,7 +82,7 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 		if pl == source || pl.InventoryType != player.FurnaceInventory {
 			return
 		}
-		if world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z) == furnace {
+		if world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim) == furnace {
 			for i := int16(0); i < int16(furnace.Size); i++ {
 				SendSetSlot(pl.Connection, 1, i, furnace.PeekItem(i))
 			}
@@ -218,12 +218,14 @@ func updateChunks(world *level.World, x, z float64, pl *player.Player) {
 		}
 	}
 
-	if pl.HasInitializedChunks {
-		// If initial chunks are visible, generate the rest later on as the player is already in the world
-		world.Enqueue(func() { applyChunkVisibility(world, pl, cx, cz, wanted) })
-	} else {
-		applyChunkVisibility(world, pl, cx, cz, wanted)
-	}
+	// if pl.HasInitializedChunks {
+	// 	// If initial chunks are visible, generate the rest later on as the player is already in the world
+	// 	world.Enqueue(func() { applyChunkVisibility(world, pl, cx, cz, wanted) })
+	// } else {
+	// 	applyChunkVisibility(world, pl, cx, cz, wanted)
+	// }
+
+	applyChunkVisibility(world, pl, cx, cz, wanted)
 
 	pl.LastChunkX = cx
 	pl.LastChunkZ = cz

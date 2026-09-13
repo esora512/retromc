@@ -347,17 +347,36 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			parts := strings.Fields(message)
 			x, y, z := int32(pl.X), int32(pl.Y), int32(pl.Z)
 
-			if len(parts) >= 4 {
-				px, errX := strconv.Atoi(parts[1])
-				py, errY := strconv.Atoi(parts[2])
-				pz, errZ := strconv.Atoi(parts[3])
+			mobType := "spider"
+			coordIdx := 1
+			if len(parts) >= 2 {
+				if _, err := strconv.Atoi(parts[1]); err != nil {
+					mobType = strings.ToLower(parts[1])
+					coordIdx = 2
+				}
+			}
+
+			if len(parts) >= coordIdx+3 {
+				px, errX := strconv.Atoi(parts[coordIdx])
+				py, errY := strconv.Atoi(parts[coordIdx+1])
+				pz, errZ := strconv.Atoi(parts[coordIdx+2])
 
 				if errX == nil && errY == nil && errZ == nil {
 					x, y, z = int32(px), int32(py), int32(pz)
 				}
 			}
-			sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
-			world.SpawnSpider(x, y, z, pl.Dimension, -1)
+
+			switch mobType {
+			case "skeleton":
+				sendDebugMessage(pl, fmt.Sprintf("Spawned Skeleton at x=%d, y=%d, z=%d", x, y, z))
+				world.SpawnSkeleton(x, y, z, pl.Dimension, -1)
+			case "pig":
+				sendDebugMessage(pl, fmt.Sprintf("Spawned Pig at x=%d, y=%d, z=%d", x, y, z))
+				world.SpawnPig(x, y, z, pl.Dimension)
+			default:
+				sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
+				world.SpawnSpider(x, y, z, pl.Dimension, -1)
+			}
 		}
 
 		if strings.HasPrefix(message, "/time") {

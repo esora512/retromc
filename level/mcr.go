@@ -302,7 +302,7 @@ func saveLevelDat(worldDir string, tick int64) error {
 	return os.WriteFile(filepath.Join(worldDir, "level.dat"), buf.Bytes(), 0o644)
 }
 
-func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error) {
+func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, error) {
 	blocks := lvl.Get("Blocks").ByteArr
 	data := lvl.Get("Data").ByteArr
 	skyLight := lvl.Get("SkyLight").ByteArr
@@ -349,7 +349,7 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 			x := te.Get("x").IntVal
 			y := te.Get("y").IntVal
 			z := te.Get("z").IntVal
-			key := BlockKey{x, byte(y), z}
+			key := BlockKey{X: x, Y: byte(y), Z: z, Dim: dim}
 
 			switch id.StrVal {
 			case "Chest":
@@ -359,6 +359,8 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz int32) (*Chunk, error
 				w.Containers.Chests[key] = &chest
 			case "Furnace":
 				furnace := inventory.NewFurnace()
+				furnace.SetPosition(x, y, z)
+				furnace.Dim = dim
 				loadItemSlots(te, furnace.Items[:])
 				w.Containers.Furnaces[key] = furnace
 			case "Trap":

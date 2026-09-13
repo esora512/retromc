@@ -581,7 +581,7 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 			if err != nil {
 				//log.Printf("chunk (%d,%d) dim %d: read failed, regenerating: %v", cx, cz, dim, err)
 			} else if lvl != nil {
-				c, err := w.readChunkFromNBT(lvl, cx, cz)
+				c, err := w.readChunkFromNBT(lvl, cx, cz, dim)
 				if err != nil {
 					//log.Printf("chunk (%d,%d) dim %d: decode failed, regenerating: %v", cx, cz, dim, err)
 				} else {
