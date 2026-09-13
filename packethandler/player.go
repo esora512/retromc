@@ -439,6 +439,10 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	}
 
 	if oldBlock.TypeId == byte(constants.Log.Value) {
+		if pl.IsSneaking && pl.Inventory.Items[pl.HotbarSlot].IsAxe() {
+			log.Println("Use Tree Miner")
+		}
+
 		world.TriggerLeafUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 	}
 

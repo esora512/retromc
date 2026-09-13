@@ -432,6 +432,22 @@ func (m *Mob) GetVelocity() (float64, float64, float64) {
 	return m.Vx, m.Vy, m.Vz
 }
 
+func (m *Mob) BurningMetadata(burning bool) []byte {
+	var flags byte = 0x00
+	if burning {
+		flags = 0x01
+	}
+	metadataType := byte(0)
+	metadataIndex := byte(0)
+	header := (metadataType << 5) | metadataIndex
+
+	return []byte{
+		header,
+		flags,
+		0x7F,
+	}
+}
+
 func (m *Mob) AttackSpeed() int32 {
 	switch m.MobType {
 	case 52:

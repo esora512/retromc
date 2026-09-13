@@ -19,6 +19,14 @@ func (item *Item) IsHoe() bool {
 		item.TypeId == constants.GoldHoe.Value
 }
 
+func (item *Item) IsAxe() bool {
+	return item.TypeId == constants.WoodenAxe.Value ||
+		item.TypeId == constants.StoneAxe.Value ||
+		item.TypeId == constants.IronAxe.Value ||
+		item.TypeId == constants.DiamondAxe.Value ||
+		item.TypeId == constants.GoldAxe.Value
+}
+
 func (item *Item) IsBoneMeal() bool {
 	return item.TypeId == constants.Dye.Value && item.Metadata == 15
 }

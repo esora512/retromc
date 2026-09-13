@@ -181,6 +181,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
 					}
 
+					if t.MobType == c.Skeleton {
+						viewer.Connection.Write(w.NewEntityMetadataPacket(t, t.BurningMetadata(!w.IsNight())))
+					}
+
 					if posAndRotChanged {
 						viewer.Connection.Write(w.NewMobPositionAndRotationOrTeleportPacket(t, msCopy))
 					}
