@@ -203,6 +203,9 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 }
 
 func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
+	if !pl.LoggedIn {
+		return
+	}
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
@@ -269,6 +272,9 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 }
 
 func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPacket, pl *player.Player, world *level.World) {
+	if !pl.LoggedIn {
+		return
+	}
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
@@ -364,6 +370,9 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 }
 
 func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world *level.World, pl *player.Player) {
+	if !pl.LoggedIn {
+		return
+	}
 	if p.Status == 4 {
 		dropHeldItemStack(connection, world, pl)
 		return
@@ -765,6 +774,9 @@ func placementCollidesWithPlayer(pl *player.Player, x, y, z int32) bool {
 }
 
 func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
+	if !pl.LoggedIn {
+		return
+	}
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting, p)
 

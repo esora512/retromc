@@ -102,13 +102,14 @@ func broadcastFurnaceContents(world *level.World, source *player.Player, furnace
 
 const VIEW_DISTANCE = 15
 
-func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
-	const VIEW_DISTANCE = 3
+
+func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, onComplete func()) {
 	cx := level.WorldToChunkCoord(int32(x))
 	cz := level.WorldToChunkCoord(int32(z))
 
 	// Nothing to do if we haven't crossed a chunk boundary
 	if cx == pl.LastChunkX && cz == pl.LastChunkZ && pl.HasInitializedChunks {
+		onComplete()
 		return
 	}
 
@@ -120,6 +121,9 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
 		}
 	}
 
+	dim := pl.Dimension
+	var pending []level.ChunkCoord
+
 	for _, off := range spiralOffsets(VIEW_DISTANCE) {
 		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
 		key := coord.String()
@@ -128,17 +132,13 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
 			continue
 		}
 
-		chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
-		chunk.RelightAll()
+		if chunk, ok := world.PeekChunk(coord.X, coord.Z, dim); ok {
+			chunk.RelightAll()
+			sendChunkToPlayer(pl, coord, chunk)
+			continue
+		}
 
-		pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
-		pl.Connection.Write(pre.Serialize())
-
-		mapChunk := packets.ChunkBlockRegionPacket{}
-		mapChunk.Apply(*chunk)
-		pl.Connection.Write(mapChunk.Serialize())
-
-		pl.SentChunks.Set(key, coord.X, coord.Z)
+		pending = append(pending, coord)
 	}
 
 	// Unload chunks that fell out of range
@@ -151,7 +151,44 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player) {
 	}
 	pl.LastChunkX = cx
 	pl.LastChunkZ = cz
-	pl.HasInitializedChunks = true
+
+	if len(pending) == 0 {
+		pl.HasInitializedChunks = true
+		onComplete()
+		return
+	}
+
+	remaining := len(pending)
+	for _, coord := range pending {
+		world.RequestChunkAsync(coord.X, coord.Z, dim, func(generated *level.Chunk) {
+			world.Enqueue(func() {
+				if !world.HasPlayer(pl) {
+					return // player disconnected while this chunk was generating
+				}
+				chunk := world.InsertChunk(coord.X, coord.Z, dim, generated)
+				if !pl.SentChunks.Has(coord.String()) {
+					chunk.RelightAll()
+					sendChunkToPlayer(pl, coord, chunk)
+				}
+				remaining--
+				if remaining == 0 {
+					pl.HasInitializedChunks = true
+					onComplete()
+				}
+			})
+		})
+	}
+}
+
+func sendChunkToPlayer(pl *player.Player, coord level.ChunkCoord, chunk *level.Chunk) {
+	pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
+	pl.Connection.Write(pre.Serialize())
+
+	mapChunk := packets.ChunkBlockRegionPacket{}
+	mapChunk.Apply(*chunk)
+	pl.Connection.Write(mapChunk.Serialize())
+
+	pl.SentChunks.Set(coord.String(), coord.X, coord.Z)
 }
 
 func WorldToLocalCoord(world int32) int {

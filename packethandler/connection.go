@@ -66,11 +66,18 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	world.AddPlayer(pl)
 
 	sendLoginResponse(connection, world, pl)
-	initialUpdateChunks(world, pl.X, pl.Z, pl)
-	sendInventory(connection, pl, world)
+
 	if pl.Y <= -1000000 {
 		pl.Y = 80
 	}
+
+	initialUpdateChunks(world, pl.X, pl.Z, pl, func() {
+		finishLogin(connection, world, pl)
+	})
+}
+
+func finishLogin(connection net.Conn, world *level.World, pl *player.Player) {
+	sendInventory(connection, pl, world)
 	sendPlayerPositionAndLook(connection, pl.X, pl.Z, pl.Y)
 
 	serverPacket1 := packets.ChatMessagePacket{

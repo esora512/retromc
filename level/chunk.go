@@ -545,6 +545,36 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 	return c
 }
 
+
+func (w *World) PeekChunk(cx, cz, dim int32) (*Chunk, bool) {
+	ch, ok := w.chunksFor(dim)[ChunkCoord{cx, cz}]
+	return ch, ok
+}
+
+
+func (w *World) InsertChunk(cx, cz, dim int32, c *Chunk) *Chunk {
+	key := ChunkCoord{cx, cz}
+	chunks := w.chunksFor(dim)
+	if existing, ok := chunks[key]; ok {
+		return existing
+	}
+	chunks[key] = c
+	return c
+}
+
+
+const maxConcurrentChunkGen = 8
+
+
+func (w *World) RequestChunkAsync(cx, cz, dim int32, onReady func(c *Chunk)) {
+	go func() {
+		w.chunkGenSem <- struct{}{}
+		defer func() { <-w.chunkGenSem }()
+		c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
+		onReady(c)
+	}()
+}
+
 func (w *World) getRegionFile(path string) (*os.File, error) {
 	w.regionFilesMu.Lock()
 	defer w.regionFilesMu.Unlock()

@@ -112,6 +112,7 @@ type World struct {
 
 	// ExternalChunkGenBin is the path to an optional external chunk-generation
 	ExternalChunkGenBin string
+	chunkGenSem chan struct{}
 
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	newCollectItemPacket            func(itemId, collectorId int32) []byte
@@ -441,10 +442,11 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 			AdjacentSlots:  make(map[BlockKey]BlockKey),
 			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
-		Scheduler:  NewBlockUpdateScheduler(),
-		blockQueue: make(map[[4]int32]QueueBlock),
-		sleepers:   make(map[int32]int),
-		Rand:       rand.New(rand.NewSource(time.Now().UnixNano())),
+		Scheduler:   NewBlockUpdateScheduler(),
+		blockQueue:  make(map[[4]int32]QueueBlock),
+		sleepers:    make(map[int32]int),
+		Rand:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		chunkGenSem: make(chan struct{}, maxConcurrentChunkGen),
 	}
 }
 
@@ -604,6 +606,11 @@ func (w *World) AddEntity(e constants.Entity) {
 func (w *World) RemovePlayer(p *player.Player) {
 	delete(w.Players, int32(p.EntityId))
 	delete(w.Entities, int32(p.EntityId))
+}
+
+func (w *World) HasPlayer(p *player.Player) bool {
+	cur, ok := w.Players[int32(p.EntityId)]
+	return ok && cur == p
 }
 
 func (w *World) RemoveEntity(entityId int32) {
