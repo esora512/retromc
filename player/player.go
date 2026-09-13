@@ -166,6 +166,8 @@ type Player struct {
 
 	IsSneaking bool
 
+	ChainMiningEnabled bool
+
 	BedX, BedZ int32
 	BedY       byte
 }
@@ -245,6 +247,7 @@ func NewPlayer(conn net.Conn) *Player {
 		Immune:               200,
 		IsOp:                 false,
 		DespawnIn:            -1,
+		ChainMiningEnabled:   true,
 	}
 }
 

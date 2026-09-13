@@ -439,11 +439,19 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	}
 
 	if oldBlock.TypeId == byte(constants.Log.Value) {
-		if pl.IsSneaking && pl.Inventory.Items[pl.HotbarSlot].IsAxe() {
-			log.Println("Use Tree Miner")
+		if pl.ChainMiningEnabled && pl.IsSneaking && pl.Inventory.Items[pl.HotbarSlot].IsAxe() {
+			chainMineConnected(world, pl, p.X, p.Y, p.Z, pl.Dimension, func(b constants.WBlock) bool {
+				return b.TypeId == byte(constants.Log.Value)
+			})
 		}
 
 		world.TriggerLeafUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
+	}
+
+	if oldBlock.IsOre() && pl.ChainMiningEnabled && pl.IsSneaking && pl.Inventory.Items[pl.HotbarSlot].IsPickaxe() {
+		chainMineConnected(world, pl, p.X, p.Y, p.Z, pl.Dimension, func(b constants.WBlock) bool {
+			return b.TypeId == oldBlock.TypeId
+		})
 	}
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
@@ -482,6 +490,68 @@ func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock
 		oldBlock.TypeId == byte(constants.Torch.Value) ||
 		oldBlock.TypeId == byte(constants.Dandelion.Value) ||
 		oldBlock.TypeId == byte(constants.Rose.Value)
+}
+
+const maxChainMine = 32
+
+func chainMineConnected(world *level.World, pl *player.Player, originX int32, originY byte, originZ int32, dim int32, matches func(constants.WBlock) bool) {
+	type coord struct {
+		X int32
+		Y byte
+		Z int32
+	}
+
+	visited := map[coord]bool{{originX, originY, originZ}: true}
+	queue := []coord{{originX, originY, originZ}}
+	mined := 0
+
+	for len(queue) > 0 && mined < maxChainMine {
+		cur := queue[0]
+		queue = queue[1:]
+
+		for _, n := range level.GetNeighbours() {
+			ny := int32(cur.Y) + n.Dy
+			if ny < 0 || ny > 255 {
+				continue
+			}
+			next := coord{cur.X + n.Dx, byte(ny), cur.Z + n.Dz}
+			if visited[next] {
+				continue
+			}
+			visited[next] = true
+
+			b := world.GetBlock(next.X, next.Y, next.Z, dim)
+			if !matches(b) {
+				continue
+			}
+
+			if pl.Inventory.Items[pl.HotbarSlot].TypeId == -1 {
+				return
+			}
+			damageHeldItemOnDig(pl)
+
+			fakePacket := packets.MineBlockPacket{X: next.X, Y: next.Y, Z: next.Z}
+			blockItem, blockMeta, count := computeMinedDrop(world, fakePacket, b, pl)
+
+			air := constants.NewAirBlock()
+			world.SetBlockInQueue(next.X, int32(next.Y), next.Z, air, dim)
+			world.TriggerFallableUpdate(next.X, int32(next.Y), next.Z, world.SetBlockInQueue, dim)
+			world.TriggerFluidUpdate(next.X, int32(next.Y), next.Z, world.SetBlockInQueue, dim)
+			if b.TypeId == byte(constants.Log.Value) {
+				world.TriggerLeafUpdate(next.X, int32(next.Y), next.Z, world.SetBlockInQueue, dim)
+			}
+
+			if blockItem != 0 {
+				DropItemFromMinedBlock(world, float64(next.X), float64(next.Y), float64(next.Z), blockItem, blockMeta, count, dim, 10)
+			}
+
+			mined++
+			queue = append(queue, next)
+			if mined >= maxChainMine {
+				return
+			}
+		}
+	}
 }
 
 func damageHeldItemOnDig(pl *player.Player) {

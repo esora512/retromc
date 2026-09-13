@@ -44,6 +44,7 @@ var commandHelp = []struct {
 	{"/size", "/size"},
 	{"/version", "/version"},
 	{"/summon", "/summon [x y z]"},
+	{"/chainmine", "/chainmine"},
 }
 
 var opOnlyCommands = map[string]bool{
@@ -377,6 +378,15 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
 				world.SpawnSpider(x, y, z, pl.Dimension, -1)
 			}
+		}
+
+		if strings.HasPrefix(message, "/chainmine") {
+			pl.ChainMiningEnabled = !pl.ChainMiningEnabled
+			state := "disabled"
+			if pl.ChainMiningEnabled {
+				state = "enabled"
+			}
+			sendDebugMessage(pl, fmt.Sprintf("Chain mining %s", state))
 		}
 
 		if strings.HasPrefix(message, "/time") {

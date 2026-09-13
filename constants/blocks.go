@@ -450,6 +450,16 @@ func (b *WBlock) IsTrapdoor() bool {
 	return b.TypeId == byte(Trapdoor.Value)
 }
 
+func (b *WBlock) IsOre() bool {
+	return b.TypeId == byte(CoalOre.Value) ||
+		b.TypeId == byte(IronOre.Value) ||
+		b.TypeId == byte(GoldOre.Value) ||
+		b.TypeId == byte(LapisLazuliOre.Value) ||
+		b.TypeId == byte(DiamondOre.Value) ||
+		b.TypeId == byte(RedstoneOreOff.Value) ||
+		b.TypeId == byte(RedstoneOreOn.Value)
+}
+
 func (b *WBlock) IsSolid() bool {
 	return !b.IsAir() && !b.IsFluid() && !b.IsSnowLayer()
 }
