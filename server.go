@@ -52,13 +52,6 @@ func main() {
 	externalChunkGenBin := flag.String("external-chunkgen-bin", "", "Path to an external chunk-generation binary (e.g. bin/chunkgen); if set, routes normal terrain generation through it instead of the built-in Go generator, falling back to Go on failure")
 
 	flag.Parse()
-	l, err := net.Listen(CON_TYPE, *host+":"+*port)
-	if err != nil {
-		log.Panicln("Failed to bind to address", err.Error())
-	}
-
-	// close listener when the application closes
-	defer l.Close()
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
@@ -110,9 +103,23 @@ func main() {
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	server.Run()
+
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
+
+	if renderPort, ok := os.LookupEnv("PORT"); ok {
+		log.Printf("PORT env var detected (%s), assuming deployed env: running in Render/WebSocket-bridge mode", renderPort)
+		runRenderMode(":"+renderPort, world, entityTracker)
+		return
+	}
+
+	l, err := net.Listen(CON_TYPE, *host+":"+*port)
+	if err != nil {
+		log.Panicln("Failed to bind to address", err.Error())
+	}
+	defer l.Close()
+	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
 	for {
 		connection, err := l.Accept()
@@ -180,7 +187,6 @@ type Server struct {
 	World   *level.World
 	Tracker *entities.EntityTracker
 }
-
 
 func (s *Server) Run() {
 	go s.World.RunCommands()

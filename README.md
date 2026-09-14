@@ -54,3 +54,9 @@ Then you can access it via:
 
 You can download the binary also from [![Google Drive](https://img.shields.io/badge/Google%20Drive-Open%20File-4285F4?logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1Wrw3ePTMh3mM0Dzk1-4r4pwuzkGMCoQN/view?usp=sharing)
 
+
+### Render
+If Render is being used for deployment, server uses the PORT env variable to switch the way it runs; making it run as a web service. We then use a bridge to let the client connect to it. Run the bridge via:
+```sh
+python3 bridge.py --remote wss://retromc.onrender.com/ws
+```
