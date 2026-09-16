@@ -66,6 +66,21 @@ func (w *World) SavePlayer(pl *player.Player) {
 	}()
 }
 
+// SaveAllPlayersSync saves every connected player's data immediately.
+// Must be called from the world's command goroutine (same requirement as
+// SaveMcRegionSync), since it reads player state directly.
+func (w *World) SaveAllPlayersSync() error {
+	for _, pl := range w.Players {
+		if pl.Username == "" {
+			continue
+		}
+		if err := SavePlayerData(w.WorldDir, pl.Username, ToPlayerData(pl)); err != nil {
+			return fmt.Errorf("saving player %s: %w", pl.Username, err)
+		}
+	}
+	return nil
+}
+
 func (w *World) IsNight() bool {
 	timeTicks := w.TimeTick % 24000
 	return timeTicks >= 12541 && timeTicks < 23458
@@ -152,6 +167,25 @@ type World struct {
 	setEquipment  func(pl *player.Player, v *player.Player)
 
 	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
+
+	triggerManualBackup func()
+}
+
+// SetTriggerManualBackup wires up remote-backup support (e.g. uploading to
+// B2), which lives outside the level package to avoid an import cycle. Left
+// unset, HasManualBackup reports false and TriggerManualBackup is a no-op.
+func (w *World) SetTriggerManualBackup(f func()) {
+	w.triggerManualBackup = f
+}
+
+func (w *World) HasManualBackup() bool {
+	return w.triggerManualBackup != nil
+}
+
+func (w *World) TriggerManualBackup() {
+	if w.triggerManualBackup != nil {
+		w.triggerManualBackup()
+	}
 }
 
 func (w *World) SetNewInteractWithBlockPacket(f func(eId int32, bedType byte, x int32, y byte, z int32) []byte) {

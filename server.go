@@ -55,6 +55,13 @@ func main() {
 
 	log.Printf("Server listening on %s:%s (PID: %d)", *host, *port, os.Getpid())
 
+	b2 := newB2Client()
+	if b2 != nil {
+		restoreWorldFromB2(b2, "saves")
+	} else {
+		log.Println("B2 credentials not set (KEY_ID/APP_KEY/B2_BUCKET); world backups disabled")
+	}
+
 	world := level.NewWorld(GitCommit, 3257840388504953787, level.GetWorldType(*wType))
 
 	// Give world access to packethandler functions due to forbidden import cycles
@@ -82,6 +89,12 @@ func main() {
 
 	world.SetOppedUsernames(ops)
 
+	if b2 != nil {
+		world.SetTriggerManualBackup(func() {
+			go backupWorldToB2(b2, world)
+		})
+	}
+
 	if *externalChunkGenBin != "" {
 		if _, err := os.Stat(*externalChunkGenBin); err != nil {
 			log.Printf("external-chunkgen-bin set to %q but not accessible (%v); will fall back to the Go generator for every chunk until this is fixed", *externalChunkGenBin, err)
@@ -103,6 +116,10 @@ func main() {
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	server.Run()
+
+	if b2 != nil {
+		startBackupLoop(b2, world)
+	}
 
 	// go func() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -175,6 +192,9 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 						tracker.ResetEntity(pl.GetEntityId())
 					}
 				})
+				if world.HasManualBackup() && time.Since(pl.JoinTime) >= time.Minute {
+					world.TriggerManualBackup()
+				}
 			}
 			close(done)
 			connection.Close()

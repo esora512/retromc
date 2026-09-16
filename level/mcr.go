@@ -189,31 +189,46 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 }
 
 func SaveMcRegion(w *World, worldDir string) error {
-	oChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.oChunks))
-	for coord, ch := range w.oChunks {
-		oChunksSnapshot[coord] = ch
-	}
-	nChunksSnapshot := make(map[ChunkCoord]*Chunk, len(w.nChunks))
-	for coord, ch := range w.nChunks {
-		nChunksSnapshot[coord] = ch
-	}
-	tick := w.Tick
+	oChunksSnapshot, nChunksSnapshot, tick := snapshotChunks(w)
 
 	go func() {
-		if err := saveChunksToRegion(w, worldDir, oChunksSnapshot, tick); err != nil {
-			log.Println("Failed to save overworld region:", err)
-			return
-		}
-		if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunksSnapshot, tick); err != nil {
-			log.Println("Failed to save nether region:", err)
-			return
-		}
-		if err := saveLevelDat(worldDir, tick); err != nil {
-			log.Println("Failed to save level.dat:", err)
+		if err := saveChunkSnapshot(w, worldDir, oChunksSnapshot, nChunksSnapshot, tick); err != nil {
+			log.Println("Failed to save world:", err)
 		}
 	}()
 
 	return nil
+}
+
+// SaveMcRegionSync behaves like SaveMcRegion but blocks until the save has
+// finished, so callers know the on-disk files are up to date before doing
+// something with them (e.g. archiving the world directory for a backup).
+// Like SaveMcRegion, it must be called from the world's command goroutine.
+func SaveMcRegionSync(w *World, worldDir string) error {
+	oChunksSnapshot, nChunksSnapshot, tick := snapshotChunks(w)
+	return saveChunkSnapshot(w, worldDir, oChunksSnapshot, nChunksSnapshot, tick)
+}
+
+func snapshotChunks(w *World) (oChunks, nChunks map[ChunkCoord]*Chunk, tick int64) {
+	oChunks = make(map[ChunkCoord]*Chunk, len(w.oChunks))
+	for coord, ch := range w.oChunks {
+		oChunks[coord] = ch
+	}
+	nChunks = make(map[ChunkCoord]*Chunk, len(w.nChunks))
+	for coord, ch := range w.nChunks {
+		nChunks[coord] = ch
+	}
+	return oChunks, nChunks, w.Tick
+}
+
+func saveChunkSnapshot(w *World, worldDir string, oChunks, nChunks map[ChunkCoord]*Chunk, tick int64) error {
+	if err := saveChunksToRegion(w, worldDir, oChunks, tick); err != nil {
+		return fmt.Errorf("saving overworld region: %w", err)
+	}
+	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunks, tick); err != nil {
+		return fmt.Errorf("saving nether region: %w", err)
+	}
+	return saveLevelDat(worldDir, tick)
 }
 
 func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick int64) error {

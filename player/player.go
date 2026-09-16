@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"fmt"
 	"strings"
@@ -120,6 +121,7 @@ type Player struct {
 	Username     string
 	EntityId     int
 	Connection   net.Conn
+	JoinTime     time.Time
 	Inventory    inventory.Inventory
 	SelectedItem SelectedItem
 	HotbarSlot   int16
@@ -212,6 +214,7 @@ const (
 func NewPlayer(conn net.Conn) *Player {
 	return &Player{
 		Connection: conn,
+		JoinTime:   time.Now(),
 		Inventory:  inventory.NewInventory(PLAYER_INVENTORY_SIZE),
 		SelectedItem: SelectedItem{
 			Selected: false,
