@@ -754,6 +754,10 @@ func (w *World) SendNearby(source *player.Player, data []byte) {
 	dim1 := source.GetDim()
 
 	for _, target := range w.Players {
+		if target.GetEntityId() == source.GetEntityId() {
+			continue
+		}
+
 		x2, _, z2 := target.GetPosition()
 		dim2 := target.GetDim()
 		sameDim := dim1 == dim2
