@@ -126,13 +126,16 @@ func (f *Furnace) Output() (bool, Item) {
 	return false, Item{}
 }
 
-func TickFurnaces(furnaces []*Furnace, 
-	sendProgress func(progress, fuelMax, fuelRemain int), 
-	setSlot func(item Item, slot int16), 
+func TickFurnaces(furnaces []*Furnace,
+	sendProgress func(furnace *Furnace, progress, fuelMax, fuelRemain int),
+	setSlot func(furnace *Furnace, item Item, slot int16),
 	setBlock func(x, y, z int16, lit bool, dim int32)) {
 	for _, furnace := range furnaces {
-		prog, fMax, remain := furnace.Smelt(setSlot)
-		sendProgress(prog, fMax, remain)
+		furnaceSetSlot := func(item Item, slot int16) {
+			setSlot(furnace, item, slot)
+		}
+		prog, fMax, remain := furnace.Smelt(furnaceSetSlot)
+		sendProgress(furnace, prog, fMax, remain)
 		if furnace.IsBurning {
 			setBlock(int16(furnace.Position.X), int16(furnace.Position.Y), int16(furnace.Position.Z), true, furnace.Dim)
 		} else {
@@ -146,14 +149,14 @@ func TickFurnaces(furnaces []*Furnace,
 			} else {
 				furnace.Items[0].Count -= 1
 			}
-			setSlot(furnace.Items[0], 0)
+			furnaceSetSlot(furnace.Items[0], 0)
 
 			if furnace.Items[2].TypeId == outItem.TypeId && furnace.Items[2].TypeId != -1 {
 				furnace.Items[2].Count += 1
 				outItem = furnace.Items[2]
 			}
 			furnace.Items[2] = outItem
-			setSlot(furnace.Items[2], 2)
+			furnaceSetSlot(furnace.Items[2], 2)
 		}
 	}
 }

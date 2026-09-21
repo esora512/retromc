@@ -1,7 +1,6 @@
 package level
 
 import (
-	"log"
 	"math"
 	"math/rand"
 
@@ -205,17 +204,32 @@ func (world *World) RidablePhysics() {
 	}
 }
 
-func (w *World) makeSendFurnaceProgress() func(progress, fuelMax, fuelRemain int) {
-	return func(progress, fuelDuration, fuelRemain int) {
-		w.BroadcastContainerData(1, 0, int16(progress))
-		w.BroadcastContainerData(1, 1, int16(fuelRemain))
-		w.BroadcastContainerData(1, 2, int16(fuelDuration))
+func (w *World) forEachFurnaceViewer(furnace *inventory.Furnace, fn func(pl *player.Player)) {
+	w.ForEachPlayer(func(pl *player.Player) {
+		if pl.InventoryType != player.FurnaceInventory {
+			return
+		}
+		if w.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim) == furnace {
+			fn(pl)
+		}
+	})
+}
+
+func (w *World) makeSendFurnaceProgress() func(furnace *inventory.Furnace, progress, fuelMax, fuelRemain int) {
+	return func(furnace *inventory.Furnace, progress, fuelDuration, fuelRemain int) {
+		w.forEachFurnaceViewer(furnace, func(pl *player.Player) {
+			w.SendContainerData(pl.Connection, 1, 0, int16(progress))
+			w.SendContainerData(pl.Connection, 1, 1, int16(fuelRemain))
+			w.SendContainerData(pl.Connection, 1, 2, int16(fuelDuration))
+		})
 	}
 }
 
-func (w *World) makeSendFurnaceSlot() func(item inventory.Item, slot int16) {
-	return func(item inventory.Item, slot int16) {
-		w.BroadcastSetSlot(1, slot, item)
+func (w *World) makeSendFurnaceSlot() func(furnace *inventory.Furnace, item inventory.Item, slot int16) {
+	return func(furnace *inventory.Furnace, item inventory.Item, slot int16) {
+		w.forEachFurnaceViewer(furnace, func(pl *player.Player) {
+			w.SendSetSlot(pl.Connection, 1, slot, item)
+		})
 	}
 }
 
@@ -235,10 +249,6 @@ func (w *World) makeSetFurnaceBlock() func(x, y, z int16, lit bool, dim int32) {
 
 func (w *World) TickFurnaces() {
 	furnaces := w.GetAllFurnaces()
-	if len(furnaces) > 0 {
-		log.Printf("Furnaces %d", len(furnaces))
-
-	}
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 

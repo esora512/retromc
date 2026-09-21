@@ -115,6 +115,7 @@ type World struct {
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	newCollectItemPacket            func(itemId, collectorId int32) []byte
 	sendSetSlot                     func(connection net.Conn, windowId byte, slot int16, item inventory.Item)
+	sendContainerData               func(connection net.Conn, windowId byte, itemType, itemValue int16)
 	broadcastEntityVelocity         func(w *World, entityId int32, vx, vy, vz float64)
 	broascastDespawn                func(w *World, id int32)
 	broadcastTeleport               func(w *World, c constants.Entity, cx, cy, cz float64, yaw byte)
@@ -348,6 +349,14 @@ func (w *World) SetCollectItem(f func(itemId, collectorId int32) []byte) {
 
 func (w *World) SetSendSetSlot(f func(connection net.Conn, windowId byte, slot int16, item inventory.Item)) {
 	w.sendSetSlot = f
+}
+
+func (w *World) SendContainerData(connection net.Conn, windowId byte, itemType, itemValue int16) {
+	w.sendContainerData(connection, windowId, itemType, itemValue)
+}
+
+func (w *World) SetSendContainerData(f func(connection net.Conn, windowId byte, itemType, itemValue int16)) {
+	w.sendContainerData = f
 }
 
 func (w *World) SetBroadcastDespawn(f func(world *World, id int32)) {

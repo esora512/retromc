@@ -601,6 +601,15 @@ func BroadcastContainerData(w *level.World, windowId byte, itemType, itemValue i
 	w.BroadcastPacket(p.Serialize())
 }
 
+func SendContainerData(connection net.Conn, windowId byte, itemType, itemValue int16) {
+	p := packets.ContainerDataPacket{
+		WindowID: windowId,
+		Type:     itemType,
+		Value:    itemValue,
+	}
+	connection.Write(p.Serialize())
+}
+
 func BroadcastSetSlot(w *level.World, windowId byte, slot int16, item inventory.Item) {
 	p := packets.SetSlotPacket{
 		WindowId: windowId,

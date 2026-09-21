@@ -77,6 +77,7 @@ func main() {
 
 	world.SetCollectItem(packets.CollectItem)
 	world.SetSendSetSlot(packethandler.SendSetSlot)
+	world.SetSendContainerData(packethandler.SendContainerData)
 	world.SetBroadcastDespawn(packethandler.BroadcastDespawn)
 	world.SetBroadcastSetSlot(packethandler.BroadcastSetSlot)
 	world.SetBroadcastContainerData(packethandler.BroadcastContainerData)
