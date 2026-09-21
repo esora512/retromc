@@ -3,9 +3,36 @@ package entities
 import (
 	"fmt"
 	"math"
+	"math/rand"
 
 	"github.com/leNicDev/retromc/constants"
 )
+
+const (
+	itemWidth  = 0.25
+	itemHeight = 0.25
+
+	itemYOffset = 0.125
+
+	itemMaxAge    = 6000
+	itemMaxHealth = 5
+
+	itemGravity      = 0.04
+	itemVerticalDrag = 0.9800000190734863
+	itemWaterPush    = 0.014
+	itemPushOutMin   = 0.1
+	itemPushOutRange = 0.2
+
+	itemSyncInterval  = 20
+	itemFullSyncEvery = 400
+	itemSyncThreshold = 1.0 / 32.0
+)
+
+// The blocks are only accessed through this, so the physics can be tested without a full world.
+type itemWorld interface {
+	IsLoaded(x, z, dim int32) bool
+	GetBlock(x int32, y byte, z int32, dim int32) constants.WBlock
+}
 
 type DroppedItem struct {
 	EntityId    int32
@@ -20,10 +47,24 @@ type DroppedItem struct {
 
 	DespawnIn     int
 	MovementState constants.MovementState
-	InLava        bool
 
 	CollectorId int32
 	HP          int16
+
+	// Age in ticks, the item is removed after itemMaxAge
+	Age int
+	// Set once the item is gone (lava, fire, cactus, age, void); the tracker removes it
+	Dead     bool
+	OnGround bool
+
+	damage int
+	inWeb  bool
+
+	// what clients were last told
+	lastSyncX, lastSyncY, lastSyncZ float64
+	lastFullSync                    int
+	settled                         bool
+	forceSync                       bool
 }
 
 func (d *DroppedItem) GetEntityType() constants.EntityType {
@@ -35,6 +76,9 @@ func (d *DroppedItem) GetMovementState() *constants.MovementState {
 }
 
 func (d *DroppedItem) Despawn() bool {
+	if d.Dead {
+		return true
+	}
 	if d.DespawnIn < 0 {
 		return false
 	}
@@ -63,7 +107,7 @@ func (d *DroppedItem) GetName() string {
 }
 
 func (d *DroppedItem) GetPosition() (float64, float64, float64) {
-	return float64(d.X), float64(d.Y), float64(d.Z)
+	return d.X, d.Y, d.Z
 }
 
 func (d *DroppedItem) SetPosition(x, y, z float64) {}
@@ -74,164 +118,144 @@ func (d *DroppedItem) GetDim() int32 { return d.Dim }
 
 func (d *DroppedItem) GetVelocity() (float64, float64, float64) { return d.VelX, d.VelY, d.VelZ }
 
-// Vibed dropped item fluid handling because can't be bothered with math and it works, lel
-const itemColliderHalfWidth = 0.125
-const itemColliderHeight = 0.25
-
-func itemAABB(d *DroppedItem) (minX, minY, minZ, maxX, maxY, maxZ float64) {
-	return d.X - itemColliderHalfWidth, d.Y, d.Z - itemColliderHalfWidth,
-		d.X + itemColliderHalfWidth, d.Y + itemColliderHeight, d.Z + itemColliderHalfWidth
+func (d *DroppedItem) InitSyncState() {
+	d.lastSyncX, d.lastSyncY, d.lastSyncZ = d.X, d.Y, d.Z
+	d.mirrorMovementState()
 }
 
-func fluidHeight(b constants.WBlock) float64 {
-	if b.IsStillWater() || b.IsStillLava() {
-		return 1.0
-	}
-	level := int(b.Metadata)
-	if level > 7 {
-		level = 7
-	}
-	return float64(7-level) / 8.0
+func (d *DroppedItem) mirrorMovementState() {
+	ms := &d.MovementState
+	ms.X, ms.Y, ms.Z = d.X, d.Y, d.Z
+	ms.VelocityX, ms.VelocityY, ms.VelocityZ = d.VelX, d.VelY, d.VelZ
 }
 
-type FlowVec struct{ X, Z float64 }
+func (d *DroppedItem) hurt(amount int) {
+	d.damage += amount
+	if d.damage >= itemMaxHealth {
+		d.Dead = true
+	}
+}
 
-var lateralOffsets = []struct{ dx, dz int32 }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+func (d *DroppedItem) bounds() aabb {
+	return aabb{
+		minX: d.X - itemWidth/2, minY: d.Y - itemYOffset, minZ: d.Z - itemWidth/2,
+		maxX: d.X + itemWidth/2, maxY: d.Y - itemYOffset + itemHeight, maxZ: d.Z + itemWidth/2,
+	}
+}
 
-const (
-	gravity           = 0.04
-	airDrag           = 0.98
-	groundDragBase    = 0.58800006
-	waterFlowStrength = 0.014
-	buoyancy          = 0.02
-	buoyancyMaxUp     = 0.06
-)
+func floorInt(v float64) int32 { return int32(math.Floor(v)) }
 
-func getFlowVector(w WorldShared, bx int32, by byte, bz int32, dim int32, b constants.WBlock) FlowVec {
-	isLava := b.IsLava()
-	ownHeight := fluidHeight(b)
+func blockAt(w itemWorld, x, y, z, dim int32) constants.WBlock {
+	if y < 0 || y > 255 || !w.IsLoaded(x, z, dim) {
+		return constants.NewAirBlock()
+	}
+	return w.GetBlock(x, byte(y), z, dim)
+}
 
-	var flow FlowVec
-	for _, n := range lateralOffsets {
-		nx, nz := bx+n.dx, bz+n.dz
-		if !w.IsLoaded(nx, nz, dim) {
-			continue
+type vec3 struct{ x, y, z float64 }
+
+func (v vec3) normalized() vec3 {
+	lenSq := v.x*v.x + v.y*v.y + v.z*v.z
+	if lenSq <= 0 {
+		return v
+	}
+	inv := 1.0 / math.Sqrt(lenSq)
+	return vec3{v.x * inv, v.y * inv, v.z * inv}
+}
+
+func waterDecay(w itemWorld, x, y, z, dim int32) int {
+	b := blockAt(w, x, y, z, dim)
+	if !b.IsWater() {
+		return -1
+	}
+	meta := int(b.Metadata)
+	if meta >= 8 {
+		meta = 0
+	}
+	return meta
+}
+
+var flowDirections = [4][2]int32{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+func waterFlowVector(w itemWorld, x, y, z, dim int32) vec3 {
+	var flow vec3
+	own := waterDecay(w, x, y, z, dim)
+
+	for _, dir := range flowDirections {
+		nx, nz := x+dir[0], z+dir[1]
+		neighbour := waterDecay(w, nx, y, nz, dim)
+		if neighbour < 0 {
+			if isSolidMaterial(blockAt(w, nx, y, nz, dim)) {
+				continue
+			}
+			below := waterDecay(w, nx, y-1, nz, dim)
+			if below < 0 {
+				continue
+			}
+			diff := float64(below - (own - 8))
+			flow.x += float64(nx-x) * diff
+			flow.z += float64(nz-z) * diff
+		} else {
+			diff := float64(neighbour - own)
+			flow.x += float64(nx-x) * diff
+			flow.z += float64(nz-z) * diff
 		}
-		nb := w.GetBlock(nx, by, nz, dim)
+	}
 
-		var nHeight float64
-		switch {
-		case isLava && nb.IsLava():
-			nHeight = fluidHeight(nb)
-		case !isLava && nb.IsWater():
-			nHeight = fluidHeight(nb)
-		case nb.IsFluidReplaceable():
-			// air/flowers etc: if fluid continues one block down, treat this
-			// direction as a steep drop so flow pulls toward the edge/fall
-			if by == 0 {
-				continue
-			}
-			below := w.GetBlock(nx, by-1, nz, dim)
-			if (isLava && below.IsLava()) || (!isLava && below.IsWater()) {
-				nHeight = ownHeight - 1.0
-			} else {
-				continue
-			}
-		default:
-			continue
+	if b := blockAt(w, x, y, z, dim); b.Metadata >= 8 {
+		isWall := func(wx, wy, wz int32) bool {
+			nb := blockAt(w, wx, wy, wz, dim)
+			return isSolidMaterial(nb) && !nb.IsWater() && nb.TypeId != byte(constants.Ice.Value)
 		}
-
-		diff := ownHeight - nHeight
-		flow.X += float64(n.dx) * diff
-		flow.Z += float64(n.dz) * diff
+		nearWall := false
+		for _, dir := range flowDirections {
+			if isWall(x+dir[0], y, z+dir[1]) || isWall(x+dir[0], y+1, z+dir[1]) {
+				nearWall = true
+				break
+			}
+		}
+		if nearWall {
+			flow = flow.normalized()
+			flow.y += -6.0
+		}
 	}
 
-	if length := math.Hypot(flow.X, flow.Z); length > 1e-4 {
-		flow.X /= length
-		flow.Z /= length
-	}
-	return flow
+	return flow.normalized()
 }
 
-func handleFluidAcceleration(d *DroppedItem, w WorldShared) bool {
-	minX, minY, minZ, maxX, maxY, maxZ := itemAABB(d)
+func (d *DroppedItem) handleWater(w itemWorld) bool {
+	bb := d.bounds()
+	inWater := false
+	var push vec3
 
-	bx0, bx1 := int32(math.Floor(minX)), int32(math.Floor(maxX))
-	by0, by1 := int32(math.Floor(minY)), int32(math.Floor(maxY))
-	bz0, bz1 := int32(math.Floor(minZ)), int32(math.Floor(maxZ))
-
-	touched := false
-	var accumX, accumZ float64
-	var accumY float64
-
-	for bx := bx0; bx <= bx1; bx++ {
-		for by := by0; by <= by1; by++ {
-			if by < 0 || by > 255 {
-				continue
-			}
-			for bz := bz0; bz <= bz1; bz++ {
-				if !w.IsLoaded(bx, bz, d.Dim) {
-					continue
-				}
-				b := w.GetBlock(bx, byte(by), bz, d.Dim)
+	for x := floorInt(bb.minX); x <= floorInt(bb.maxX); x++ {
+		for y := floorInt(bb.minY); y <= floorInt(bb.maxY); y++ {
+			for z := floorInt(bb.minZ); z <= floorInt(bb.maxZ); z++ {
+				b := blockAt(w, x, y, z, d.Dim)
 				if !b.IsWater() {
 					continue
 				}
-
-				h := fluidHeight(b)
-				blockTop := float64(by) + h
-				if blockTop < minY {
-					continue
-				}
-				touched = true
-
-				flow := getFlowVector(w, bx, byte(by), bz, d.Dim, b)
-				accumX += flow.X
-				accumZ += flow.Z
-				accumY += 1.0
+				inWater = true
+				flow := waterFlowVector(w, x, y, z, d.Dim)
+				push.x += flow.x
+				push.y += flow.y
+				push.z += flow.z
 			}
 		}
 	}
 
-	if !touched {
-		return false
-	}
-
-	if length := math.Hypot(accumX, accumZ); length > 1e-4 {
-		accumX /= length
-		accumZ /= length
-	}
-
-	d.VelX += accumX * waterFlowStrength
-	d.VelZ += accumZ * waterFlowStrength
-	if accumY > 0 && d.VelY < buoyancyMaxUp {
-		d.VelY += buoyancy
-	}
-	return true
+	push = push.normalized()
+	d.VelX += push.x * itemWaterPush
+	d.VelY += push.y * itemWaterPush
+	d.VelZ += push.z * itemWaterPush
+	return inWater
 }
 
-func touchingLava(d *DroppedItem, w WorldShared) bool {
-	minX, minY, minZ, maxX, maxY, maxZ := itemAABB(d)
-
-	bx0, bx1 := int32(math.Floor(minX)), int32(math.Floor(maxX))
-	by0, by1 := int32(math.Floor(minY)), int32(math.Floor(maxY))
-	bz0, bz1 := int32(math.Floor(minZ)), int32(math.Floor(maxZ))
-
-	for bx := bx0; bx <= bx1; bx++ {
-		for by := by0; by <= by1; by++ {
-			if by < 0 || by > 255 {
-				continue
-			}
-			for bz := bz0; bz <= bz1; bz++ {
-				if !w.IsLoaded(bx, bz, d.Dim) {
-					continue
-				}
-				b := w.GetBlock(bx, byte(by), bz, d.Dim)
-				if !b.IsLava() {
-					continue
-				}
-				h := fluidHeight(b)
-				if float64(by)+h >= minY {
+func (d *DroppedItem) touchesBlock(w itemWorld, bb aabb, matches func(constants.WBlock) bool) bool {
+	for x := floorInt(bb.minX); x <= floorInt(bb.maxX); x++ {
+		for y := floorInt(bb.minY); y <= floorInt(bb.maxY); y++ {
+			for z := floorInt(bb.minZ); z <= floorInt(bb.maxZ); z++ {
+				if matches(blockAt(w, x, y, z, d.Dim)) {
 					return true
 				}
 			}
@@ -240,20 +264,192 @@ func touchingLava(d *DroppedItem, w WorldShared) bool {
 	return false
 }
 
-func (d *DroppedItem) Tick(w WorldShared) {
-	if d.InLava {
+func isLavaBlock(b constants.WBlock) bool { return b.IsLava() }
+func isFireBlock(b constants.WBlock) bool { return b.TypeId == byte(constants.Fire.Value) }
+
+func (d *DroppedItem) pushOutOfBlocks(w itemWorld) {
+	bb := d.bounds()
+	centerY := (bb.minY + bb.maxY) / 2.0
+	bx, by, bz := floorInt(d.X), floorInt(centerY), floorInt(d.Z)
+	if !isNormalCube(blockAt(w, bx, by, bz, d.Dim)) {
 		return
 	}
 
-	if touchingLava(d, w) {
-		d.DespawnIn = 3
+	fracX := d.X - float64(bx)
+	fracY := centerY - float64(by)
+	fracZ := d.Z - float64(bz)
+
+	open := func(dx, dy, dz int32) bool {
+		return !isNormalCube(blockAt(w, bx+dx, by+dy, bz+dz, d.Dim))
+	}
+
+	direction := -1
+	closest := 9999.0
+	if open(-1, 0, 0) && fracX < closest {
+		closest, direction = fracX, 0
+	}
+	if open(1, 0, 0) && 1.0-fracX < closest {
+		closest, direction = 1.0-fracX, 1
+	}
+	if open(0, -1, 0) && fracY < closest {
+		closest, direction = fracY, 2
+	}
+	if open(0, 1, 0) && 1.0-fracY < closest {
+		closest, direction = 1.0-fracY, 3
+	}
+	if open(0, 0, -1) && fracZ < closest {
+		closest, direction = fracZ, 4
+	}
+	if open(0, 0, 1) && 1.0-fracZ < closest {
+		direction = 5
+	}
+
+	speed := float64(rand.Float32())*itemPushOutRange + itemPushOutMin
+	switch direction {
+	case 0:
+		d.VelX = -speed
+	case 1:
+		d.VelX = speed
+	case 2:
+		d.VelY = -speed
+	case 3:
+		d.VelY = speed
+	case 4:
+		d.VelZ = -speed
+	case 5:
+		d.VelZ = speed
+	}
+	// the client rolls its own random push speed, so it can't have followed this
+	d.forceSync = true
+}
+
+func collectCollisionBoxes(w itemWorld, dim int32, area aabb) []aabb {
+	var boxes []aabb
+	for x := floorInt(area.minX); x <= floorInt(area.maxX); x++ {
+		for z := floorInt(area.minZ); z <= floorInt(area.maxZ); z++ {
+			if !w.IsLoaded(x, z, dim) {
+				continue
+			}
+			for y := floorInt(area.minY) - 1; y <= floorInt(area.maxY); y++ {
+				if y < 0 || y > 255 {
+					continue
+				}
+				for _, local := range blockBoxes(w.GetBlock(x, byte(y), z, dim)) {
+					world := local.offset(float64(x), float64(y), float64(z))
+					if world.maxX > area.minX && world.minX < area.maxX &&
+						world.maxY > area.minY && world.minY < area.maxY &&
+						world.maxZ > area.minZ && world.minZ < area.maxZ {
+						boxes = append(boxes, world)
+					}
+				}
+			}
+		}
+	}
+	return boxes
+}
+
+func (d *DroppedItem) move(w itemWorld) {
+	if d.inWeb {
+		d.inWeb = false
+		// vanilla scales the motion and then zeroes it anyway
+		d.VelX, d.VelY, d.VelZ = 0, 0, 0
+	}
+
+	origX, origY, origZ := d.VelX, d.VelY, d.VelZ
+	dx, dy, dz := origX, origY, origZ
+
+	bb := d.bounds()
+	solids := collectCollisionBoxes(w, d.Dim, bb.union(bb.offset(dx, dy, dz)))
+
+	for _, s := range solids {
+		dy = clipY(bb, s, dy)
+	}
+	bb = bb.offset(0, dy, 0)
+
+	for _, s := range solids {
+		dx = clipX(bb, s, dx)
+	}
+	bb = bb.offset(dx, 0, 0)
+
+	for _, s := range solids {
+		dz = clipZ(bb, s, dz)
+	}
+	bb = bb.offset(0, 0, dz)
+
+	d.X = (bb.minX + bb.maxX) / 2
+	d.Y = bb.minY + itemYOffset
+	d.Z = (bb.minZ + bb.maxZ) / 2
+
+	d.OnGround = dy != origY && origY < 0
+
+	if dx != origX {
 		d.VelX = 0
+	}
+	if dy != origY {
 		d.VelY = 0
+	}
+	if dz != origZ {
 		d.VelZ = 0
-		d.MovementState.VelocityX = 0
-		d.MovementState.VelocityY = 0
-		d.MovementState.VelocityZ = 0
-		d.InLava = true
+	}
+
+	d.collideWithBlocks(w, bb)
+}
+
+func (d *DroppedItem) collideWithBlocks(w itemWorld, bb aabb) {
+	const inset = 0.001
+	for x := floorInt(bb.minX + inset); x <= floorInt(bb.maxX-inset); x++ {
+		for y := floorInt(bb.minY + inset); y <= floorInt(bb.maxY-inset); y++ {
+			for z := floorInt(bb.minZ + inset); z <= floorInt(bb.maxZ-inset); z++ {
+				switch blockAt(w, x, y, z, d.Dim).TypeId {
+				case byte(constants.Cobweb.Value):
+					d.inWeb = true
+				case byte(constants.SoulSand.Value):
+					d.VelX *= 0.4
+					d.VelZ *= 0.4
+				case byte(constants.Cactus.Value):
+					d.hurt(1)
+				}
+			}
+		}
+	}
+}
+
+func (d *DroppedItem) groundDrag(w itemWorld) float64 {
+	// 0.6f * 0.98f in float32, like the client
+	drag := float32(0.58800006)
+	below := blockAt(w, floorInt(d.X), floorInt(d.bounds().minY)-1, floorInt(d.Z), d.Dim)
+	if below.TypeId != 0 {
+		drag = slipperiness(below) * 0.98
+	}
+	return float64(drag)
+}
+
+func (d *DroppedItem) Tick(w itemWorld) {
+	if d.Dead {
+		return
+	}
+	// entities in unloaded chunks don't tick
+	if !w.IsLoaded(floorInt(d.X), floorInt(d.Z), d.Dim) {
+		return
+	}
+
+	d.Age++
+
+	d.handleWater(w)
+	bb := d.bounds()
+	if d.touchesBlock(w, bb, isLavaBlock) {
+		// lava deals 4 and burning 1 more per tick, which is more than an item has
+		d.Dead = true
+		d.mirrorMovementState()
+		return
+	}
+	if d.touchesBlock(w, insetBox(bb, 0.001), isFireBlock) {
+		d.hurt(1)
+	}
+	if d.Y < -64 {
+		d.Dead = true
+	}
+	if d.Dead {
 		return
 	}
 
@@ -261,171 +457,124 @@ func (d *DroppedItem) Tick(w WorldShared) {
 		d.PickupDelay--
 	}
 
-	handleFluidAcceleration(d, w)
+	d.VelY -= itemGravity
 
-	d.VelY -= gravity
-
-	box := boundingBoxAt(d.X, d.Y, d.Z)
-	solids := collectSolidBoxes(w, d.Dim, box.union(box.offset(d.VelX, d.VelY, d.VelZ)))
-
-	origVelY := d.VelY
-	dx, dy, dz := d.VelX, d.VelY, d.VelZ
-
-	for _, s := range solids {
-		dy = clipY(box, s, dy)
-	}
-	box = box.offset(0, dy, 0)
-
-	for _, s := range solids {
-		dx = clipX(box, s, dx)
-	}
-	box = box.offset(dx, 0, 0)
-
-	for _, s := range solids {
-		dz = clipZ(box, s, dz)
-	}
-	box = box.offset(0, 0, dz)
-
-	onGround := dy != origVelY && origVelY < 0
-
-	d.X = (box.minX + box.maxX) / 2
-	d.Y = box.minY
-	d.Z = (box.minZ + box.maxZ) / 2
-
-	if dx != d.VelX {
-		d.VelX = 0
-	}
-	if dz != d.VelZ {
-		d.VelZ = 0
-	}
-	if dy != d.VelY {
-		d.VelY = 0
+	d.pushOutOfBlocks(w)
+	d.move(w)
+	if d.Dead {
+		return
 	}
 
-	drag := float64(airDrag)
-	if onGround {
-		drag = groundDragBase
+	drag := 0.98
+	if d.OnGround {
+		drag = d.groundDrag(w)
 	}
-
 	d.VelX *= drag
+	d.VelY *= itemVerticalDrag
 	d.VelZ *= drag
-	d.VelY *= 0.9800000190734863
-}
 
-type aabb struct {
-	minX, minY, minZ float64
-	maxX, maxY, maxZ float64
-}
-
-func boundingBoxAt(x, y, z float64) aabb {
-	return aabb{
-		minX: x - itemColliderHalfWidth, minY: y, minZ: z - itemColliderHalfWidth,
-		maxX: x + itemColliderHalfWidth, maxY: y + itemColliderHeight, maxZ: z + itemColliderHalfWidth,
+	// bounce, which is always zero because landing already zeroed VelY
+	if d.OnGround {
+		d.VelY *= -0.5
 	}
-}
 
-func (a aabb) union(o aabb) aabb {
-	return aabb{
-		minX: math.Min(a.minX, o.minX), minY: math.Min(a.minY, o.minY), minZ: math.Min(a.minZ, o.minZ),
-		maxX: math.Max(a.maxX, o.maxX), maxY: math.Max(a.maxY, o.maxY), maxZ: math.Max(a.maxZ, o.maxZ),
+	if d.Age >= itemMaxAge {
+		d.Dead = true
+		return
 	}
+
+	d.mirrorMovementState()
+	d.updateSync()
 }
 
-func (a aabb) offset(dx, dy, dz float64) aabb {
-	a.minX += dx
-	a.maxX += dx
-	a.minY += dy
-	a.maxY += dy
-	a.minZ += dz
-	a.maxZ += dz
-	return a
+func insetBox(a aabb, by float64) aabb {
+	return aabb{a.minX + by, a.minY + by, a.minZ + by, a.maxX - by, a.maxY - by, a.maxZ - by}
 }
 
-// blocks the item could possibly touch this tick: current box unioned with
-// where it wants to move to. This is what fixes the corner cases — you're
-// querying every block the swept box could clip against, not one point.
-func collectSolidBoxes(w WorldShared, dim int32, box aabb) []aabb {
-	bx0, bx1 := int32(math.Floor(box.minX)), int32(math.Floor(box.maxX))
-	by0, by1 := int32(math.Floor(box.minY)), int32(math.Floor(box.maxY))
-	bz0, bz1 := int32(math.Floor(box.minZ)), int32(math.Floor(box.maxZ))
+func (d *DroppedItem) updateSync() {
+	hSpeed := math.Hypot(d.VelX, d.VelZ)
+	atRest := d.OnGround && hSpeed < 0.005
+	if !atRest {
+		d.settled = false
+	}
 
-	var boxes []aabb
-	for bx := bx0; bx <= bx1; bx++ {
-		for by := by0; by <= by1; by++ {
-			if by < 0 || by > 255 {
-				continue
-			}
-			for bz := bz0; bz <= bz1; bz++ {
-				if !w.IsLoaded(bx, bz, dim) {
-					continue
-				}
-				b := w.GetBlock(bx, byte(by), bz, dim)
-				if b.IsLiquid() || !b.IsSolid() {
-					continue
-				}
-				boxes = append(boxes, aabb{
-					minX: float64(bx), minY: float64(by), minZ: float64(bz),
-					maxX: float64(bx) + 1, maxY: float64(by) + 1, maxZ: float64(bz) + 1,
-				})
-			}
+	send := d.forceSync
+	if atRest && !d.settled {
+		d.settled = true
+		send = true
+	}
+
+	if (d.Age+int(d.EntityId))%itemSyncInterval == 0 {
+		moved := math.Max(math.Abs(d.X-d.lastSyncX), math.Max(math.Abs(d.Y-d.lastSyncY), math.Abs(d.Z-d.lastSyncZ)))
+		if moved >= itemSyncThreshold {
+			send = true
 		}
 	}
-	return boxes
+	if d.Age-d.lastFullSync >= itemFullSyncEvery {
+		send = true
+	}
+
+	if !send {
+		return
+	}
+	d.forceSync = false
+	d.lastFullSync = d.Age
+	d.lastSyncX, d.lastSyncY, d.lastSyncZ = d.X, d.Y, d.Z
+	d.MovementState.Teleported = true
+	d.MovementState.VelocityChanged = true
 }
 
-// clip a proposed movement `d` along one axis so the moving box doesn't
-// pass through `other`. Mirrors AxisAlignedBB.calculateXOffset/Y/Z in vanilla.
-func clipY(box, other aabb, d float64) float64 {
-	if other.maxX <= box.minX || other.minX >= box.maxX {
+func clipY(bb, other aabb, d float64) float64 {
+	if other.maxX <= bb.minX || other.minX >= bb.maxX {
 		return d
 	}
-	if other.maxZ <= box.minZ || other.minZ >= box.maxZ {
+	if other.maxZ <= bb.minZ || other.minZ >= bb.maxZ {
 		return d
 	}
-	if d > 0 && other.minY >= box.maxY {
-		if m := other.minY - box.maxY; m < d {
+	if d > 0 && other.minY >= bb.maxY {
+		if m := other.minY - bb.maxY; m < d {
 			d = m
 		}
-	} else if d < 0 && other.maxY <= box.minY {
-		if m := other.maxY - box.minY; m > d {
+	} else if d < 0 && other.maxY <= bb.minY {
+		if m := other.maxY - bb.minY; m > d {
 			d = m
 		}
 	}
 	return d
 }
 
-func clipX(box, other aabb, d float64) float64 {
-	if other.maxY <= box.minY || other.minY >= box.maxY {
+func clipX(bb, other aabb, d float64) float64 {
+	if other.maxY <= bb.minY || other.minY >= bb.maxY {
 		return d
 	}
-	if other.maxZ <= box.minZ || other.minZ >= box.maxZ {
+	if other.maxZ <= bb.minZ || other.minZ >= bb.maxZ {
 		return d
 	}
-	if d > 0 && other.minX >= box.maxX {
-		if m := other.minX - box.maxX; m < d {
+	if d > 0 && other.minX >= bb.maxX {
+		if m := other.minX - bb.maxX; m < d {
 			d = m
 		}
-	} else if d < 0 && other.maxX <= box.minX {
-		if m := other.maxX - box.minX; m > d {
+	} else if d < 0 && other.maxX <= bb.minX {
+		if m := other.maxX - bb.minX; m > d {
 			d = m
 		}
 	}
 	return d
 }
 
-func clipZ(box, other aabb, d float64) float64 {
-	if other.maxY <= box.minY || other.minY >= box.maxY {
+func clipZ(bb, other aabb, d float64) float64 {
+	if other.maxY <= bb.minY || other.minY >= bb.maxY {
 		return d
 	}
-	if other.maxX <= box.minX || other.minX >= box.maxX {
+	if other.maxX <= bb.minX || other.minX >= bb.maxX {
 		return d
 	}
-	if d > 0 && other.minZ >= box.maxZ {
-		if m := other.minZ - box.maxZ; m < d {
+	if d > 0 && other.minZ >= bb.maxZ {
+		if m := other.minZ - bb.maxZ; m < d {
 			d = m
 		}
-	} else if d < 0 && other.maxZ <= box.minZ {
-		if m := other.maxZ - box.minZ; m > d {
+	} else if d < 0 && other.maxZ <= bb.minZ {
+		if m := other.maxZ - bb.minZ; m > d {
 			d = m
 		}
 	}

@@ -502,7 +502,7 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 
 func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte, pickupDelay, dim int32, velX, velY, velZ float64) int32 {
 	entityId := w.NextEntityId()
-	w.Entities[entityId] = &entities.DroppedItem{EntityId: entityId,
+	d := &entities.DroppedItem{EntityId: entityId,
 		ItemId:   itemId,
 		Amount:   amount,
 		Metadata: meta,
@@ -510,10 +510,11 @@ func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte,
 		PickupDelay: pickupDelay,
 		VelX:        velX, VelY: velY, VelZ: velZ,
 		DespawnIn:   -1,
-		InLava:      false,
 		CollectorId: -1,
 		Dim:         dim,
 	}
+	d.InitSyncState()
+	w.Entities[entityId] = d
 	return entityId
 }
 

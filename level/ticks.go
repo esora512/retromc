@@ -28,8 +28,8 @@ func (w *World) ItemPhysicsTick() {
 }
 
 func (w *World) DroppedItemPhysics() {
-	w.CollectNearbyItems()
 	w.ItemPhysicsTick()
+	w.CollectNearbyItems()
 }
 
 func (w *World) CollectNearbyItems() {
@@ -39,8 +39,8 @@ func (w *World) CollectNearbyItems() {
 			continue
 		}
 
-		if d.PickupDelay > 0 {
-			d.PickupDelay--
+		// the pickup delay is counted down by the item's own tick
+		if d.PickupDelay > 0 || d.Dead || d.CollectorId != -1 {
 			continue
 		}
 

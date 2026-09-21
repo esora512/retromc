@@ -338,6 +338,7 @@ func High8Bits(n uint16) byte {
 	return byte(n >> 8)
 }
 
+const playerDropPickupDelay = 40
 const dropInitVelocity = 0.3
 const dropRandomVelocity = 0.02
 const playerEyeHeight = 1.62
@@ -365,7 +366,7 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
 
-	CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, 45, pl.Dimension)
+	CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, playerDropPickupDelay, pl.Dimension)
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
@@ -459,7 +460,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
-	DropItemFromMinedBlock(world, float64(p.X), float64(p.Y), float64(p.Z), blockItem, blockMeta, count, pl.Dimension, 10)
+	DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -542,7 +543,7 @@ func chainMineConnected(world *level.World, pl *player.Player, originX int32, or
 			}
 
 			if blockItem != 0 {
-				DropItemFromMinedBlock(world, float64(next.X), float64(next.Y), float64(next.Z), blockItem, blockMeta, count, dim, 10)
+				DropItemFromBrokenBlock(world, next.X, next.Y, next.Z, blockItem, blockMeta, count, dim, 10)
 			}
 
 			mined++
@@ -717,10 +718,18 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 }
 
 func DropItemFromMinedBlock(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
-	velX := float64(rand.Float32()-rand.Float32()) * 0.1
-	velY := float64(rand.Float32()) * 0.2
-	velZ := float64(rand.Float32()-rand.Float32()) * 0.1
+	velX := float64(rand.Float32())*0.2 - 0.1
+	velY := 0.2
+	velZ := float64(rand.Float32())*0.2 - 0.1
 	CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+}
+
+func DropItemFromBrokenBlock(world *level.World, blockX int32, blockY byte, blockZ int32, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+	const spread = 0.7
+	x := float64(blockX) + float64(rand.Float32())*spread + (1-spread)*0.5
+	y := float64(blockY) + float64(rand.Float32())*spread + (1-spread)*0.5
+	z := float64(blockZ) + float64(rand.Float32())*spread + (1-spread)*0.5
+	DropItemFromMinedBlock(world, x, y, z, blockItem, blockMeta, count, dim, delay)
 }
 
 func raycastForWater(world *level.World, pl *player.Player, maxDistance float64) (int, int, int, bool) {

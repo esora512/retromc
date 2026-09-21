@@ -125,7 +125,7 @@ func (p *AnimationPacket) Serialize() []byte {
 }
 
 func quantizeSpawnVelocity(v float64) int8 {
-	return int8(v * 128.0)
+	return int8(math.Max(-127, math.Min(127, v*128.0)))
 }
 
 func NewSpawnItem(d *entities.DroppedItem) []byte {
@@ -134,12 +134,12 @@ func NewSpawnItem(d *entities.DroppedItem) []byte {
 		ItemId:   int16(d.ItemId),
 		Amount:   d.Amount,
 		Metadata: d.Metadata,
-		X:        int32(math.Floor(d.MovementState.X * 32)),
-		Y:        int32(math.Floor(d.MovementState.Y * 32)),
-		Z:        int32(math.Floor(d.MovementState.Z * 32)),
-		Pitch:    byte(quantizeSpawnVelocity(d.MovementState.VelocityX)),
-		Yaw:      byte(quantizeSpawnVelocity(d.MovementState.VelocityY)),
-		Roll:     byte(quantizeSpawnVelocity(d.MovementState.VelocityZ)),
+		X:     int32(math.Floor(d.X * 32)),
+		Y:     int32(math.Floor(d.Y * 32)),
+		Z:     int32(math.Floor(d.Z * 32)),
+		Pitch: byte(quantizeSpawnVelocity(d.VelX)),
+		Yaw:   byte(quantizeSpawnVelocity(d.VelY)),
+		Roll:  byte(quantizeSpawnVelocity(d.VelZ)),
 	}
 	return p.Serialize()
 }

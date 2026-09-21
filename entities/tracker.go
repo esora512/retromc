@@ -88,7 +88,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		}
 
 		x2, _, z2 := target.GetPosition()
-		alive := targetType == c.FallingBlock || targetType == c.DroppedItem || target.GetHP() > 0
+		droppedItem, _ := target.(*DroppedItem)
+		itemGone := droppedItem != nil && droppedItem.Dead
+		alive := targetType == c.FallingBlock || (targetType == c.DroppedItem && !itemGone) || target.GetHP() > 0
 
 		ms := target.GetMovementState()
 
@@ -213,6 +215,14 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						collect := w.NewCollectItemPacket(targetID, t.CollectorId)
 						viewer.Connection.Write(collect)
 						w.RemoveEntity(targetID)
+					} else {
+						// the client simulates the item itself, this only corrects drift
+						if teleported {
+							viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
+						}
+						if velChanged {
+							viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
+						}
 					}
 				}
 			}
@@ -238,8 +248,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				case c.DroppedItem:
 					//log.Printf("Tracker: Spawning %d for %s (%d)", targetID, viewer.Username, viewerID)
 					viewer.Connection.Write(w.SpawnItemPacket(target))
-					if velChanged {
-						//log.Println("Velocity Changed")
+					// the spawn packet only carries the velocity coarsely (1/128), so follow up with
+					// the exact one; items at rest don't need it
+					if msCopy.VelocityX != 0 || msCopy.VelocityY != 0 || msCopy.VelocityZ != 0 {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(targetID, msCopy))
 					}
 				}
@@ -273,6 +284,11 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					continue
 				}
 			}
+		}
+
+
+		if itemGone {
+			w.RemoveEntity(targetID)
 		}
 
 		// Notify server that information has been sent to clients
