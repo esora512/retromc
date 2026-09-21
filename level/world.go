@@ -47,7 +47,6 @@ func (w *World) GetPlayerByUsername(name string) (*player.Player, bool) {
 	return nil, false
 }
 
-
 func (w *World) SavePlayer(pl *player.Player) {
 	if pl.Username == "" {
 		return
@@ -78,7 +77,6 @@ func (w *World) SnapshotEntities() []constants.Entity {
 	}
 	return snapshot
 }
-
 
 type World struct {
 	// To avoid locking, all world state changing commands are handled by a single goroutine
@@ -112,7 +110,7 @@ type World struct {
 
 	// ExternalChunkGenBin is the path to an optional external chunk-generation
 	ExternalChunkGenBin string
-	chunkGenSem chan struct{}
+	chunkGenSem         chan struct{}
 
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	newCollectItemPacket            func(itemId, collectorId int32) []byte
@@ -720,6 +718,10 @@ func (w *World) SendNearby(source *player.Player, data []byte) {
 	dim1 := source.GetDim()
 
 	for _, target := range w.Players {
+		if source.GetEntityId() == target.GetEntityId() {
+			continue
+		}
+
 		x2, _, z2 := target.GetPosition()
 		dim2 := target.GetDim()
 		sameDim := dim1 == dim2
