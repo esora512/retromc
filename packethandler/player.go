@@ -133,7 +133,8 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
 
-func applyFallDamage(world *level.World, pl *player.Player, newY float64, clientOnGround bool) {
+
+func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ float64, clientOnGround bool) {
 	if pl.Immune >= 0 || pl.IsRiding != -1 {
 		return
 	}
@@ -145,8 +146,8 @@ func applyFallDamage(world *level.World, pl *player.Player, newY float64, client
 		pl.FallDistance += -dy
 	}
 
-	x := int32(math.Floor(pl.X))
-	z := int32(math.Floor(pl.Z))
+	x := int32(math.Floor(newX))
+	z := int32(math.Floor(newZ))
 
 	y := int32(math.Floor(newY - 0.01))
 
@@ -259,7 +260,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.MovementState.Pitch = p.Pitch
 	pl.MovementState.PositionAndRotationChanged = true
 	pl.MovementState.UntrackPositionAndRotationIn = 10
-	applyFallDamage(world, pl, y, p.OnGround)
+	applyFallDamage(world, pl, x, y, z, p.OnGround)
 
 	pl.X = x
 	pl.Y = y
@@ -312,7 +313,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.MovementState.Z = z
 	pl.MovementState.PositionChanged = true
 	pl.MovementState.UntrackPositionIn = 10
-	applyFallDamage(world, pl, y, p.OnGround)
+	applyFallDamage(world, pl, x, y, z, p.OnGround)
 
 	pl.X = x
 	pl.Y = y
