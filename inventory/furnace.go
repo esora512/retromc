@@ -9,7 +9,9 @@ import (
 const FURNACE_SIZE = 3
 
 func FuelBurnTime(fuel int16) int {
-	if fuel == constants.Planks.Value || fuel == constants.Log.Value || fuel == constants.CraftingTable.Value || fuel == constants.WoodenDoor.Value || fuel == constants.WoodenStairs.Value {
+	if fuel == constants.Planks.Value || fuel == constants.Log.Value || fuel == constants.CraftingTable.Value || fuel == constants.WoodenDoor.Value || fuel == constants.WoodenStairs.Value ||
+		fuel == constants.Fence.Value || fuel == constants.Chest.Value || fuel == constants.Bookshelf.Value || fuel == constants.Noteblock.Value ||
+		fuel == constants.Jukebox.Value || fuel == constants.WoodenPressurePlate.Value || fuel == constants.Trapdoor.Value {
 		return 300
 	}
 
@@ -47,8 +49,20 @@ func SmeltsTo(smeltable int16) int16 {
 		return constants.Stone.Value
 	}
 
-	if smeltable == constants.Clay.Value {
+	if smeltable == constants.ClayItem.Value {
 		return constants.Brick.Value
+	}
+
+	if smeltable == constants.DiamondOre.Value {
+		return constants.Diamond.Value
+	}
+
+	if smeltable == constants.Fish.Value {
+		return constants.CookedFish.Value
+	}
+
+	if smeltable == constants.Cactus.Value {
+		return constants.Dye.Value
 	}
 
 	if smeltable == constants.Log.Value {
@@ -61,8 +75,30 @@ func SmeltsTo(smeltable int16) int16 {
 	return 0
 }
 
+func smeltMeta(smeltable int16) uint16 {
+	switch smeltable {
+	case constants.Log.Value:
+		return 1 // charcoal
+	case constants.Cactus.Value:
+		return 2 // cactus green
+	}
+	return 0
+}
+
 func IsSmeltable(typeId int16) bool {
 	return SmeltsTo(typeId) != 0
+}
+
+func (f *Furnace) canSmelt() bool {
+	in := f.Items[0].TypeId
+	if !IsSmeltable(in) {
+		return false
+	}
+	out := f.Items[2]
+	if out.TypeId == -1 {
+		return true
+	}
+	return out.TypeId == SmeltsTo(in) && out.Metadata == smeltMeta(in) && int(out.Count) < MaxStack(out.TypeId)
 }
 
 func IsFuel(typeId int16) bool {
@@ -84,7 +120,7 @@ type Furnace struct {
 
 func (f *Furnace) Smelt(setSlot func(item Item, slot int16)) (int, int, int) {
 	if !f.IsBurning {
-		if IsSmeltable(f.Items[0].TypeId) && IsFuel(f.Items[1].TypeId) {
+		if f.canSmelt() && IsFuel(f.Items[1].TypeId) {
 			f.MaxFuel = FuelBurnTime(f.Items[1].TypeId)
 			f.FuelRemain = f.MaxFuel
 
@@ -108,7 +144,7 @@ func (f *Furnace) Smelt(setSlot func(item Item, slot int16)) (int, int, int) {
 		f.MaxFuel = 0
 	}
 
-	if IsSmeltable(f.Items[0].TypeId) {
+	if f.canSmelt() {
 		f.Progress++
 	} else {
 		f.Progress = 0
@@ -119,9 +155,12 @@ func (f *Furnace) Smelt(setSlot func(item Item, slot int16)) (int, int, int) {
 
 func (f *Furnace) Output() (bool, Item) {
 	if f.Progress >= 200 {
-		outItem := SmeltsTo(f.Items[0].TypeId)
 		f.Progress = 0
-		return true, Item{TypeId: outItem, Count: 1, Metadata: 0}
+		if !f.canSmelt() {
+			return false, Item{}
+		}
+		in := f.Items[0].TypeId
+		return true, Item{TypeId: SmeltsTo(in), Count: 1, Metadata: smeltMeta(in)}
 	}
 	return false, Item{}
 }
@@ -151,7 +190,7 @@ func TickFurnaces(furnaces []*Furnace,
 			}
 			furnaceSetSlot(furnace.Items[0], 0)
 
-			if furnace.Items[2].TypeId == outItem.TypeId && furnace.Items[2].TypeId != -1 {
+			if furnace.Items[2].TypeId == outItem.TypeId && furnace.Items[2].Metadata == outItem.Metadata {
 				furnace.Items[2].Count += 1
 				outItem = furnace.Items[2]
 			}

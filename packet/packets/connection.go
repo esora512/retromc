@@ -14,6 +14,13 @@ func ReadDisconnectPacket(reader *packet.PacketReader) DisconnectPacket {
 	return packet
 }
 
+func (p *DisconnectPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.Disconnect)
+	w.WriteString16(p.Reason)
+	return w.Bytes()
+}
+
 type PreLoginPacket struct {
 	packet.Packet
 	Username       string // string16, C->S

@@ -49,6 +49,12 @@ func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {
 }
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *entities.EntityTracker) {
+	if n := len([]rune(p.Username)); n == 0 || n > 16 {
+		kick := packets.DisconnectPacket{Reason: "Invalid username"}
+		connection.Write(kick.Serialize())
+		connection.Close()
+		return
+	}
 	pl.Username = p.Username
 
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {

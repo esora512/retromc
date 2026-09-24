@@ -90,9 +90,6 @@ func ReadCloseContainerPacket(reader *packet.PacketReader, pl *player.Player) Cl
 	p := CloseContainerPacket{}
 	p.PacketId = reader.GetPacketId()
 	p.WindowId = reader.ReadByte()
-	if p.WindowId == 1 {
-		pl.Workbench.ClearGrid()
-	}
 	return p
 }
 

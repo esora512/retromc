@@ -65,8 +65,10 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.PlayerMovement:
 		p := packets.ReadPlayerMovementPacket(packetReader)
 		world.Enqueue(func() {
+			if pl.LoggedIn {
+				applyFallDamage(world, pl, pl.X, pl.Y, pl.Z, p.OnGround)
+			}
 			pl.OnGround = p.OnGround
-			// TODO: Unhandled, should broadcast player movement to other players
 		})
 	case packet.PlayerRotation:
 		p := packets.ReadPlayerRotationPacket(packetReader)
@@ -119,7 +121,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.CloseContainer:
 		p := packets.ReadCloseContainerPacket(packetReader, pl)
 		world.Enqueue(func() {
-			handleCloseContainerPacket(p, pl)
+			handleCloseContainerPacket(connection, p, pl, world)
 		})
 	case packet.InteractWithEntity:
 		p := packets.ReadInteractWithEntityPacket(packetReader)

@@ -150,12 +150,17 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	p := SpawnPlayerPacket{
 		EntityId: int32(pl.EntityId),
 		Username: pl.Username,
-		X:        int32(pl.X * 32),
-		Y:        int32(pl.Y * 32),
-		Z:        int32(pl.Z * 32),
-		Yaw:      byte(math.Round(float64(pl.Yaw) / 360.0 * 255.0)),
-		Pitch:    byte(math.Round(float64(pl.Pitch) / 360 * 255)),
+		X:        int32(math.Floor(pl.X * 32)),
+		Y:        int32(math.Floor(pl.Y * 32)),
+		Z:        int32(math.Floor(pl.Z * 32)),
+		Yaw:      byte(int32(math.Floor(float64(pl.Yaw) * 256 / 360))),
+		Pitch:    byte(int32(math.Floor(float64(pl.Pitch) * 256 / 360))),
 		HeldItem: 0,
+	}
+	// spawn at the tracker's last sent position so later relative moves line up
+	if ms := pl.MovementState; ms.EncInit {
+		p.X, p.Y, p.Z = ms.EncX, ms.EncY, ms.EncZ
+		p.Yaw, p.Pitch = byte(ms.EncYaw), byte(ms.EncPitch)
 	}
 	return p.Serialize()
 }

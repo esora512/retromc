@@ -475,6 +475,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		return true
 	}
+	// clients drop the connection on chat lines over 119 chars
+	if r := []rune(message); len(r) > 100 {
+		message = string(r[:100])
+	}
 	p.Message = "<" + pl.Username + "> " + message
 	world.BroadcastPacket(p.Serialize())
 	return false

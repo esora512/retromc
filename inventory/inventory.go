@@ -22,11 +22,13 @@ const (
 )
 
 func MaxStack(typeId int16) int {
-	switch typeId {
-	case constants.Snowball.Value:
-		return 16
-	case constants.IronDoorItem.Value, constants.WoodenDoorItem.Value, constants.Boat.Value, constants.Minecart.Value:
+	switch {
+	case !IsStackable(typeId):
 		return 1
+	case typeId == constants.Snowball.Value, typeId == constants.Egg.Value:
+		return 16
+	case typeId == constants.Cookie.Value:
+		return 8
 	default:
 		return 64
 	}
@@ -61,7 +63,8 @@ func MoveFromSourceToTargetContainer(sourceContainer, targetContainer ItemContai
 			sourceContainer.SetEmpty(sourceSlot)
 			return true
 		}
-		if targetContainer.PeekItem(int16(i)).TypeId == source.TypeId {
+		if t := targetContainer.PeekItem(int16(i)); t.TypeId == source.TypeId && t.Metadata == source.Metadata &&
+			int(t.Count)+int(source.Count) <= MaxStack(source.TypeId) {
 			targetContainer.AddCount(int16(i), source.Count)
 			sourceContainer.SetEmpty(sourceSlot)
 			return true
@@ -126,7 +129,7 @@ func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata uint16
 	for i := HotbarEnd; i >= HotbarStart; i-- {
 		item := &inv.Items[i]
 		maxStack := MaxStack(item.TypeId)
-		if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
+		if item.TypeId == typeId && item.Metadata == metadata && int(item.Count)+int(count) <= maxStack {
 			item.Count += count
 			return true
 		}
@@ -140,47 +143,104 @@ func (inv *Inventory) AddItemHotbarFromRightToLeft(typeId int16, metadata uint16
 	return false
 }
 
-// AddItem adds one of the given block type to the inventory (slots 9-44).
-// It first tries to stack onto an existing partial stack of the same type and metadata,
-// then falls back to the first empty slot.
-// Returns the slot index that was updated, or -1 if the inventory is full.
+
+func (inv *Inventory) MergeItem(it *Item, reverse bool, start, end int) (touched []int16) {
+	next := func(i int) int {
+		if reverse {
+			return i - 1
+		}
+		return i + 1
+	}
+	first := start
+	if reverse {
+		first = end
+	}
+	inRange := func(i int) bool { return i >= start && i <= end }
+
+	if IsStackable(it.TypeId) {
+		for i := first; inRange(i) && it.Count > 0; i = next(i) {
+			slot := &inv.Items[i]
+			if slot.TypeId != it.TypeId || slot.Metadata != it.Metadata {
+				continue
+			}
+			space := MaxStack(slot.TypeId) - int(slot.Count)
+			if space <= 0 {
+				continue
+			}
+			move := min(space, int(it.Count))
+			slot.Count += byte(move)
+			it.Count -= byte(move)
+			touched = append(touched, int16(i))
+		}
+	}
+	if it.Count == 0 {
+		return touched
+	}
+	for i := first; inRange(i); i = next(i) {
+		if inv.Items[i].TypeId == -1 {
+			inv.Items[i] = *it
+			it.Count = 0
+			return append(touched, int16(i))
+		}
+	}
+	return touched
+}
+
+func (inv *Inventory) canTopUp(it Item, start, end int) bool {
+	if !IsStackable(it.TypeId) {
+		return false
+	}
+	for i := start; i <= end; i++ {
+		slot := inv.Items[i]
+		if slot.TypeId == it.TypeId && slot.Metadata == it.Metadata && int(slot.Count) < MaxStack(slot.TypeId) {
+			return true
+		}
+	}
+	return false
+}
+
+func (inv *Inventory) PickupItem(it *Item) []int16 {
+	var touched []int16
+	if inv.canTopUp(*it, MainInventoryStart, MainInventoryEnd) {
+		touched = inv.MergeItem(it, false, MainInventoryStart, MainInventoryEnd)
+		if it.Count == 0 {
+			return touched
+		}
+	}
+	touched = append(touched, inv.MergeItem(it, false, HotbarStart, HotbarEnd)...)
+	if it.Count > 0 {
+		touched = append(touched, inv.MergeItem(it, false, MainInventoryStart, MainInventoryEnd)...)
+	}
+	return touched
+}
+
+// AddItem stores the whole stack or nothing, using the pickup order.
+// Returns a slot that was updated, or -1 if it didn't fit.
 func (inv *Inventory) AddItem(typeId int16, metadata uint16, count byte) int16 {
-	// Non-stackable items go straight to the first empty slot.
-	if IsStackable(typeId) {
-		// Try to increment an existing partial stack.
-		for i := HotbarStart; i <= HotbarEnd; i++ {
-			item := &inv.Items[i]
-			maxStack := MaxStack(item.TypeId)
-			if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
-				item.Count += count
-				return int16(i)
-			}
-		}
+	return inv.addAllOrNothing(NewItem(typeId, count, metadata), func(it *Item) []int16 { return inv.PickupItem(it) })
+}
 
-		for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
-			item := &inv.Items[i]
-			maxStack := MaxStack(item.TypeId)
-			if item.TypeId == typeId && item.Metadata == metadata && item.Count < byte(maxStack) {
-				item.Count += count
-				return int16(i)
-			}
-		}
-	}
-	// No partial stack found or non-stackable — claim the first empty slot.
-	for i := HotbarEnd; i >= HotbarStart; i-- {
-		if inv.Items[i].TypeId == -1 {
-			inv.Items[i] = NewItem(typeId, count, metadata)
-			return int16(i)
-		}
-	}
+// AddItemReverse stores the whole stack in [start,end] walking backwards (shift-click craft/chest order).
+func (inv *Inventory) AddItemReverse(typeId int16, metadata uint16, count byte, start, end int) int16 {
+	return inv.addAllOrNothing(NewItem(typeId, count, metadata), func(it *Item) []int16 { return inv.MergeItem(it, true, start, end) })
+}
 
-	for i := MainInventoryStart; i <= MainInventoryEnd; i++ {
-		if inv.Items[i].TypeId == -1 {
-			inv.Items[i] = NewItem(typeId, count, metadata)
-			return int16(i)
-		}
+func (inv *Inventory) addAllOrNothing(it Item, store func(*Item) []int16) int16 {
+	backup := append([]Item(nil), inv.Items...)
+	touched := store(&it)
+	if it.Count > 0 || len(touched) == 0 {
+		copy(inv.Items, backup)
+		return -1
 	}
-	return -1 // inventory full
+	return touched[len(touched)-1]
+}
+
+// IsArmorFor reports whether typeId can go in armor slot 5 (helmet) .. 8 (boots)
+func IsArmorFor(typeId int16, slot int16) bool {
+	if typeId < constants.LeatherCap.Value || typeId > constants.GoldBoots.Value {
+		return false
+	}
+	return int16((typeId-constants.LeatherCap.Value)%4) == slot-5
 }
 
 // RemoveOne decrements the count in a slot by one.
@@ -229,7 +289,7 @@ func (inv *Inventory) Hold(slot int16) Item {
 
 // TODO: Handle case where item count exceeds max stack size; leads to place & hold behaviour
 func (inv *Inventory) Place(item Item, slot int16) {
-	if inv.Items[slot].TypeId == item.TypeId {
+	if inv.Items[slot].TypeId == item.TypeId && inv.Items[slot].Metadata == item.Metadata {
 		maxStack := byte(MaxStack(item.TypeId))
 		newCount := inv.Items[slot].Count + item.Count
 		if newCount > maxStack {
@@ -244,7 +304,7 @@ func (inv *Inventory) Place(item Item, slot int16) {
 }
 
 func (inv *Inventory) PlaceOne(item *Item, slot int16) {
-	if inv.Items[slot].TypeId == item.TypeId {
+	if inv.Items[slot].TypeId == item.TypeId && inv.Items[slot].Metadata == item.Metadata {
 		inv.Items[slot].Count++
 		item.Count--
 	}

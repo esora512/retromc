@@ -269,11 +269,11 @@ func (w *World) SetNewMobPositionAndRotationOrTeleportPacket(f func(e constants.
 }
 
 func (w *World) SetNewRotationPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
-	w.newPositionPacket = f
+	w.newRotationPacket = f
 }
 
 func (w *World) SetNewPositionPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
-	w.newRotationPacket = f
+	w.newPositionPacket = f
 }
 
 func (w *World) SetNewTeleportPacket(f func(e constants.Entity, m constants.MovementState) []byte) {
@@ -509,7 +509,7 @@ func (w *World) GetFirstPlayerByName(name string) *player.Player {
 	return nil
 }
 
-func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount, meta byte, pickupDelay, dim int32, velX, velY, velZ float64) int32 {
+func (w *World) AddDroppedItem(x, y, z float64, itemId int32, amount byte, meta uint16, pickupDelay, dim int32, velX, velY, velZ float64) int32 {
 	entityId := w.NextEntityId()
 	d := &entities.DroppedItem{EntityId: entityId,
 		ItemId:   itemId,

@@ -168,8 +168,10 @@ type PlantRule struct {
 var PlantRules = map[int16]PlantRule{
 	constants.Seeds.Value:         {func(g byte) bool { return g == byte(constants.Farmland.Value) }, constants.Wheat.Value, false},
 	constants.Sapling.Value:       {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sapling.Value, true},
-	constants.SugarcaneItem.Value: {func(g byte) bool { return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) }, constants.Sugarcane.Value, false},
-	constants.Cactus.Value:        {func(g byte) bool { return g == byte(constants.Sand.Value) }, constants.Cactus.Value, false},
+	constants.SugarcaneItem.Value: {func(g byte) bool {
+		return g == byte(constants.Dirt.Value) || g == byte(constants.Grass.Value) || g == byte(constants.Sand.Value) || g == byte(constants.Sugarcane.Value)
+	}, constants.Sugarcane.Value, false},
+	constants.Cactus.Value: {func(g byte) bool { return g == byte(constants.Sand.Value) || g == byte(constants.Cactus.Value) }, constants.Cactus.Value, false},
 }
 
 func PlantGrowable(w *World, typeId int16, x int32, y byte, z int32, meta byte, dim int32) *constants.WBlock {

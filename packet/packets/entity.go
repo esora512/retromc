@@ -40,7 +40,7 @@ type SpawnItemPacket struct {
 	EntityId int32
 	ItemId   int16
 	Amount   byte
-	Metadata byte
+	Metadata uint16
 	X        int32
 	Y        int32
 	Z        int32
@@ -109,7 +109,7 @@ func (p *SpawnItemPacket) Serialize() []byte {
 	w.WriteInt32(p.EntityId)
 	w.WriteShort(uint16(p.ItemId))
 	w.WriteByte(p.Amount)
-	w.WriteShort(uint16(p.Metadata))
+	w.WriteShort(p.Metadata)
 	w.WriteInt32(p.X)
 	w.WriteInt32(p.Y)
 	w.WriteInt32(p.Z)

@@ -104,8 +104,36 @@ var nonStackableItems = map[int16]bool{
 	constants.WaterBucket.Value: true,
 	constants.LavaBucket.Value:  true,
 	constants.Bucket.Value:      true,
+	constants.MilkBucket.Value:  true,
+
+	constants.Apple.Value:          true,
+	constants.GoldenApple.Value:    true,
+	constants.Bread.Value:          true,
+	constants.Porkchop.Value:       true,
+	constants.CookedPorkchop.Value: true,
+	constants.Fish.Value:           true,
+	constants.CookedFish.Value:     true,
+	constants.MushroomStew.Value:   true,
+
+	constants.CakeItem.Value:        true,
+	constants.Saddle.Value:          true,
+	constants.Minecart.Value:        true,
+	constants.ChestMinecart.Value:   true,
+	constants.FurnaceMinecart.Value: true,
+	constants.Boat.Value:            true,
+	constants.WoodenDoorItem.Value:  true,
+	constants.IronDoorItem.Value:    true,
+	constants.Sign.Value:            true,
+	constants.Map.Value:             true,
+	constants.Record13.Value:        true,
+	constants.RecordCat.Value:       true,
+	constants.FlintAndSteel.Value:   true,
+	constants.Shears.Value:          true,
+	constants.Bow.Value:             true,
+	constants.FishingRod.Value:      true,
 }
 
 func IsStackable(typeId int16) bool {
-	return !nonStackableItems[typeId]
+	// armor (298-317) never stacks
+	return !nonStackableItems[typeId] && (typeId < constants.LeatherCap.Value || typeId > constants.GoldBoots.Value)
 }

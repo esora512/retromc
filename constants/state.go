@@ -24,10 +24,15 @@ type MovementState struct {
 	ArmSwing bool
 	IsDead   bool
 
-	KeepRotation   bool
-	SneakChanged   bool
-	WentToBed      bool
-	GotUp          bool
+	EncX, EncY, EncZ   int32
+	EncYaw, EncPitch   int32
+	EncInit            bool
+	TicksSinceTeleport int
+
+	KeepRotation bool
+	SneakChanged bool
+	WentToBed    bool
+	GotUp        bool
 }
 
 func (m *MovementState) VChanged() bool {

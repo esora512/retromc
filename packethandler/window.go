@@ -178,12 +178,7 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 		heldItem := held.Item
 		sameItem := heldItem.TypeId == result.TypeId && heldItem.Metadata == result.Metadata
 
-		var maxStack int
-		if inventory.IsStackable(result.TypeId) {
-			maxStack = 64
-		} else {
-			maxStack = 1
-		}
+		maxStack := inventory.MaxStack(result.TypeId)
 		hasRoom := sameItem && heldItem.Count+result.Count <= byte(maxStack)
 
 		if !sameItem || !hasRoom {
@@ -193,13 +188,16 @@ func craftInWorkbench(pl *player.Player, shift, rightClick bool) {
 
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 
+	// inventory full: keep ingredients instead of voiding the result
+	if shift && pl.Inventory.AddItemReverse(resultItem.TypeId, result.Metadata, resultItem.Count, inventory.MainInventoryStart, inventory.HotbarEnd) == -1 {
+		return
+	}
+
 	for slot := int16(1); slot <= 9; slot++ {
 		pl.Workbench.RemoveOne(slot)
 	}
 
-	if shift {
-		pl.Inventory.AddItem(resultItem.TypeId, result.Metadata, resultItem.Count)
-	} else {
+	if !shift {
 		if hasHeld {
 			merged := inventory.NewItem(result.TypeId, held.Item.Count+result.Count, result.Metadata)
 			pl.SelectedItem.SetItem(merged, 0, 0, rightClick)
@@ -224,12 +222,7 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 		heldItem := held.Item
 		sameItem := heldItem.TypeId == result.TypeId && heldItem.Metadata == result.Metadata
 
-		var maxStack int
-		if inventory.IsStackable(result.TypeId) {
-			maxStack = 64
-		} else {
-			maxStack = 1
-		}
+		maxStack := inventory.MaxStack(result.TypeId)
 		hasRoom := sameItem && heldItem.Count+result.Count <= byte(maxStack)
 
 		if !sameItem || !hasRoom {
@@ -239,15 +232,17 @@ func craftInInventory(pl *player.Player, shift, rightClick bool) {
 
 	resultItem := inventory.NewItem(result.TypeId, result.Count, result.Metadata)
 
+	if shift && pl.Inventory.AddItemReverse(result.TypeId, result.Metadata, result.Count, inventory.MainInventoryStart, inventory.HotbarEnd) == -1 {
+		return
+	}
+
 	for slot := int16(1); slot <= 4; slot++ {
 		if inv.PeekItem(slot).TypeId != -1 {
 			inv.RemoveOne(slot)
 		}
 	}
 
-	if shift {
-		pl.Inventory.AddItem(result.TypeId, result.Metadata, result.Count)
-	} else {
+	if !shift {
 		if hasHeld {
 			merged := inventory.NewItem(result.TypeId, held.Item.Count+result.Count, result.Metadata)
 			pl.SelectedItem.SetItem(merged, 0, 0, rightClick)
@@ -266,10 +261,7 @@ func shiftClickFurnace(pl *player.Player, slot int16, world *level.World) {
 	if sourceItem.TypeId == -1 {
 		return
 	}
-	var sourceContainer inventory.ItemContainer = furnace
-	var targetContainer inventory.ItemContainer = &pl.Inventory
-	shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
-	//furnace.Print()
+	moveToPlayer(furnace, slot, &pl.Inventory, true, inventory.MainInventoryStart, inventory.HotbarEnd)
 }
 
 func shiftClickChest(pl *player.Player, slot int16, world *level.World) {
@@ -282,13 +274,7 @@ func shiftClickChest(pl *player.Player, slot int16, world *level.World) {
 		return
 	}
 
-	var sourceContainer inventory.ItemContainer = chest
-	var targetContainer inventory.ItemContainer = &pl.Inventory
-	check := inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, slot, inventory.HotbarEnd, inventory.HotbarStart)
-	if !check {
-		inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, slot, inventory.MainInventoryStart, inventory.MainInventoryEnd)
-	}
-	//chest.Print()
+	moveToPlayer(chest, slot, &pl.Inventory, true, inventory.MainInventoryStart, inventory.HotbarEnd)
 }
 
 func shiftClickWorkbench(pl *player.Player, slot int16) {
@@ -318,20 +304,21 @@ func shiftClick(pl *player.Player, slot int16, world *level.World) {
 	}
 
 	var sourceContainer inventory.ItemContainer = &pl.Inventory
-	var targetContainer inventory.ItemContainer = &pl.Inventory
 
-	if pl.Inventory.IsCraftingSlot(slot) {
-		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.HotbarEnd, sourceContainer, targetContainer)
-	} else if pl.InventoryType == player.ChestInventory {
+	if pl.InventoryType == player.ChestInventory && slot >= inventory.MainInventoryStart {
 		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
-		targetContainer = chest
 		chestEnd := chest.Size - 1
-		shiftMoveToRegion(slot, inventory.ChestStart, int(chestEnd), sourceContainer, targetContainer)
-
-	} else if pl.Inventory.IsHotbarSlot(slot) {
-		shiftMoveToRegion(slot, inventory.MainInventoryStart, inventory.MainInventoryEnd, sourceContainer, targetContainer)
+		shiftMoveToRegion(slot, inventory.ChestStart, int(chestEnd), sourceContainer, chest)
+	} else if slot < inventory.MainInventoryStart || pl.Inventory.IsHotbarSlot(slot) {
+		moveToPlayer(&pl.Inventory, slot, &pl.Inventory, false, inventory.MainInventoryStart, inventory.MainInventoryEnd)
+		if slot < inventory.MainInventoryStart {
+			moveToPlayer(&pl.Inventory, slot, &pl.Inventory, false, inventory.HotbarStart, inventory.HotbarEnd)
+		}
+		if slot >= 5 && slot <= 8 {
+			sendSetEquipment(world, slot, pl.Inventory.PeekItem(slot).TypeId, pl.GetEntityId())
+		}
 	} else {
-		shiftMoveToRegion(slot, inventory.HotbarStart, inventory.HotbarEnd, sourceContainer, targetContainer)
+		moveToPlayer(&pl.Inventory, slot, &pl.Inventory, false, inventory.HotbarStart, inventory.HotbarEnd)
 	}
 }
 
@@ -363,6 +350,19 @@ func shiftMoveToRegion(sourceSlot int16, regionStart, regionEnd int, sourceConta
 	// is also triggered if previous move didn't do anything, so nother item of the same existed
 	inventory.MoveFromSourceToTargetContainer(sourceContainer, targetContainer, sourceSlot, regionStart, regionEnd)
 	// if inventory full of stacks of same item type, let's not do anything.
+}
+
+func moveToPlayer(src inventory.ItemContainer, slot int16, inv *inventory.Inventory, reverse bool, start, end int) {
+	it := src.PeekItem(slot)
+	if it.TypeId == -1 {
+		return
+	}
+	inv.MergeItem(&it, reverse, start, end)
+	if it.Count == 0 {
+		src.SetEmpty(slot)
+	} else {
+		src.SetItem(slot, it.TypeId, it.Count, it.Metadata)
+	}
 }
 
 func furnaceOutputClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
@@ -497,6 +497,9 @@ func workbenchGridClick(pl *player.Player, slot int16, rightClick bool) {
 }
 
 func normalClick(pl *player.Player, slot int16, rightClick bool, world *level.World) {
+	if slot >= 5 && slot <= 8 && pl.SelectedItem.Selected && !inventory.IsArmorFor(pl.SelectedItem.Item.TypeId, slot) {
+		return
+	}
 	guiClick(pl, &pl.Inventory, slot, rightClick)
 	if slot >= 5 && slot <= 8 {
 		item := pl.Inventory.PeekItem(slot)
@@ -544,7 +547,28 @@ func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {
 	connection.Write(out.Serialize())
 }
 
-func handleCloseContainerPacket(p packets.CloseContainerPacket, pl *player.Player) {
+func handleCloseContainerPacket(connection net.Conn, p packets.CloseContainerPacket, pl *player.Player, world *level.World) {
+	// like vanilla, drop the cursor and crafting grid contents instead of voiding them
+	dropStack := func(it inventory.Item) {
+		if it.TypeId != -1 && it.Count > 0 {
+			DropItemFromPlayer(world, pl, it.TypeId, it.Metadata, it.Count)
+		}
+	}
+	if pl.SelectedItem.Selected {
+		dropStack(pl.SelectedItem.Item)
+		pl.SelectedItem.Clear()
+	}
+	if pl.InventoryType == player.WorkbenchInventory {
+		for _, it := range pl.Workbench.Grid {
+			dropStack(it)
+		}
+		pl.Workbench.ClearGrid()
+	}
+	for slot := int16(1); slot <= 4; slot++ {
+		dropStack(pl.Inventory.PeekItem(slot))
+		pl.Inventory.SetEmpty(slot)
+	}
+	NewFillContainerPacket(connection, pl)
 	pl.InventoryType = player.PlayerInventory
 }
 

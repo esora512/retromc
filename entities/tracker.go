@@ -108,6 +108,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
+		var playerMove []byte
+		if t, ok := target.(*player.Player); ok && targetType == c.Player {
+			playerMove = playerMovePacket(w, t)
+		}
 
 		for _, viewer := range viewers {
 			viewerID := viewer.GetEntityId()
@@ -166,15 +170,8 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewAnimationPacket(t, 1))
 					}
 
-					if teleported {
-						viewer.Connection.Write(w.NewTeleportPacket(t, msCopy))
-					}
-
-					if posAndRotChanged || posChanged || velChanged || rotChanged {
-						viewer.Connection.Write(w.NewPositionAndRotationOrTeleportPacket(t, msCopy))
-						viewer.Connection.Write(w.NewPositionPacket(t, msCopy))
-						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
-						viewer.Connection.Write(w.NewRotationPacket(t, msCopy))
+					if playerMove != nil {
+						viewer.Connection.Write(playerMove)
 					}
 
 				case c.Mob:
@@ -327,4 +324,66 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			ms.GotUp = false
 		}
 	}
+}
+
+const (
+	playerMinPosDelta     = 2  // 1/16 block
+	playerMinRotDelta     = 2  // ~3 degrees
+	playerForceTeleportIn = 40 // resync every 2s so rounding drift can't build up
+)
+
+func quantizeAngle(deg float32) int32 {
+	return int32(math.Floor(float64(deg)*256/360)) & 0xFF
+}
+
+func playerMovePacket(w WorldShared, pl *player.Player) []byte {
+	ms := &pl.MovementState
+	x, y, z := pl.GetPosition()
+	qx, qy, qz := int32(math.Floor(x*32)), int32(math.Floor(y*32)), int32(math.Floor(z*32))
+	qYaw, qPitch := quantizeAngle(pl.Yaw), quantizeAngle(pl.Pitch)
+
+	m := c.MovementState{
+		X: x, Y: y, Z: z, Yaw: pl.Yaw, Pitch: pl.Pitch,
+		PrevX: float64(ms.EncX) / 32, PrevY: float64(ms.EncY) / 32, PrevZ: float64(ms.EncZ) / 32,
+	}
+	dx, dy, dz := qx-ms.EncX, qy-ms.EncY, qz-ms.EncZ
+	rotDelta := func(a, b int32) int32 {
+		d := (a - b) & 0xFF
+		if d > 128 {
+			d = 256 - d
+		}
+		return d
+	}
+	needsRot := rotDelta(qYaw, ms.EncYaw) >= playerMinRotDelta || rotDelta(qPitch, ms.EncPitch) >= playerMinRotDelta
+	needsMove := abs32(dx) >= playerMinPosDelta || abs32(dy) >= playerMinPosDelta || abs32(dz) >= playerMinPosDelta
+
+	ms.TicksSinceTeleport++
+	var pkt []byte
+	switch {
+	case !ms.EncInit || ms.TicksSinceTeleport >= playerForceTeleportIn ||
+		dx < -128 || dx > 127 || dy < -128 || dy > 127 || dz < -128 || dz > 127:
+		pkt = w.NewTeleportPacket(pl, m)
+		ms.TicksSinceTeleport = 0
+	case needsMove && needsRot:
+		pkt = w.NewPositionAndRotationOrTeleportPacket(pl, m)
+	case needsMove:
+		pkt = w.NewPositionPacket(pl, m)
+		qYaw, qPitch = ms.EncYaw, ms.EncPitch
+	case needsRot:
+		pkt = w.NewRotationPacket(pl, m)
+		qx, qy, qz = ms.EncX, ms.EncY, ms.EncZ
+	default:
+		return nil
+	}
+	ms.EncX, ms.EncY, ms.EncZ = qx, qy, qz
+	ms.EncYaw, ms.EncPitch = qYaw, qPitch
+	ms.EncInit = true
+	return pkt
+}
+
+func abs32(v int32) int32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

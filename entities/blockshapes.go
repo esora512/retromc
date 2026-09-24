@@ -276,3 +276,13 @@ func blockBoxes(b constants.WBlock) []aabb {
 		return fullBoxes
 	}
 }
+
+func BlockIntersects(b constants.WBlock, x, y, z int32, minX, minY, minZ, maxX, maxY, maxZ float64) bool {
+	for _, bb := range blockBoxes(b) {
+		bb = bb.offset(float64(x), float64(y), float64(z))
+		if bb.minX < maxX && bb.maxX > minX && bb.minY < maxY && bb.maxY > minY && bb.minZ < maxZ && bb.maxZ > minZ {
+			return true
+		}
+	}
+	return false
+}

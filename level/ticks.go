@@ -68,12 +68,22 @@ func (w *World) CollectNearbyItems() {
 				continue
 			}
 
-			slot := pl.Inventory.AddItem(int16(d.ItemId), uint16(d.Metadata), d.Amount)
-			if slot < 0 {
+			it := inventory.NewItem(int16(d.ItemId), d.Amount, d.Metadata)
+			touched := pl.Inventory.PickupItem(&it)
+			for _, slot := range touched {
+				w.SendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
+				if slot == pl.HotbarSlot {
+					for _, v := range w.Players {
+						if v != pl && v.LoggedIn {
+							w.SetEquipment(pl, v)
+						}
+					}
+				}
+			}
+			if it.Count > 0 {
+				d.Amount = it.Count
 				continue
 			}
-			t := pl.Inventory.Items[slot]
-			w.SendSetSlot(pl.Connection, 0, slot, t)
 			d.CollectorId = pl.GetEntityId()
 			break
 		}

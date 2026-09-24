@@ -335,7 +335,7 @@ func sendPlayerPositionAndLook(connection net.Conn, x, z float64, y float64) {
 	packet := packets.PlayerPositionAndRotationPacket{
 		X:        x,
 		Y:        y,
-		Stance:   y + 2, // Stance MUST be Y + eye height; if Stance < Y client looks up
+		Stance:   y + playerEyeHeight, // S->C sends this in the eye slot
 		Z:        z,
 		Yaw:      0,
 		Pitch:    0,
@@ -380,6 +380,8 @@ func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz floa
 		Pitch:    0,
 	}
 	data := tpkt.Serialize()
+	// viewers got an absolute position, make the tracker resend from scratch
+	c.GetMovementState().EncInit = false
 
 	for _, pl := range w.Players {
 		if !pl.LoggedIn {
@@ -387,7 +389,7 @@ func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz floa
 		}
 		if pl.GetEntityId() == c.GetEntityId() {
 			selfPkt := packets.PlayerPositionAndRotationPacket{
-				X: cx, Y: cy, Z: cz, Stance: cy + 2, OnGround: true,
+				X: cx, Y: cy, Z: cz, Stance: cy + playerEyeHeight, OnGround: true,
 				Yaw:   float32(yaw) * 360.0 / 256.0,
 				Pitch: 0,
 			}

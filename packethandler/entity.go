@@ -61,7 +61,7 @@ func DropInventory(
 				spawnZ,
 				int32(stack.TypeId),
 				byte(countDecrement),
-				byte(stack.Metadata),
+				stack.Metadata,
 				velX,
 				velY,
 				velZ,
@@ -73,7 +73,7 @@ func DropInventory(
 	}
 }
 
-func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount, meta byte, velX, velY, velZ float64, pickupDelay, dim int32) *entities.DroppedItem {
+func CreateDroppedItem(w *level.World, x, y, z float64, itemId int32, amount byte, meta uint16, velX, velY, velZ float64, pickupDelay, dim int32) *entities.DroppedItem {
 	entityId := w.AddDroppedItem(x, y, z, itemId, amount, meta, pickupDelay, dim, velX, velY, velZ)
 	e, _ := w.Entities[entityId]
 	d, _ := e.(*entities.DroppedItem)
@@ -114,39 +114,39 @@ func dmgGiven(typeId int16) (int16, bool) {
 	}
 
 	if typeId == constants.StoneAxe.Value {
-		return 5, true
-	}
-
-	if typeId == constants.IronAxe.Value {
-		return 8, true
-	}
-
-	if typeId == constants.DiamondAxe.Value {
-		return 9, true
-	}
-
-	if typeId == constants.StonePickaxe.Value {
 		return 4, true
 	}
 
-	if typeId == constants.IronPickaxe.Value {
-		return 6, true
-	}
-
-	if typeId == constants.DiamondPickaxe.Value {
-		return 8, true
-	}
-
-	if typeId == constants.StoneShovel.Value {
-		return 3, true
-	}
-
-	if typeId == constants.IronShovel.Value {
+	if typeId == constants.IronAxe.Value {
 		return 5, true
 	}
 
+	if typeId == constants.DiamondAxe.Value {
+		return 6, true
+	}
+
+	if typeId == constants.StonePickaxe.Value {
+		return 3, true
+	}
+
+	if typeId == constants.IronPickaxe.Value {
+		return 4, true
+	}
+
+	if typeId == constants.DiamondPickaxe.Value {
+		return 5, true
+	}
+
+	if typeId == constants.StoneShovel.Value {
+		return 2, true
+	}
+
+	if typeId == constants.IronShovel.Value {
+		return 3, true
+	}
+
 	if typeId == constants.DiamondShovel.Value {
-		return 7, true
+		return 4, true
 	}
 
 	return 1, false
@@ -230,15 +230,18 @@ func applyKnockback(w *level.World, attacker, victim constants.Entity) {
 }
 
 func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) {
-	var ok bool
-	player, ok := world.Players[p.PlayerId]
+	player := pl
 	other, ok := world.Entities[p.EntityId]
-	if !ok {
+	if !ok || p.EntityId == pl.GetEntityId() {
 		return
 	}
 
 	if p.Attack {
 		oldHP := other.GetHP()
+		// already dead: don't drop loot / broadcast death again
+		if oldHP <= 0 {
+			return
+		}
 		item := pl.Inventory.Items[pl.HotbarSlot]
 		dmg := int16(1)
 		given := false
@@ -317,14 +320,14 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				x, y, z := m.GetPosition()
 				switch m.MobType {
 				case constants.Spider:
-					world.DropItemFromMinedBlock(x, y, z, constants.String.Value, 0, 1, other.GetDim(), 5)
+					dropMobLoot(world, x, y, z, constants.String.Value, other.GetDim())
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				case constants.Skeleton:
-					world.DropItemFromMinedBlock(x, y, z, constants.Bone.Value, 0, 1, other.GetDim(), 5)
-					world.DropItemFromMinedBlock(x, y, z, constants.Arrow.Value, 0, 1, other.GetDim(), 5)
+					dropMobLoot(world, x, y, z, constants.Bone.Value, other.GetDim())
+					dropMobLoot(world, x, y, z, constants.Arrow.Value, other.GetDim())
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				case constants.Pig:
-					world.DropItemFromMinedBlock(x, y, z, constants.Porkchop.Value, 0, 1, other.GetDim(), 5)
+					dropMobLoot(world, x, y, z, constants.Porkchop.Value, other.GetDim())
 					m.Vx, m.Vy, m.Vz = 0, 0, 0
 				}
 			}
@@ -373,6 +376,12 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 		p := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 3}
 		pl.Connection.Write(p.Serialize())
 		pl.MovementState.GotUp = true
+	}
+}
+
+func dropMobLoot(world *level.World, x, y, z float64, item int16, dim int32) {
+	if n := rand.Intn(3); n > 0 {
+		world.DropItemFromMinedBlock(x, y, z, item, 0, byte(n), dim, 5)
 	}
 }
 

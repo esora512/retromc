@@ -33,6 +33,12 @@ type fluidPlacement struct {
 }
 
 func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *player.Player) {
+	// clients disconnect on sign lines over 15 chars
+	for _, line := range []*string{&p.Text1, &p.Text2, &p.Text3, &p.Text4} {
+		if r := []rune(*line); len(r) > 15 {
+			*line = string(r[:15])
+		}
+	}
 	world.BroadcastPacket(p.Serialize())
 }
 
@@ -136,71 +142,56 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 
 func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ float64, clientOnGround bool) {
 	if pl.Immune >= 0 || pl.IsRiding != -1 {
-		return
-	}
-
-	oldY := pl.Y
-	dy := newY - oldY
-
-	if dy < 0 {
-		pl.FallDistance += -dy
-	}
-
-	x := int32(math.Floor(newX))
-	z := int32(math.Floor(newZ))
-
-	y := int32(math.Floor(newY - 0.01))
-
-	block := world.GetBlock(x, byte(y), z, pl.Dimension)
-
-	inWater := block.IsWater()
-	onSolidGround := block.IsSolid() && !inWater
-
-	if inWater {
 		pl.FallDistance = 0
-		pl.OnGround = false
-		pl.Y = newY
 		return
 	}
 
-	landed := onSolidGround && dy <= 0 && pl.FallDistance > 0
+	dy := newY - pl.Y
 
-	if landed {
-		//log.Printf("Fall Dist %f", pl.FallDistance)
-		if pl.FallDistance > 3 {
-			dmg := int16(math.Ceil(pl.FallDistance - 3))
-
-			newHP := pl.HP - dmg
-			if newHP < 0 {
-				newHP = 0
-			}
-
-			pl.SetHP(newHP)
-
-			p := packets.SetHealthPacket{
-				Health: uint16(pl.HP),
-			}
-			pl.Connection.Write(p.Serialize())
-
-			if pl.HP == 0 {
-				cMsgPkt := packets.ChatMessagePacket{
-					Message: pl.GetName() + " was killed by gravity",
-				}
-				world.BroadcastPacket(cMsgPkt.Serialize())
-
-				p := packets.EntityEventPacket{
-					EntityId: pl.GetEntityId(),
-					Action:   3,
-				}
-				world.BroadcastPacket(p.Serialize())
-			}
+	// water, ladders and cobwebs break the fall
+	if fy := math.Floor(newY); fy >= 0 && fy < level.CHUNK_SIZE_Y {
+		feet := world.GetBlock(int32(math.Floor(newX)), byte(fy), int32(math.Floor(newZ)), pl.Dimension)
+		if feet.IsWater() || feet.TypeId == byte(constants.Ladder.Value) || feet.TypeId == byte(constants.Cobweb.Value) {
+			pl.FallDistance = 0
+			return
 		}
-		pl.FallDistance = 0
 	}
 
-	pl.OnGround = onSolidGround
-	pl.Y = newY
-	_ = clientOnGround
+	if !clientOnGround {
+		if dy < 0 {
+			pl.FallDistance -= dy
+		}
+		return
+	}
+
+	if pl.FallDistance > 3 {
+		dmg := int16(math.Ceil(pl.FallDistance - 3))
+		newHP := pl.HP - dmg
+		if newHP < 0 {
+			newHP = 0
+		}
+		pl.SetHP(newHP)
+		pl.MovementState.IsHurt = true
+
+		p := packets.SetHealthPacket{
+			Health: uint16(pl.HP),
+		}
+		pl.Connection.Write(p.Serialize())
+
+		if pl.HP == 0 {
+			cMsgPkt := packets.ChatMessagePacket{
+				Message: pl.GetName() + " was killed by gravity",
+			}
+			world.BroadcastPacket(cMsgPkt.Serialize())
+
+			p := packets.EntityEventPacket{
+				EntityId: pl.GetEntityId(),
+				Action:   3,
+			}
+			world.BroadcastPacket(p.Serialize())
+		}
+	}
+	pl.FallDistance = 0
 }
 
 func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
@@ -325,6 +316,9 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
+	if pl.LoggedIn {
+		applyFallDamage(world, pl, pl.X, pl.Y, pl.Z, p.OnGround)
+	}
 	pl.MovementState.Yaw = p.Yaw
 	pl.MovementState.Pitch = p.Pitch
 	pl.MovementState.RotationChanged = true
@@ -367,7 +361,7 @@ func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, met
 	velZ += math.Sin(angle) * speed
 	velY += float64(rand.Float32()-rand.Float32()) * 0.1
 
-	CreateDroppedItem(world, x, y, z, int32(typeId), count, byte(metadata), velX, velY, velZ, playerDropPickupDelay, pl.Dimension)
+	CreateDroppedItem(world, x, y, z, int32(typeId), count, metadata, velX, velY, velZ, playerDropPickupDelay, pl.Dimension)
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
@@ -379,7 +373,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		dropHeldItemStack(connection, world, pl)
 		return
 	}
-	if pl.IsRiding != -1 {
+	if pl.IsRiding != -1 || !inReach(pl, p.X, int32(p.Y), p.Z, 6) {
 		return
 	}
 	pl.MovementState.ArmSwing = true
@@ -389,8 +383,6 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	if !shouldProcessDigging(p, pl, oldBlock) {
 		return
 	}
-
-	damageHeldItemOnDig(pl)
 
 	if oldBlock.TypeId == 0x00 {
 		return
@@ -457,11 +449,10 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	}
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
-	if blockItem == 0 {
-		return
+	damageHeldItemOnDig(pl)
+	if blockItem != 0 && count > 0 {
+		DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
 	}
-
-	DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
 }
 
@@ -485,13 +476,19 @@ func shouldProcessDigging(p packets.MineBlockPacket, pl *player.Player, oldBlock
 	if finishedDigging {
 		return true
 	}
-	return oldBlock.TypeId == byte(constants.Wheat.Value) ||
-		oldBlock.TypeId == byte(constants.Sugarcane.Value) ||
-		oldBlock.TypeId == byte(constants.Cactus.Value) ||
-		oldBlock.TypeId == byte(constants.Sapling.Value) ||
-		oldBlock.TypeId == byte(constants.Torch.Value) ||
-		oldBlock.TypeId == byte(constants.Dandelion.Value) ||
-		oldBlock.TypeId == byte(constants.Rose.Value)
+	if p.Status != 0 {
+		return false
+	}
+	// zero-hardness blocks break client-side on the first dig packet, no status 2 follows
+	switch int16(oldBlock.TypeId) {
+	case constants.Wheat.Value, constants.Sugarcane.Value, constants.Sapling.Value, constants.Torch.Value,
+		constants.Dandelion.Value, constants.Rose.Value, constants.Tallgrass.Value, constants.Deadbush.Value,
+		constants.BrownMushroom.Value, constants.RedMushroom.Value, constants.RedstoneBlock.Value,
+		constants.RedstoneTorchOn.Value, constants.RedstoneTorchOff.Value, constants.RedstoneRepeaterOff.Value,
+		constants.RedstoneRepeaterOn.Value, constants.TNT.Value:
+		return true
+	}
+	return false
 }
 
 const maxChainMine = 32
@@ -530,10 +527,9 @@ func chainMineConnected(world *level.World, pl *player.Player, originX int32, or
 			if pl.Inventory.Items[pl.HotbarSlot].TypeId == -1 {
 				return
 			}
-			damageHeldItemOnDig(pl)
-
 			fakePacket := packets.MineBlockPacket{X: next.X, Y: next.Y, Z: next.Z}
 			blockItem, blockMeta, count := computeMinedDrop(world, fakePacket, b, pl)
+			damageHeldItemOnDig(pl)
 
 			air := constants.NewAirBlock()
 			world.SetBlockInQueue(next.X, int32(next.Y), next.Z, air, dim)
@@ -543,7 +539,7 @@ func chainMineConnected(world *level.World, pl *player.Player, originX int32, or
 				world.TriggerLeafUpdate(next.X, int32(next.Y), next.Z, world.SetBlockInQueue, dim)
 			}
 
-			if blockItem != 0 {
+			if blockItem != 0 && count > 0 {
 				DropItemFromBrokenBlock(world, next.X, next.Y, next.Z, blockItem, blockMeta, count, dim, 10)
 			}
 
@@ -586,111 +582,146 @@ func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBl
 	}
 }
 
+// pickaxeLevel: 0 none, 1 wood/gold, 2 stone, 3 iron, 4 diamond
+func pickaxeLevel(id int16) int {
+	switch id {
+	case constants.WoodenPickaxe.Value, constants.GoldPickaxe.Value:
+		return 1
+	case constants.StonePickaxe.Value:
+		return 2
+	case constants.IronPickaxe.Value:
+		return 3
+	case constants.DiamondPickaxe.Value:
+		return 4
+	}
+	return 0
+}
+
+// canHarvest mirrors vanilla canHarvestBlock (rock/iron material needs the right pickaxe)
+func canHarvest(block byte, held inventory.Item) bool {
+	lvl := pickaxeLevel(held.TypeId)
+	switch int16(block) {
+	case constants.Obsidian.Value:
+		return lvl >= 4
+	case constants.DiamondOre.Value, constants.DiamondBlock.Value, constants.GoldOre.Value, constants.GoldBlock.Value,
+		constants.RedstoneOreOff.Value, constants.RedstoneOreOn.Value:
+		return lvl >= 3
+	case constants.IronOre.Value, constants.IronBlock.Value, constants.LapisLazuliOre.Value, constants.LapisLazuliBlock.Value:
+		return lvl >= 2
+	case constants.Stone.Value, constants.Cobblestone.Value, constants.CoalOre.Value, constants.Sandstone.Value,
+		constants.MossyCobblestone.Value, constants.Bricks.Value, constants.DoubleStoneSlab.Value, constants.StoneSlab.Value,
+		constants.CobblestoneStairs.Value, constants.Furnace.Value, constants.FurnaceLit.Value, constants.Dispenser.Value,
+		constants.Netherrack.Value, constants.StonePressurePlate.Value, constants.MonsterSpawner.Value,
+		constants.IronDoor.Value:
+		return lvl >= 1
+	case constants.SnowLayer.Value, constants.SnowBlock.Value:
+		return held.IsShovel()
+	case constants.Cobweb.Value:
+		return held.TypeId == constants.Shears.Value || held.TypeId == constants.WoodenSword.Value ||
+			held.TypeId == constants.StoneSword.Value || held.TypeId == constants.IronSword.Value ||
+			held.TypeId == constants.GoldSword.Value || held.TypeId == constants.DiamondSword.Value
+	}
+	return true
+}
+
 func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock, pl *player.Player) (blockItem int16, blockMeta byte, count byte) {
 	count = 1
 	blockItem = int16(oldBlock.TypeId)
-	blockMeta = oldBlock.Metadata
+	blockMeta = 0
 
-	if blockItem == constants.Bed.Value {
+	if !canHarvest(oldBlock.TypeId, pl.Inventory.Items[pl.HotbarSlot]) {
+		return 0, 0, 0
+	}
+
+	switch blockItem {
+	// blocks whose item keeps the block metadata
+	case constants.Wool.Value, constants.Log.Value, constants.StoneSlab.Value:
+		blockMeta = oldBlock.Metadata
+	case constants.Sapling.Value:
+		blockMeta = oldBlock.Metadata & 3
+	case constants.Bed.Value:
 		return constants.BedItem.Value, 0, 1
-	}
-
-	if blockItem == constants.Trapdoor.Value {
-		return constants.Trapdoor.Value, 0, 1
-	}
-
-	if blockItem == constants.StoneButton.Value {
-		return constants.StoneButton.Value, 0, 1
-	}
-
-	if blockItem == constants.CoalOre.Value {
+	case constants.CoalOre.Value:
 		return constants.Coal.Value, 0, 1
-	}
-
-	if blockItem == constants.IronOre.Value {
-		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.StonePickaxe.Value {
-			return 0, 0, 0
-		}
-	}
-
-	if blockItem == constants.RedstoneOreOff.Value {
-		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value {
-			return 0, 0, 0
-		}
-		return constants.Redstone.Value, 0, 1
-	}
-
-	if blockItem == constants.LapisLazuliOre.Value {
-		roll := rand.Intn(6) + 1
-		return constants.Dye.Value, 4, byte(roll)
-	}
-
-	if blockItem == constants.DiamondOre.Value {
-		if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.IronPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.DiamondPickaxe.Value &&
-			pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.GoldPickaxe.Value {
-			return 0, 0, 0
-		}
+	case constants.DiamondOre.Value:
 		return constants.Diamond.Value, 0, 1
-	}
-
-	if blockItem == constants.SnowLayer.Value {
-		if pl.Inventory.Items[pl.HotbarSlot].IsShovel() {
-			blockItem = constants.Snowball.Value
-			count = 4
-			return blockItem, 0, count
-		} else {
-			blockItem = 0
-			return 0, 0, 0
+	case constants.RedstoneOreOff.Value, constants.RedstoneOreOn.Value:
+		return constants.Redstone.Value, 0, byte(4 + rand.Intn(2))
+	case constants.LapisLazuliOre.Value:
+		return constants.Dye.Value, 4, byte(4 + rand.Intn(5))
+	case constants.SnowLayer.Value:
+		return constants.Snowball.Value, 0, 1
+	case constants.SnowBlock.Value:
+		return constants.Snowball.Value, 0, 4
+	case constants.Clay.Value:
+		return constants.ClayItem.Value, 0, 4
+	case constants.Glowstone.Value:
+		return constants.GlowstoneDust.Value, 0, byte(2 + rand.Intn(3))
+	case constants.Gravel.Value:
+		if rand.Intn(10) == 0 {
+			return constants.Flint.Value, 0, 1
 		}
-	}
-
-	if blockItem == constants.Stone.Value || blockItem == constants.LavaStill.Value || blockItem == constants.LavaFlowing.Value {
+	case constants.DoubleStoneSlab.Value:
+		return constants.StoneSlab.Value, oldBlock.Metadata, 2
+	case constants.Stone.Value:
 		blockItem = constants.Cobblestone.Value
-	}
-
-	if blockItem == int16(constants.FurnaceLit.Value) {
-		blockItem = int16(constants.Furnace.Value)
-	}
-
-	if blockItem == constants.SignGround.Value {
+	case constants.Grass.Value, constants.Farmland.Value:
+		blockItem = constants.Dirt.Value
+	case constants.FurnaceLit.Value:
+		blockItem = constants.Furnace.Value
+	case constants.SignGround.Value, constants.SignWall.Value:
 		blockItem = constants.Sign.Value
-	}
-
-	if blockItem == constants.Rail.Value || blockItem == constants.PoweredRail.Value || blockItem == constants.DetectorRail.Value {
-		blockMeta = byte(0)
-	}
-
-	if blockItem == constants.Wheat.Value {
-		if blockMeta < 7 {
-			blockItem = constants.Seeds.Value
-		} else {
-			blockItem = constants.WheatItem.Value
+	case constants.RedstoneBlock.Value:
+		blockItem = constants.Redstone.Value
+	case constants.RedstoneTorchOff.Value:
+		blockItem = constants.RedstoneTorchOn.Value
+	case constants.RedstoneRepeaterOff.Value, constants.RedstoneRepeaterOn.Value:
+		blockItem = constants.RedstoneRepeater.Value
+	case constants.WoodenStairs.Value:
+		blockItem = constants.Planks.Value
+	case constants.CobblestoneStairs.Value:
+		blockItem = constants.Cobblestone.Value
+	case constants.Cobweb.Value:
+		blockItem = constants.String.Value
+	case constants.WoodenDoor.Value:
+		return constants.WoodenDoorItem.Value, 0, 1
+	case constants.IronDoor.Value:
+		return constants.IronDoorItem.Value, 0, 1
+	case constants.Tallgrass.Value:
+		if rand.Intn(8) == 0 {
+			return constants.Seeds.Value, 0, 1
 		}
-	}
-
-	if blockItem == constants.Leaves.Value {
-		roll := rand.Intn(100)
-		switch {
-		case roll < 5: // 5% chance
-			blockItem = constants.Apple.Value
-		case roll < 15: // 10% chance (5–14)
-			blockItem = constants.Sapling.Value
-		default: // 85% chance — nothing drops
-			blockItem = 0
+		return 0, 0, 0
+	case constants.Leaves.Value:
+		if pl.Inventory.Items[pl.HotbarSlot].TypeId == constants.Shears.Value {
+			return constants.Leaves.Value, oldBlock.Metadata & 3, 1
 		}
+		if rand.Intn(20) == 0 {
+			return constants.Sapling.Value, oldBlock.Metadata & 3, 1
+		}
+		return 0, 0, 0
+	case constants.Wheat.Value:
+		if oldBlock.Metadata >= 7 {
+			DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, constants.WheatItem.Value, 0, 1, pl.Dimension, 10)
+		}
+		seeds := byte(0)
+		for i := 0; i < 3; i++ {
+			if rand.Intn(15) <= int(oldBlock.Metadata) {
+				seeds++
+			}
+		}
+		return constants.Seeds.Value, 0, seeds
+	case constants.Deadbush.Value, constants.Glass.Value, constants.Ice.Value, constants.Bookshelf.Value,
+		constants.Cake.Value, constants.MonsterSpawner.Value, constants.Fire.Value, constants.PistonHead.Value,
+		constants.NetherPortal.Value, constants.WaterFlowing.Value, constants.WaterStill.Value,
+		constants.LavaFlowing.Value, constants.LavaStill.Value:
+		return 0, 0, 0
 	}
 
 	if blockItem == constants.Sugarcane.Value || blockItem == constants.Cactus.Value {
 		if blockItem == constants.Sugarcane.Value {
 			blockItem = constants.SugarcaneItem.Value
 		}
-		blockMeta = 0
 		for i := 1; i <= 3; i++ {
 			aboveY := p.Y + byte(i)
 			above := world.GetBlock(p.X, aboveY, p.Z, pl.Dimension)
@@ -703,18 +734,6 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 		}
 	}
 
-	if blockItem == constants.WoodenDoor.Value {
-		return constants.WoodenDoorItem.Value, 0, 1
-	}
-
-	if blockItem == constants.IronDoor.Value {
-		return constants.IronDoorItem.Value, 0, 1
-	}
-
-	if blockItem == constants.Grass.Value || blockItem == constants.Farmland.Value {
-		return constants.Dirt.Value, 0, 1
-	}
-
 	return blockItem, blockMeta, count
 }
 
@@ -722,7 +741,7 @@ func DropItemFromMinedBlock(world *level.World, x, y, z float64, blockItem int16
 	velX := float64(rand.Float32())*0.2 - 0.1
 	velY := 0.2
 	velZ := float64(rand.Float32())*0.2 - 0.1
-	CreateDroppedItem(world, x, y, z, int32(blockItem), count, blockMeta, velX, velY, velZ, delay, dim)
+	CreateDroppedItem(world, x, y, z, int32(blockItem), count, uint16(blockMeta), velX, velY, velZ, delay, dim)
 }
 
 func DropItemFromBrokenBlock(world *level.World, blockX int32, blockY byte, blockZ int32, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
@@ -821,12 +840,6 @@ type AABB struct {
 	MaxX, MaxY, MaxZ float64
 }
 
-func (a AABB) Intersects(b AABB) bool {
-	return a.MinX < b.MaxX && a.MaxX > b.MinX &&
-		a.MinY < b.MaxY && a.MaxY > b.MinY &&
-		a.MinZ < b.MaxZ && a.MaxZ > b.MinZ
-}
-
 func playerAABB(pl *player.Player) AABB {
 	const halfWidth = 0.3
 	const height = 1.8
@@ -840,21 +853,36 @@ func playerAABB(pl *player.Player) AABB {
 	}
 }
 
-func blockAABB(x, y, z int, margin float64) AABB {
-	return AABB{
-		MinX: float64(x) - margin,
-		MaxX: float64(x+1) + margin,
-		MinY: float64(y) - margin,
-		MaxY: float64(y+1) + margin,
-		MinZ: float64(z) - margin,
-		MaxZ: float64(z+1) + margin,
-	}
+func inReach(pl *player.Player, x, y, z int32, reach float64) bool {
+	dx := float64(x) + 0.5 - pl.X
+	dy := float64(y) + 0.5 - (pl.Y + playerEyeHeight)
+	dz := float64(z) + 0.5 - pl.Z
+	return dx*dx+dy*dy+dz*dz <= reach*reach
 }
 
-func placementCollidesWithPlayer(pl *player.Player, x, y, z int32) bool {
-	block := blockAABB(int(x), int(y), int(z), 0.05)
-	player := playerAABB(pl)
-	return block.Intersects(player)
+func airAt(world *level.World, x, y, z, dim int32) bool {
+	b := world.GetBlock(x, byte(y), z, dim)
+	return b.IsAir()
+}
+
+// resyncPlacement undoes the client's predicted placement after a rejected one
+func resyncPlacement(world *level.World, pl *player.Player, cells ...[3]int32) {
+	for _, c := range cells {
+		b := world.GetBlock(c[0], byte(c[1]), c[2], pl.Dimension)
+		sb := packets.SetBlockPacket{X: c[0], Y: byte(c[1]), Z: c[2], BlockType: b.TypeId, BlockMeta: b.Metadata}
+		pl.Connection.Write(sb.Serialize())
+	}
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+}
+
+func freeAt(world *level.World, x, y, z, dim int32) bool {
+	b := world.GetBlock(x, byte(y), z, dim)
+	return b.IsFluidReplaceable() || b.IsLiquid()
+}
+
+func placementCollidesWithPlayer(pl *player.Player, b constants.WBlock, x, y, z int32) bool {
+	p := playerAABB(pl)
+	return entities.BlockIntersects(b, x, y, z, p.MinX, p.MinY, p.MinZ, p.MaxX, p.MaxY, p.MaxZ)
 }
 
 func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
@@ -863,6 +891,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
 	logPlacementDebug(pl, oldExisting, p)
+
+	isUse := p.X == -1 && p.Y == 255 && p.Z == -1
+	if !isUse && !inReach(pl, p.X, int32(p.Y), p.Z, 8) {
+		return
+	}
 
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
@@ -932,7 +965,9 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
-	if placementCollidesWithPlayer(pl, newX, int32(newY), newZ) {
+	if heldItem.TypeId >= 0 && heldItem.TypeId < 256 &&
+		placementCollidesWithPlayer(pl, constants.NewBlockById(heldItem.TypeId, byte(heldItem.Metadata)), newX, int32(newY), newZ) {
+		resyncPlacement(world, pl, [3]int32{newX, int32(newY), newZ})
 		return
 	}
 
@@ -976,7 +1011,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	//slot := pl.Inventory.FindFirstSlotWith(p.ItemId)
 	slot := pl.HotbarSlot
 	item := pl.Inventory.PeekItem(slot)
-	block := constants.NewBlockById(p.ItemId, byte(item.Metadata))
+	block := constants.NewBlockById(item.TypeId, byte(item.Metadata))
 	//log.Printf("Placing block: TypeId=%d Meta=%d at (%d, %d, %d)", block.TypeId, block.Metadata, newX, newY, newZ)
 	if heldItem.TypeId == -1 {
 		return
@@ -1256,6 +1291,12 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 		y = int32(p.Y)
 	}
 
+	if y+1 >= level.CHUNK_SIZE_Y || !freeAt(world, p.X, y, p.Z, pl.Dimension) ||
+		!freeAt(world, p.X, y+1, p.Z, pl.Dimension) {
+		resyncPlacement(world, pl, [3]int32{p.X, y, p.Z}, [3]int32{p.X, y + 1, p.Z})
+		return
+	}
+
 	var bottomDoor, topDoor constants.WBlock
 	if typeId == int32(constants.WoodenDoorItem.Value) {
 		bottomDoor = constants.NewWoodenDoorBlock()
@@ -1395,6 +1436,12 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 		y = int32(p.Y)
 	}
 
+	if (dx == 0 && dz == 0) || y >= level.CHUNK_SIZE_Y || !freeAt(world, p.X, y, p.Z, pl.Dimension) ||
+		!freeAt(world, p.X+dx, y, p.Z+dz, pl.Dimension) {
+		resyncPlacement(world, pl, [3]int32{p.X, y, p.Z}, [3]int32{p.X + dx, y, p.Z + dz})
+		return
+	}
+
 	world.SetBlockInQueue(p.X, y, p.Z, footBlock, pl.Dimension)
 	world.SetBlockInQueue(p.X+dx, y, p.Z+dz, headBlock, pl.Dimension)
 
@@ -1404,8 +1451,12 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 }
 
 func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket, pl *player.Player, heldItem inventory.Item) {
+	fx, fy, fz := placementTargetCoords(p, world, pl.Dimension)
+	if fy < 0 || fy >= level.CHUNK_SIZE_Y || !airAt(world, fx, int32(fy), fz, pl.Dimension) {
+		return
+	}
 	fire := constants.NewFireBlock()
-	world.SetBlockInQueue(p.X, int32(p.Y+1), p.Z, fire, pl.Dimension)
+	world.SetBlockInQueue(fx, int32(fy), fz, fire, pl.Dimension)
 	if !crafting.HasDurability(heldItem.TypeId) {
 		return
 	}
@@ -1422,6 +1473,9 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket
 
 func tryTillSoil(world *level.World, p packets.PlaceBlockPacket, oldExisting constants.WBlock, heldItem inventory.Item, dim int32, pl *player.Player) bool {
 	if (oldExisting.TypeId != byte(constants.Dirt.Value) && oldExisting.TypeId != byte(constants.Grass.Value)) || !heldItem.IsHoe() {
+		return false
+	}
+	if p.Face == 0 || !airAt(world, p.X, int32(p.Y)+1, p.Z, dim) {
 		return false
 	}
 	tilled := constants.NewBlockById(constants.Farmland.Value, 0)
@@ -1481,7 +1535,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 	if !ok {
 		return false
 	}
-	if !rule.ValidGround(oldExisting.TypeId) {
+	if newY < 1 || !rule.ValidGround(world.GetBlock(newX, byte(newY-1), newZ, pl.Dimension).TypeId) {
 		return true
 	}
 	meta := byte(0)
@@ -1503,7 +1557,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 }
 
 func tryScoopFluidWithBucket(connection net.Conn, world *level.World, pl *player.Player, newX int32, newY int, newZ int32, existing constants.WBlock, heldItem inventory.Item) bool {
-	if !existing.IsLiquid() || heldItem.TypeId != constants.Bucket.Value {
+	if !existing.IsLiquid() || existing.Metadata != 0 || heldItem.TypeId != constants.Bucket.Value {
 		return false
 	}
 	air := constants.NewAirBlock()
@@ -1747,7 +1801,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 func handleSetHotbarSlot(p packets.SetHotbarSlotPacket, pl *player.Player, world *level.World) {
 	// Drop the update while a BlockPlacement is in progress to avoid a race
 	// where a slot change arriving just after placement resets the wrong slot.
-	if pl.HotbarLocked.Load() {
+	if pl.HotbarLocked.Load() || p.Slot < 0 || p.Slot > 8 {
 		return
 	}
 	pl.HotbarSlot = p.Slot + 36
