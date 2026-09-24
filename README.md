@@ -54,3 +54,9 @@ Then you can access it via:
 
 You can download the binary also from [![Google Drive](https://img.shields.io/badge/Google%20Drive-Open%20File-4285F4?logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1Wrw3ePTMh3mM0Dzk1-4r4pwuzkGMCoQN/view?usp=sharing)
 
+
+### Render
+When deployed on Render (detected via the `RENDER` env var that Render sets automatically), the server runs as a web service on `$PORT` and tunnels game traffic over a WebSocket at `/ws`. If `KEY_ID`, `APP_KEY` and `B2_BUCKET` are set, the world is restored from Backblaze B2 on startup and backed up every 5 minutes, on shutdown, and on `/save`. We then use a bridge to let the client connect to it. Run the bridge via:
+```sh
+python3 bridge.py --remote wss://retromc.onrender.com/ws
+```

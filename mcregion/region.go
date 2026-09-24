@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -185,6 +186,13 @@ func ReadRegionRaw(path string) (map[[2]int32]RawChunk, error) {
 
 	header := make([]byte, sectorSize)
 	if _, err := io.ReadFull(f, header); err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			// Truncated/empty region file, e.g. left behind by a save that
+			// was interrupted mid-write. Treat it like a missing file
+			// instead of failing the whole save — the fresh in-memory
+			// chunks will overwrite it.
+			return nil, nil
+		}
 		return nil, err
 	}
 	if _, err := f.Seek(sectorSize, io.SeekCurrent); err != nil { // skip timestamps

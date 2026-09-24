@@ -276,6 +276,12 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			} else {
 				lines = append(lines, "MCR region save queued.")
 			}
+			if world.HasManualBackup() {
+				world.TriggerManualBackup()
+				lines = append(lines, "B2 backup upload queued.")
+			} else {
+				lines = append(lines, "B2 backup not configured.")
+			}
 			sendDebugMessage(pl, lines...)
 		}
 
