@@ -897,6 +897,10 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 		return
 	}
 
+	if isUse && tryEat(world, pl) {
+		return
+	}
+
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
 	}
@@ -1045,6 +1049,36 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 
 	finalizePlacement(connection, world, pl, block, newX, newY, newZ, p, slot)
+}
+
+var foodHeal = map[int16]int16{
+	constants.Apple.Value:          4,
+	constants.MushroomStew.Value:   10,
+	constants.Bread.Value:          5,
+	constants.Porkchop.Value:       3,
+	constants.CookedPorkchop.Value: 8,
+	constants.GoldenApple.Value:    20,
+	constants.Fish.Value:           2,
+	constants.CookedFish.Value:     5,
+	constants.Cookie.Value:         1,
+}
+
+func tryEat(world *level.World, pl *player.Player) bool {
+	held := pl.Inventory.Items[pl.HotbarSlot]
+	heal, ok := foodHeal[held.TypeId]
+	if !ok || pl.HP <= 0 {
+		return false
+	}
+	pl.SetHP(min(pl.HP+heal, 20))
+	SendSetHealth(pl.Connection, uint16(pl.HP))
+	if held.TypeId == constants.MushroomStew.Value {
+		pl.Inventory.Items[pl.HotbarSlot] = inventory.NewItem(constants.Bowl.Value, 1, 0)
+	} else {
+		pl.Inventory.RemoveOne(pl.HotbarSlot)
+	}
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
+	sendEquipmentChangeForHotbarSlot(world, pl)
+	return true
 }
 
 func logPlacementDebug(pl *player.Player, oldExisting constants.WBlock, p packets.PlaceBlockPacket) {
