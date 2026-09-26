@@ -326,6 +326,9 @@ func (w *World) TickMobs(tracker *entities.EntityTracker) {
 			dx, dy, dz := m.X-p.X, m.Y-p.Y, m.Z-p.Z
 			closestSq = math.Min(closestSq, dx*dx+dy*dy+dz*dz)
 		}
+		if closestSq == math.MaxFloat64 {
+			continue
+		}
 
 		if closestSq > 128*128 {
 			remove(m)

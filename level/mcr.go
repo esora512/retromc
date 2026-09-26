@@ -87,7 +87,7 @@ func buildDispenserNBT(x, y, z int32, dispenser *inventory.Dispenser) *mcregion.
 }
 
 // Uses chunk.GetBlock to build NBT chunk block by block
-func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Compound {
+func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, ents []*mcregion.Compound, tick int64) *mcregion.Compound {
 	blocks := make([]byte, 16*CHUNK_HEIGHT*16)
 	data := make([]byte, len(blocks)/2)
 	skyLight := make([]byte, len(blocks)/2)
@@ -132,7 +132,11 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 	level.ByteArray("SkyLight", skyLight)
 	level.ByteArray("BlockLight", blockLight)
 	level.ByteArray("HeightMap", heightMap)
-	level.EmptyList("Entities")
+	if len(ents) > 0 {
+		level.CompoundList("Entities", ents)
+	} else {
+		level.EmptyList("Entities")
+	}
 
 	if len(w.Containers.Chests) > 0 {
 		var tileEntities []*mcregion.Compound
@@ -189,10 +193,10 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, tick int64) *mcregion.Com
 }
 
 func SaveMcRegion(w *World, worldDir string) error {
-	oChunksSnapshot, nChunksSnapshot, tick := snapshotChunks(w)
+	snap := snapshotChunks(w)
 
 	go func() {
-		if err := saveChunkSnapshot(w, worldDir, oChunksSnapshot, nChunksSnapshot, tick); err != nil {
+		if err := saveChunkSnapshot(w, worldDir, snap); err != nil {
 			log.Println("Failed to save world:", err)
 		}
 	}()
@@ -201,33 +205,45 @@ func SaveMcRegion(w *World, worldDir string) error {
 }
 
 func SaveMcRegionSync(w *World, worldDir string) error {
-	oChunksSnapshot, nChunksSnapshot, tick := snapshotChunks(w)
-	return saveChunkSnapshot(w, worldDir, oChunksSnapshot, nChunksSnapshot, tick)
+	return saveChunkSnapshot(w, worldDir, snapshotChunks(w))
 }
 
-func snapshotChunks(w *World) (oChunks, nChunks map[ChunkCoord]*Chunk, tick int64) {
-	oChunks = make(map[ChunkCoord]*Chunk, len(w.oChunks))
+type chunkSnapshot struct {
+	oChunks, nChunks map[ChunkCoord]*Chunk
+	oEnts, nEnts     map[ChunkCoord][]*mcregion.Compound
+	tick             int64
+}
+
+// snapshotChunks must run on the game loop; entity NBT is built here, not in the save goroutine
+func snapshotChunks(w *World) chunkSnapshot {
+	oChunks := make(map[ChunkCoord]*Chunk, len(w.oChunks))
 	for coord, ch := range w.oChunks {
 		oChunks[coord] = ch
 	}
-	nChunks = make(map[ChunkCoord]*Chunk, len(w.nChunks))
+	nChunks := make(map[ChunkCoord]*Chunk, len(w.nChunks))
 	for coord, ch := range w.nChunks {
 		nChunks[coord] = ch
 	}
-	return oChunks, nChunks, w.Tick
+	return chunkSnapshot{
+		oChunks: oChunks,
+		nChunks: nChunks,
+		oEnts:   w.CaptureEntities(oChunks, 0, nil),
+		nEnts:   w.CaptureEntities(nChunks, -1, nil),
+		tick:    w.Tick,
+	}
 }
 
-func saveChunkSnapshot(w *World, worldDir string, oChunks, nChunks map[ChunkCoord]*Chunk, tick int64) error {
-	if err := saveChunksToRegion(w, worldDir, oChunks, tick); err != nil {
+func saveChunkSnapshot(w *World, worldDir string, snap chunkSnapshot) error {
+	if err := saveChunksToRegion(w, worldDir, snap.oChunks, snap.oEnts, snap.tick); err != nil {
 		return fmt.Errorf("saving overworld region: %w", err)
 	}
-	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), nChunks, tick); err != nil {
+	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), snap.nChunks, snap.nEnts, snap.tick); err != nil {
 		return fmt.Errorf("saving nether region: %w", err)
 	}
-	return saveLevelDat(worldDir, tick)
+	return saveLevelDat(worldDir, snap.tick)
 }
 
-func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick int64) error {
+func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, tick int64) error {
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -238,7 +254,8 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick
 			continue
 		}
 
-		if !ch.HasChanged {
+		chunkEnts, hasEnts := ents[coord]
+		if !ch.HasChanged && !hasEnts {
 			continue
 		}
 		rx, rz := coord.X>>5, coord.Z>>5
@@ -247,7 +264,7 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick
 		if byRegion[rkey] == nil {
 			byRegion[rkey] = make(map[[2]int32]*mcregion.Compound)
 		}
-		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, tick)
+		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, chunkEnts, tick)
 	}
 
 	regionDir := filepath.Join(dir, "region")
@@ -269,7 +286,7 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, tick
 	return nil
 }
 
-func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, dimension int32, tick int64) error {
+func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, dimension int32, tick int64) error {
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -279,7 +296,7 @@ func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, dimensi
 		dir = filepath.Join(worldDir, "DIM-1")
 	}
 
-	if err := saveChunksToRegion(w, dir, chunks, tick); err != nil {
+	if err := saveChunksToRegion(w, dir, chunks, ents, tick); err != nil {
 		return err
 	}
 	return saveLevelDat(worldDir, tick)
@@ -348,6 +365,10 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 				c.SetBlock(lx, y, lz, b)
 			}
 		}
+	}
+
+	if el := lvl.Get("Entities"); el != nil && len(el.List) > 0 {
+		c.PendingEntities = el.List
 	}
 
 	teCount := 0

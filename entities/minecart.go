@@ -117,9 +117,7 @@ func (cart *RideableEntity) TickMinecart(
 
 	// Powered rail boost / braking
 	if block.IsPoweredRail() {
-		isActivated := true
-		// TODO: When redstone is implemented, uncomment line below
-		//isActivated := (block.Metadata & 8) != 0
+		isActivated := (block.Metadata & 8) != 0
 		if isActivated {
 			if speed > 0.01 {
 				cart.VelocityX += cart.VelocityX / speed * 0.06

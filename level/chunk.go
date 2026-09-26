@@ -30,6 +30,9 @@ type Chunk struct {
 	SizeZ      byte
 	Data       []byte
 	HasChanged bool
+
+	PendingEntities []*mcregion.Tag
+	HadEntities     bool
 }
 
 func (c *Chunk) Size() int64 {
@@ -542,6 +545,7 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 
 	c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
 	chunks[key] = c
+	w.spawnPendingEntities(c, dim)
 	return c
 }
 
@@ -559,6 +563,7 @@ func (w *World) InsertChunk(cx, cz, dim int32, c *Chunk) *Chunk {
 		return existing
 	}
 	chunks[key] = c
+	w.spawnPendingEntities(c, dim)
 	return c
 }
 

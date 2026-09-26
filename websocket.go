@@ -97,6 +97,8 @@ func runOnRender(s *Server) {
 
 	if b2 != nil {
 		startBackupLoop(b2, s.World)
+	} else {
+		startShutdownSave(s.World)
 	}
 
 	mux := http.NewServeMux()

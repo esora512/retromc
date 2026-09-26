@@ -344,8 +344,8 @@ func restoreWorldFromB2(b2 *b2Client, worldDir string) {
 	log.Println("B2: restored world from backup")
 }
 
-// backupWorldToB2 flushes the world to disk and uploads a fresh archive.
-func backupWorldToB2(b2 *b2Client, world *level.World) {
+// flushWorld saves all loaded chunks, their entities and online players on the game loop.
+func flushWorld(world *level.World) error {
 	done := make(chan error, 1)
 	world.Enqueue(func() {
 		if err := level.SaveMcRegionSync(world, world.WorldDir); err != nil {
@@ -354,7 +354,28 @@ func backupWorldToB2(b2 *b2Client, world *level.World) {
 		}
 		done <- world.SaveAllPlayersSync()
 	})
-	if err := <-done; err != nil {
+	return <-done
+}
+
+// startShutdownSave flushes the world to local disk on SIGTERM/SIGINT (VM / local runs without B2).
+func startShutdownSave(world *level.World) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-sigCh
+		log.Println("Shutting down, saving world...")
+		if err := flushWorld(world); err != nil {
+			log.Println("Failed to save world on shutdown:", err)
+			os.Exit(1)
+		}
+		log.Println("World saved")
+		os.Exit(0)
+	}()
+}
+
+// backupWorldToB2 flushes the world to disk and uploads a fresh archive.
+func backupWorldToB2(b2 *b2Client, world *level.World) {
+	if err := flushWorld(world); err != nil {
 		log.Println("B2: failed to flush world before backup:", err)
 		return
 	}

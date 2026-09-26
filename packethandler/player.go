@@ -402,6 +402,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 
 	world.SetBlockInQueue(p.X, int32(p.Y), p.Z, air, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
+	world.UpdatePoweredRails(p.X, int32(p.Y), p.Z, pl.Dimension)
 
 	if oldBlock.TypeId == byte(constants.Bed.Value) {
 		var hX, hZ int32
@@ -1656,10 +1657,21 @@ func placeRailBlock(world *level.World, block *constants.WBlock, newX int32, new
 		}
 	}
 
+	// powered/detector rails can't curve and keep their power bit
+	shapeFor := func(b constants.WBlock, meta byte) byte {
+		if b.TypeId == byte(constants.Rail.Value) {
+			return meta
+		}
+		if meta >= 6 {
+			meta = 0
+		}
+		return meta | b.Metadata&0x8
+	}
+
 	x, y, z := int32(newX), int32(newY), int32(newZ)
 
 	// Place the new rail with computed metadata
-	block.Metadata = computeMeta(x, y, z)
+	block.Metadata = shapeFor(constants.WBlock{TypeId: block.TypeId}, computeMeta(x, y, z))
 	world.SetBlockInQueue(x, y, z, *block, dim)
 
 	// Recalc each flat neighbour now that the new rail exists in the world
@@ -1668,7 +1680,7 @@ func placeRailBlock(world *level.World, block *constants.WBlock, newX int32, new
 		if !railIds[existing.TypeId] {
 			return
 		}
-		newMeta := computeMeta(nx, ny, nz)
+		newMeta := shapeFor(existing, computeMeta(nx, ny, nz))
 		if newMeta == existing.Metadata {
 			return
 		}
@@ -1680,6 +1692,7 @@ func placeRailBlock(world *level.World, block *constants.WBlock, newX int32, new
 	recalcRail(x, y, z+1) // south
 	recalcRail(x+1, y, z) // east
 	recalcRail(x-1, y, z) // west
+	world.UpdatePoweredRails(x, y, z, dim)
 }
 
 func configureDirectionalBlock(world *level.World, pl *player.Player, block *constants.WBlock, newX int32, newY int, newZ int32, heldItem inventory.Item, p packets.PlaceBlockPacket) bool {
@@ -1712,7 +1725,8 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *con
 	var face byte
 	face = p.Face
 	// TODO: Remember for which blocks face=1 is spammed; furnace was one of them...
-	if face == 1 && block.TypeId != byte(constants.Torch.Value) {
+	isTorch := block.TypeId == byte(constants.Torch.Value) || block.TypeId == byte(constants.RedstoneTorchOn.Value) || block.TypeId == byte(constants.RedstoneTorchOff.Value)
+	if face == 1 && !isTorch {
 		face = yawToFace(pl.Yaw)
 	}
 	switch face {
@@ -1810,6 +1824,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	world.SetBlockInQueue(newX, int32(newY), newZ, block, pl.Dimension)
 	world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 	world.TriggerFallableUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
+	world.UpdatePoweredRails(newX, int32(newY), newZ, pl.Dimension)
 
 	// Decrement the item in the in-memory inventory and sync to client.
 	pl.Inventory.RemoveOne(slot)

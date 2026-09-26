@@ -102,6 +102,7 @@ func main() {
 	server := Server{World: world, Tracker: entityTracker}
 	runOnRender(&server)
 	server.Run()
+	startShutdownSave(world)
 
 	l, err := net.Listen(CON_TYPE, *host+":"+*port)
 	if err != nil {
@@ -199,15 +200,17 @@ func (s *Server) Run() {
 				if s.World.Tick%120 == 0 {
 					tick := s.World.Tick
 					if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
+						ents := s.World.CaptureEntities(removed, 0, s.Tracker.ResetEntity)
 						go func() {
-							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, 0, tick); err != nil {
+							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, 0, tick); err != nil {
 								log.Println("Failed to save the s.World:", err)
 							}
 						}()
 					}
 					if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
+						ents := s.World.CaptureEntities(removed, -1, s.Tracker.ResetEntity)
 						go func() {
-							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, -1, tick); err != nil {
+							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, -1, tick); err != nil {
 								log.Println("Failed to save the s.World:", err)
 							}
 						}()
