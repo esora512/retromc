@@ -247,6 +247,7 @@ func processFallableUpdateJob(w *World, u *BlockUpdate) {
 }
 
 func (w *World) TickFluids() {
+	w.fluidFed = nil
 	updates := w.Scheduler.applyFluidUpdates(w.Tick)
 	for _, update := range updates {
 		processFluidUpdate(w, &update)
@@ -303,11 +304,19 @@ func recomputeFluid(w *World, u *BlockUpdate, b constants.WBlock) {
 	}
 
 	if !isSource {
-		newLevel, hasSupport := idealFluidLevel(w, u.X, u.Y, u.Z, u.Dimension)
+		newLevel, hasSupport := idealFluidLevel(w, u.X, u.Y, u.Z, int(b.Metadata), u.Dimension)
 		if !hasSupport {
-			air := constants.NewAirBlock()
-			u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
+			newLevel = int(b.Metadata) + 1
+			if newLevel > MaxFluidSpreadHeight {
+				air := constants.NewAirBlock()
+				u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
+				notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
+				return
+			}
+			drained := b.NewBlock(byte(newLevel))
+			u.SetBlock(u.X, u.Y, u.Z, drained, u.Dimension)
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
+			notifyFluid(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 			return
 		}
 		if newLevel != int(b.Metadata) {
@@ -319,14 +328,18 @@ func recomputeFluid(w *World, u *BlockUpdate, b constants.WBlock) {
 				updated = constants.NewFlowingLavaBlock(byte(newLevel))
 			}
 			u.SetBlock(u.X, u.Y, u.Z, updated, u.Dimension)
+			thinning := newLevel > int(b.Metadata)
 			b = updated
 			notifyFluidNeighbors(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
+			if thinning {
+				return
+			}
 		}
 	}
 	trySpread(w, u.X, u.Y, u.Z, b, u.SetBlock, u.Dimension)
 }
 
-func idealFluidLevel(w *World, x, y, z int32, dim int32) (int, bool) {
+func idealFluidLevel(w *World, x, y, z int32, current int, dim int32) (int, bool) {
 	// Determines fluid height of next fluid block
 	if y < 255 {
 		above := w.GetBlock(x, byte(y+1), z, dim)
@@ -349,6 +362,9 @@ func idealFluidLevel(w *World, x, y, z int32, dim int32) (int, bool) {
 		if nb.IsStillWater() || nb.IsStillLava() {
 			contribution = 1
 		} else {
+			if int(nb.Metadata) >= current {
+				continue
+			}
 			contribution = int(nb.Metadata) + 1
 		}
 		if contribution > MaxFluidSpreadHeight {
@@ -365,11 +381,57 @@ func idealFluidLevel(w *World, x, y, z int32, dim int32) (int, bool) {
 	return best, true
 }
 
+func sameFluid(a, b constants.WBlock) bool {
+	return (a.IsWater() && b.IsWater()) || (a.IsLava() && b.IsLava())
+}
+
+func (w *World) fedBySource(x, y, z int32, b constants.WBlock, dim int32) bool {
+	if b.IsStillWater() || b.IsStillLava() {
+		return true
+	}
+	key := [4]int32{x, y, z, dim}
+	if fed, ok := w.fluidFed[key]; ok {
+		return fed
+	}
+	if w.fluidFed == nil {
+		w.fluidFed = map[[4]int32]bool{}
+	}
+	w.fluidFed[key] = false
+
+	fed := false
+	if y < 255 {
+		if above := w.GetBlock(x, byte(y+1), z, dim); sameFluid(above, b) {
+			fed = true
+		}
+	}
+	for _, n := range lateralNeighbors {
+		if fed {
+			break
+		}
+		nx, nz := x+n.dx, z+n.dz
+		if !w.IsLoaded(nx, nz, dim) {
+			continue
+		}
+		nb := w.GetBlock(nx, byte(y), nz, dim)
+		if !sameFluid(nb, b) {
+			continue
+		}
+		if nb.IsStillWater() || nb.IsStillLava() || (nb.Metadata < b.Metadata && w.fedBySource(nx, y, nz, nb, dim)) {
+			fed = true
+		}
+	}
+	w.fluidFed[key] = fed
+	return fed
+}
+
 func trySpread(w *World, x, y, z int32, b constants.WBlock, setBlock SetBlock, dim int32) {
 	isSource := b.IsStillWater() || b.IsStillLava()
 	level := 0
 	if !isSource {
 		level = int(b.Metadata)
+		if !w.fedBySource(x, y, z, b, dim) {
+			return
+		}
 	}
 
 	var flowing constants.WBlock

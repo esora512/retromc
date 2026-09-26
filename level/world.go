@@ -109,6 +109,7 @@ type World struct {
 	EntityCount int32
 	WorldType   WorldType
 	Scheduler   BlockUpdateScheduler
+	fluidFed    map[[4]int32]bool
 
 	OppedUsernames map[string]bool
 
