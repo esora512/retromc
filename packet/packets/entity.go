@@ -320,11 +320,6 @@ func NewMobPositionAndRotationPacket(m *entities.Mob, x, y, z, yaw, pitch float6
 	return p.Serialize()
 }
 
-func BroadcastMobPositionAndRotation(w *level.World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64) {
-	p := NewMobPositionAndRotationPacket(m, nX, nY, nZ, yaw, pitch)
-	w.BroadcastPacket(p)
-}
-
 func NewPlayerPositionAndRotationPacket(pl *player.Player, x, y, z, yaw, pitch float64) []byte {
 	encX := int32(math.Floor(x * 32))
 	encY := int32(math.Floor(y * 32))
@@ -515,7 +510,7 @@ func CollectItem(itemId, collectorId int32) []byte {
 type SpawnMobPacket struct {
 	EntityId int32
 	MobType  byte
-	Metadata byte
+	Metadata []byte
 	X        int32
 	Y        int32
 	Z        int32
@@ -533,7 +528,11 @@ func (p *SpawnMobPacket) Serialize() []byte {
 	w.WriteInt32(p.Z)
 	w.WriteByte(p.Yaw)
 	w.WriteByte(p.Pitch)
-	w.WriteByte(0x7f)
+	if p.Metadata != nil {
+		w.Write(p.Metadata)
+	} else {
+		w.WriteByte(0x7f)
+	}
 	return w.Bytes()
 }
 
@@ -541,7 +540,6 @@ func NewSpawnMob(mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, 
 	p := SpawnMobPacket{
 		EntityId: entityId,
 		MobType:  mobType,
-		Metadata: meta,
 		X:        x*32 + 16,
 		Y:        y*32 + 16,
 		Z:        z*32 + 16,
@@ -551,11 +549,20 @@ func NewSpawnMob(mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, 
 	return p.Serialize()
 }
 
-func BroadcastMobSpawn(w *level.World, mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, entityId int32) {
-	p := NewSpawnMob(mobType, meta, x, y, z, yaw, pitch, dim, entityId)
-	w.BroadcastPacket(p)
-}
-
 func SpawnMob(m *entities.Mob) []byte {
-	return NewSpawnMob(m.MobType, m.Metadata, int32(m.X), int32(m.Y), int32(m.Z), m.Yaw, m.Pitch, m.Dimension, m.EntityId)
+	p := SpawnMobPacket{
+		EntityId: m.EntityId,
+		MobType:  m.MobType,
+		Metadata: m.MetadataStream(),
+		X:        int32(math.Floor(m.X * 32)),
+		Y:        int32(math.Floor(m.Y * 32)),
+		Z:        int32(math.Floor(m.Z * 32)),
+		Yaw:      m.Yaw,
+		Pitch:    m.Pitch,
+	}
+	if ms := m.MovementState; ms.EncInit {
+		p.X, p.Y, p.Z = ms.EncX, ms.EncY, ms.EncZ
+		p.Yaw, p.Pitch = byte(ms.EncYaw), byte(ms.EncPitch)
+	}
+	return p.Serialize()
 }

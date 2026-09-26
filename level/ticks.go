@@ -276,9 +276,8 @@ func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.TickSleep()
 	w.TickPlayers()
 	w.TickMobs(tracker)
-	w.SpawnSpiders()
-	w.SpawnSkeletons()
-	w.SpawnPigs()
+	w.SpawnHostiles()
+	w.SpawnAnimals()
 }
 
 func (w *World) TickSleep() {
@@ -295,41 +294,50 @@ func (w *World) TickPlayers() {
 }
 
 func (w *World) TickMobs(tracker *entities.EntityTracker) {
-	var players []*player.Player
 	var mobs []*entities.Mob
-
 	for _, e := range w.Entities {
-		switch v := e.(type) {
-		case *player.Player:
-			players = append(players, v)
-		case *entities.Mob:
-			mobs = append(mobs, v)
+		if m, ok := e.(*entities.Mob); ok {
+			mobs = append(mobs, m)
 		}
 	}
 
-	const despawnDistSq = (VIEW_DISTANCE * 8) * (VIEW_DISTANCE * 8)
+	remove := func(m *entities.Mob) {
+		tracker.SendToViewers(w, m.EntityId, w.DespawnEntity(m.EntityId))
+		w.RemoveEntity(m.EntityId)
+		tracker.ResetEntity(m.EntityId)
+	}
 
 	for _, m := range mobs {
-		mx, my, mz := m.GetPosition()
-
-		inRange := false
-		for _, p := range players {
-			px, py, pz := p.GetPosition()
-
-			dx := mx - px
-			dy := my - py
-			dz := mz - pz
-			distSq := dx*dx + dy*dy + dz*dz
-
-			if distSq <= despawnDistSq {
-				inRange = true
-				break
+		if _, ok := w.Entities[m.EntityId]; !ok {
+			continue
+		}
+		if m.GetHP() <= 0 {
+			if m.DespawnIn < 0 {
+				m.DespawnIn = 21
 			}
+			continue
 		}
 
-		if !inRange {
-			m.DespawnIn = 1
-			m.SetHP(0)
+		closestSq := math.MaxFloat64
+		for _, p := range w.Players {
+			if !p.LoggedIn || p.GetDim() != m.Dimension {
+				continue
+			}
+			dx, dy, dz := m.X-p.X, m.Y-p.Y, m.Z-p.Z
+			closestSq = math.Min(closestSq, dx*dx+dy*dy+dz*dz)
+		}
+
+		if closestSq > 128*128 {
+			remove(m)
+			continue
+		}
+		if m.Age > 600 && rand.Intn(800) == 0 {
+			if closestSq < 32*32 {
+				m.Age = 0
+			} else {
+				remove(m)
+				continue
+			}
 		}
 
 		m.Move(w, tracker)
@@ -344,30 +352,21 @@ func (w *World) SendHealth(entityId int32, newHp int16) {
 	w.sendSetHealth(pl.Connection, uint16(newHp))
 }
 
-func (w *World) SpawnSpiders() {
+func (w *World) SpawnHostiles() {
 	if !w.IsNight() {
 		return
 	}
 	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
-		w.SpawnSpider(x, y, z, dim, -1)
+		w.SpawnMobType(randomType(hostileTypes), x, y, z, dim, -1)
 	})
 }
 
-func (w *World) SpawnSkeletons() {
-	if !w.IsNight() {
-		return
-	}
-	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
-		w.SpawnSkeleton(x, y, z, dim, -1)
-	})
-}
-
-func (w *World) SpawnPigs() {
+func (w *World) SpawnAnimals() {
 	if w.IsNight() {
 		return
 	}
 	w.spawnMobsAroundPlayers(func(x, y, z, dim int32) {
-		w.SpawnPig(x, y, z, dim)
+		w.SpawnMobType(randomType(animalTypes), x, y, z, dim, -1)
 	})
 }
 
@@ -392,12 +391,13 @@ func (w *World) spawnMobsAroundPlayers(spawn func(x, y, z, dim int32)) {
 		dim := pl.GetDim()
 
 		spawnX, spawnZ := randomPointOnRing(px, pz, 48)
-		spawnY, ok := w.findGroundY(int32(spawnX), int32(spawnZ), int32(py), dim)
+		sx, sz := int32(math.Floor(spawnX)), int32(math.Floor(spawnZ))
+		spawnY, ok := w.findGroundY(sx, sz, int32(py), dim)
 		if !ok {
-			return
+			continue
 		}
 
-		spawn(int32(spawnX), spawnY, int32(spawnZ), dim)
+		spawn(sx, spawnY, sz, dim)
 		count++
 	}
 }
@@ -415,13 +415,18 @@ func randomPointOnRing(px, pz float64, dist float64) (x, z float64) {
 
 func (w *World) findGroundY(x, z, startY, dim int32) (int32, bool) {
 	const searchRange = 32
-	for y := startY; y > startY-searchRange && y > 0; y-- {
+	if !w.IsLoaded(x, z, dim) {
+		return 0, false
+	}
+	free := func(y int32) bool {
 		b := w.GetBlock(x, byte(y), z, dim)
-		if b.IsSolid() {
-			return y + 1, true
-		} else {
-			return 0, false
+		return !b.IsSolid() && !b.IsLiquid()
+	}
+	for y := min(startY+searchRange/2, WorldMaxY-2); y > startY-searchRange && y > 1; y-- {
+		below := w.GetBlock(x, byte(y-1), z, dim)
+		if entities.IsNormalCube(below) && free(y) && free(y+1) {
+			return y, true
 		}
 	}
-	return startY, true
+	return 0, false
 }

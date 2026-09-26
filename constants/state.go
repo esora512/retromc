@@ -28,6 +28,7 @@ type MovementState struct {
 	EncYaw, EncPitch   int32
 	EncInit            bool
 	TicksSinceTeleport int
+	UpdateCounter      int
 
 	KeepRotation bool
 	SneakChanged bool

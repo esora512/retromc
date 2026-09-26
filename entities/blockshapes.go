@@ -135,6 +135,7 @@ func init() {
 }
 
 func isNormalCube(b constants.WBlock) bool    { return blockTable[b.TypeId].normalCube }
+func IsNormalCube(b constants.WBlock) bool    { return isNormalCube(b) }
 func isSolidMaterial(b constants.WBlock) bool { return blockTable[b.TypeId].solidMaterial }
 
 func slipperiness(b constants.WBlock) float32 {

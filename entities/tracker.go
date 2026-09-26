@@ -1,7 +1,6 @@
 package entities
 
 import (
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -31,7 +30,7 @@ func (et *EntityTracker) ResetViewer(w WorldShared, viewerId int32) {
 		return
 	}
 	for eId := range et.visible[viewerId] {
-		log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
+		//log.Printf("Reset: Despawning %d for %s (%d)", eId, pl.Username, viewerId)
 		pl.Connection.Write(w.DespawnEntity(eId))
 		et.visible[viewerId][eId] = false
 	}
@@ -45,6 +44,28 @@ func (et *EntityTracker) ResetEntity(id int32) {
 	delete(et.visible, id)
 	for _, seen := range et.visible {
 		delete(seen, id)
+	}
+}
+
+// SendToViewers writes data only to the players currently tracking the entity
+func (et *EntityTracker) SendToViewers(w WorldShared, entityId int32, data []byte) {
+	et.Mu.Lock()
+	defer et.Mu.Unlock()
+	for viewerId, seen := range et.visible {
+		if !seen[entityId] {
+			continue
+		}
+		if pl, ok := w.GetPlayer(viewerId); ok && pl.LoggedIn {
+			pl.Connection.Write(data)
+		}
+	}
+}
+
+// SendToViewersAndSelf is SendToViewers plus the entity itself when it is a player (e.g. the rider on a mount packet)
+func (et *EntityTracker) SendToViewersAndSelf(w WorldShared, entityId int32, data []byte) {
+	et.SendToViewers(w, entityId, data)
+	if pl, ok := w.GetPlayer(entityId); ok && pl.LoggedIn {
+		pl.Connection.Write(data)
 	}
 }
 
@@ -108,9 +129,14 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
-		var playerMove []byte
+		var playerMove, mobMove, mobMeta []byte
 		if t, ok := target.(*player.Player); ok && targetType == c.Player {
-			playerMove = playerMovePacket(w, t)
+			x, y, z := t.GetPosition()
+			playerMove = trackMovePacket(w, t, &t.MovementState, x, y, z, t.Yaw, t.Pitch, 1)
+		}
+		if t, ok := target.(*Mob); ok && alive {
+			mobMove = trackMovePacket(w, t, &t.MovementState, t.X, t.Y, t.Z, t.RotYaw, t.RotPitch, mobUpdateEvery)
+			mobMeta = t.TakeMetadata()
 		}
 
 		for _, viewer := range viewers {
@@ -180,12 +206,12 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewEntityEventPacket(t, 2))
 					}
 
-					if t.MobType == c.Skeleton {
-						viewer.Connection.Write(w.NewEntityMetadataPacket(t, t.BurningMetadata(!w.IsNight())))
+					if mobMeta != nil {
+						viewer.Connection.Write(w.NewEntityMetadataPacket(t, mobMeta))
 					}
 
-					if posAndRotChanged {
-						viewer.Connection.Write(w.NewMobPositionAndRotationOrTeleportPacket(t, msCopy))
+					if mobMove != nil {
+						viewer.Connection.Write(mobMove)
 					}
 					if velChanged {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
@@ -231,7 +257,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						continue
 					}
 					t, _ := target.(*player.Player)
-					log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
+					//log.Printf("Tracker: Spawning %s (%d) for %s (%d)", t.Username, targetID, viewer.Username, viewerID)
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 
@@ -283,7 +309,6 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			}
 		}
 
-
 		if itemGone {
 			w.RemoveEntity(targetID)
 		}
@@ -330,20 +355,26 @@ const (
 	playerMinPosDelta     = 2  // 1/16 block
 	playerMinRotDelta     = 2  // ~3 degrees
 	playerForceTeleportIn = 40 // resync every 2s so rounding drift can't build up
+	mobUpdateEvery        = 3
 )
 
 func quantizeAngle(deg float32) int32 {
 	return int32(math.Floor(float64(deg)*256/360)) & 0xFF
 }
 
-func playerMovePacket(w WorldShared, pl *player.Player) []byte {
-	ms := &pl.MovementState
-	x, y, z := pl.GetPosition()
+func trackMovePacket(w WorldShared, e c.Entity, ms *c.MovementState, x, y, z float64, yaw, pitch float32, every int) []byte {
+	ms.TicksSinceTeleport++
+	ms.UpdateCounter++
+	if ms.EncInit && ms.UpdateCounter < every && ms.TicksSinceTeleport < playerForceTeleportIn {
+		return nil
+	}
+	ms.UpdateCounter = 0
+
 	qx, qy, qz := int32(math.Floor(x*32)), int32(math.Floor(y*32)), int32(math.Floor(z*32))
-	qYaw, qPitch := quantizeAngle(pl.Yaw), quantizeAngle(pl.Pitch)
+	qYaw, qPitch := quantizeAngle(yaw), quantizeAngle(pitch)
 
 	m := c.MovementState{
-		X: x, Y: y, Z: z, Yaw: pl.Yaw, Pitch: pl.Pitch,
+		X: x, Y: y, Z: z, Yaw: yaw, Pitch: pitch,
 		PrevX: float64(ms.EncX) / 32, PrevY: float64(ms.EncY) / 32, PrevZ: float64(ms.EncZ) / 32,
 	}
 	dx, dy, dz := qx-ms.EncX, qy-ms.EncY, qz-ms.EncZ
@@ -357,20 +388,19 @@ func playerMovePacket(w WorldShared, pl *player.Player) []byte {
 	needsRot := rotDelta(qYaw, ms.EncYaw) >= playerMinRotDelta || rotDelta(qPitch, ms.EncPitch) >= playerMinRotDelta
 	needsMove := abs32(dx) >= playerMinPosDelta || abs32(dy) >= playerMinPosDelta || abs32(dz) >= playerMinPosDelta
 
-	ms.TicksSinceTeleport++
 	var pkt []byte
 	switch {
 	case !ms.EncInit || ms.TicksSinceTeleport >= playerForceTeleportIn ||
 		dx < -128 || dx > 127 || dy < -128 || dy > 127 || dz < -128 || dz > 127:
-		pkt = w.NewTeleportPacket(pl, m)
+		pkt = w.NewTeleportPacket(e, m)
 		ms.TicksSinceTeleport = 0
 	case needsMove && needsRot:
-		pkt = w.NewPositionAndRotationOrTeleportPacket(pl, m)
+		pkt = w.NewPositionAndRotationOrTeleportPacket(e, m)
 	case needsMove:
-		pkt = w.NewPositionPacket(pl, m)
+		pkt = w.NewPositionPacket(e, m)
 		qYaw, qPitch = ms.EncYaw, ms.EncPitch
 	case needsRot:
-		pkt = w.NewRotationPacket(pl, m)
+		pkt = w.NewRotationPacket(e, m)
 		qx, qy, qz = ms.EncX, ms.EncY, ms.EncZ
 	default:
 		return nil

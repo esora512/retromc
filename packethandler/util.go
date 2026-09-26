@@ -356,20 +356,6 @@ func sendEquipmentChangeForHotbarSlot(world *level.World, pl *player.Player) {
 	})
 }
 
-// Use teleport packet to obtain absolute control over minecart
-// Too bad at math to get it to work with relative positions and mimicking client-side calculations...
-func BroadcastTeleport(w *level.World, c constants.Entity, cx, cy, cz float64, yaw byte) {
-	tpkt := packets.TeleportEntityPacket{
-		EntityId: c.GetEntityId(),
-		X:        int32(math.Floor(cx * 32)),
-		Y:        int32(math.Floor(cy * 32)),
-		Z:        int32(math.Floor(cz * 32)),
-		Yaw:      yaw,
-		Pitch:    0,
-	}
-	w.BroadcastPacket(tpkt.Serialize())
-}
-
 func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz float64, yaw byte) {
 	tpkt := packets.TeleportEntityPacket{
 		EntityId: c.GetEntityId(),
@@ -398,33 +384,6 @@ func BroadcastTeleportPlayer(w *level.World, c constants.Entity, cx, cy, cz floa
 		}
 		pl.Connection.Write(data)
 	}
-}
-
-func BroadcastPosition(w *level.World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64) {
-	encPrevX := int32(math.Floor(prevX * 32))
-	encPrevY := int32(math.Floor(prevY * 32))
-	encPrevZ := int32(math.Floor(prevZ * 32))
-	encNextX := int32(math.Floor(nextX * 32))
-	encNextY := int32(math.Floor(nextY * 32))
-	encNextZ := int32(math.Floor(nextZ * 32))
-
-	dX := encNextX - encPrevX
-	dY := encNextY - encPrevY
-	dZ := encNextZ - encPrevZ
-
-	// delta overflow guard — fall back to teleport if moved more than 4 blocks
-	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
-		BroadcastTeleport(w, c, nextX, nextY, nextZ, 0)
-		return
-	}
-
-	p := packets.EntityPositionPacket{
-		EntityId: c.GetEntityId(),
-		X:        byte(dX),
-		Y:        byte(dY),
-		Z:        byte(dZ),
-	}
-	w.BroadcastPacket(p.Serialize())
 }
 
 func NewTeleportPacket(e constants.Entity, m constants.MovementState) []byte {
@@ -545,45 +504,6 @@ func NewPositionAndRotationOrTeleportPacket(e constants.Entity, m constants.Move
 	return p.Serialize()
 }
 
-func BroadcastPositionAndRotation(w *level.World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte) {
-	encPrevX := int32(math.Floor(prevX * 32))
-	encPrevY := int32(math.Floor(prevY * 32))
-	encPrevZ := int32(math.Floor(prevZ * 32))
-	encNextX := int32(math.Floor(nextX * 32))
-	encNextY := int32(math.Floor(nextY * 32))
-	encNextZ := int32(math.Floor(nextZ * 32))
-
-	dX := encNextX - encPrevX
-	dY := encNextY - encPrevY
-	dZ := encNextZ - encPrevZ
-
-	// delta overflow guard — fall back to teleport if moved more than 4 blocks
-	if dX < -128 || dX > 127 || dY < -128 || dY > 127 || dZ < -128 || dZ > 127 {
-		BroadcastTeleport(w, c, nextX, nextY, nextZ, 0)
-		return
-	}
-
-	p := packets.EntityPositionAndRotationPacket{
-		EntityId: c.GetEntityId(),
-		X:        byte(dX),
-		Y:        byte(dY),
-		Z:        byte(dZ),
-		Yaw:      yaw,
-		Pitch:    0,
-	}
-	w.BroadcastPacket(p.Serialize())
-}
-
-func BroadcastEntityVelocity(w *level.World, entityId int32, vx, vy, vz float64) {
-	packet := packets.EntityVelocityPacket{
-		EntityId: entityId,
-		Vx:       vx,
-		Vy:       vy,
-		Vz:       vz,
-	}
-	w.BroadcastPacket(packet.Serialize())
-}
-
 func NewEntityVelocityPacket(entityId int32, m constants.MovementState) []byte {
 	p := packets.EntityVelocityPacket{
 		EntityId: entityId,
@@ -637,44 +557,3 @@ func BroadcastTime(w *level.World, tick int64) {
 	w.BroadcastPacket(p.Serialize())
 }
 
-type SpawnObject struct {
-	EntityId      int32
-	ObjectType    byte
-	X             int32
-	Y             int32
-	Z             int32
-	OwnerEntityId int32
-	VelocityX     int16
-	VelocityY     int16
-	VelocityZ     int16
-}
-
-func (p *SpawnObject) Serialize() []byte {
-	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.SpawnObject)
-	writer.WriteInt32(p.EntityId)
-	writer.WriteByte(p.ObjectType)
-	writer.WriteInt32(p.X)
-	writer.WriteInt32(p.Y)
-	writer.WriteInt32(p.Z)
-	writer.WriteInt32(p.OwnerEntityId)
-	writer.WriteInt16(p.VelocityX)
-	writer.WriteInt16(p.VelocityY)
-	writer.WriteInt16(p.VelocityZ)
-	return writer.Bytes()
-}
-
-func BroadcastSpawnObject(w *level.World, eId int32, oType byte, x, y, z, oeId int32, velX, velY, velZ int16) {
-	p := SpawnObject{
-		EntityId:      eId,
-		ObjectType:    oType,
-		X:             x,
-		Y:             y,
-		Z:             z,
-		OwnerEntityId: oeId,
-		VelocityX:     velX,
-		VelocityY:     velY,
-		VelocityZ:     velZ,
-	}
-	w.BroadcastPacket(p.Serialize())
-}

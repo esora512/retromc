@@ -43,7 +43,7 @@ var commandHelp = []struct {
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 	{"/size", "/size"},
 	{"/version", "/version"},
-	{"/summon", "/summon [x y z]"},
+	{"/summon", "/summon [zombie|skeleton|spider|creeper|pig|sheep] [x y z]"},
 	{"/chainmine", "/chainmine"},
 }
 
@@ -373,17 +373,17 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				}
 			}
 
-			switch mobType {
-			case "skeleton":
-				sendDebugMessage(pl, fmt.Sprintf("Spawned Skeleton at x=%d, y=%d, z=%d", x, y, z))
-				world.SpawnSkeleton(x, y, z, pl.Dimension, -1)
-			case "pig":
-				sendDebugMessage(pl, fmt.Sprintf("Spawned Pig at x=%d, y=%d, z=%d", x, y, z))
-				world.SpawnPig(x, y, z, pl.Dimension)
-			default:
-				sendDebugMessage(pl, fmt.Sprintf("Spawned Spider at x=%d, y=%d, z=%d", x, y, z))
-				world.SpawnSpider(x, y, z, pl.Dimension, -1)
+			mobTypes := map[string]byte{
+				"zombie": constants.Zombie, "skeleton": constants.Skeleton, "spider": constants.Spider,
+				"creeper": constants.Creeper, "pig": constants.Pig, "sheep": constants.Sheep,
 			}
+			t, ok := mobTypes[mobType]
+			if !ok {
+				sendUsage(pl, "/summon")
+				return false
+			}
+			world.SpawnMobType(t, x, y, z, pl.Dimension, -1)
+			sendDebugMessage(pl, fmt.Sprintf("Spawned %s at x=%d, y=%d, z=%d", mobType, x, y, z))
 		}
 
 		if strings.HasPrefix(message, "/chainmine") {

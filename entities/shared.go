@@ -13,8 +13,12 @@ type WorldShared interface {
 	FindNearbyPlayer(m *Mob) (int32, bool)
 	SnapshotEntities() []constants.Entity
 	GetBlock(x int32, y byte, z int32, dim int32) constants.WBlock
+	SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32)
+	NotifyBlockRemoved(x, y, z int32, oldType byte, dim int32)
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
+	HurtPlayer(pl *player.Player, attacker constants.Entity, dmg int16) int16
+	DropItemFromMinedBlock(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	BroadcastPacket(data []byte)
 

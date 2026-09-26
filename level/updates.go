@@ -277,6 +277,15 @@ func (w *World) TriggerFallableUpdate(x, y, z int32, setBlock SetBlock, dim int3
 	notifyFallableNeighbours(w, x, y, z, setBlock, dim)
 }
 
+// NotifyBlockRemoved runs the neighbour updates mining triggers after a block is removed by other means.
+func (w *World) NotifyBlockRemoved(x, y, z int32, oldType byte, dim int32) {
+	w.TriggerFallableUpdate(x, y, z, w.SetBlockInQueue, dim)
+	w.TriggerFluidUpdate(x, y, z, w.SetBlockInQueue, dim)
+	if oldType == byte(constants.Log.Value) {
+		w.TriggerLeafUpdate(x, y, z, w.SetBlockInQueue, dim)
+	}
+}
+
 func (w *World) TriggerLeafUpdate(x, y, z int32, setBlock SetBlock, dim int32) {
 	notifyLeafNeighbours(w, x, y, z, setBlock, dim)
 }

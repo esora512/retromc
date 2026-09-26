@@ -2,6 +2,7 @@ package level
 
 import (
 	"math"
+	"math/rand"
 
 	c "github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -9,20 +10,7 @@ import (
 )
 
 func NewSpider(w *World, x, y, z float64, dim int32) *e.Mob {
-	m := e.Mob{EntityId: w.NextEntityId(),
-		X: x, Y: y, Z: z,
-		Yaw: 0, Pitch: 0,
-		Vx: 0, Vy: 0, Vz: 0,
-		Dimension: dim,
-		MobType:   c.Spider,
-		Metadata:  0,
-		TargetId:  -1,
-		HP:        10,
-		OnGround:  true,
-		DespawnIn: -1,
-	}
-	m.MovementState.IsDead = false
-	return &m
+	return e.NewMob(w.NextEntityId(), c.Spider, x, y, z, dim)
 }
 
 func (w *World) FindNearbyPlayer(m *entities.Mob) (int32, bool) {
@@ -54,56 +42,36 @@ func (w *World) FindNearbyPlayer(m *entities.Mob) (int32, bool) {
 	return closestId, true
 }
 
+func (w *World) SpawnMobType(mobType byte, x, y, z, dim int32, target int32) int32 {
+	m := e.NewMob(w.NextEntityId(), mobType, float64(x)+0.5, float64(y), float64(z)+0.5, dim)
+	m.SetTarget(target)
+	w.Entities[m.EntityId] = m
+	return m.EntityId
+}
+
 func (w *World) SpawnSpider(x, y, z, dim int32, target int32) int32 {
-	s := NewSpider(w, float64(x), float64(y), float64(z), dim)
-	s.SetTarget(target)
-	w.Entities[s.EntityId] = s
-	return s.EntityId
+	return w.SpawnMobType(c.Spider, x, y, z, dim, target)
 }
 
 func NewSkeleton(w *World, x, y, z float64, dim int32) *e.Mob {
-	m := e.Mob{EntityId: w.NextEntityId(),
-		X: x, Y: y, Z: z,
-		Yaw: 0, Pitch: 0,
-		Vx: 0, Vy: 0, Vz: 0,
-		Dimension: dim,
-		MobType:   c.Skeleton,
-		Metadata:  0,
-		TargetId:  -1,
-		HP:        10,
-		OnGround:  true,
-		DespawnIn: -1,
-	}
-	m.MovementState.IsDead = false
-	return &m
+	return e.NewMob(w.NextEntityId(), c.Skeleton, x, y, z, dim)
 }
 
 func (w *World) SpawnSkeleton(x, y, z, dim int32, target int32) int32 {
-	s := NewSkeleton(w, float64(x), float64(y), float64(z), dim)
-	s.SetTarget(target)
-	w.Entities[s.EntityId] = s
-	return s.EntityId
+	return w.SpawnMobType(c.Skeleton, x, y, z, dim, target)
 }
 
 func NewPig(w *World, x, y, z float64, dim int32) *e.Mob {
-	m := e.Mob{EntityId: w.NextEntityId(),
-		X: x, Y: y, Z: z,
-		Yaw: 0, Pitch: 0,
-		Vx: 0, Vy: 0, Vz: 0,
-		Dimension: dim,
-		MobType:   c.Pig,
-		Metadata:  0,
-		TargetId:  -1,
-		HP:        10,
-		OnGround:  true,
-		DespawnIn: -1,
-	}
-	m.MovementState.IsDead = false
-	return &m
+	return e.NewMob(w.NextEntityId(), c.Pig, x, y, z, dim)
 }
 
 func (w *World) SpawnPig(x, y, z, dim int32) int32 {
-	p := NewPig(w, float64(x), float64(y), float64(z), dim)
-	w.Entities[p.EntityId] = p
-	return p.EntityId
+	return w.SpawnMobType(c.Pig, x, y, z, dim, -1)
+}
+
+var hostileTypes = []byte{c.Zombie, c.Skeleton, c.Spider, c.Creeper}
+var animalTypes = []byte{c.Pig, c.Sheep}
+
+func randomType(types []byte) byte {
+	return types[rand.Intn(len(types))]
 }

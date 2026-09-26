@@ -257,26 +257,27 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				pl.Inventory.Items[pl.HotbarSlot] = item
 			}
 		}
+		if mob, ok := other.(*entities.Mob); ok {
+			if _, fresh := mob.Hurt(world, dmg); fresh {
+				applyKnockback(world, pl, mob)
+			}
+			mob.SetTargetForced(pl.GetEntityId())
+			return
+		}
+
 		if other.GetEntityType() == constants.Player {
 			otherPlayer := world.Players[other.GetEntityId()]
 			dmg = dmgReduced(world, otherPlayer, otherPlayer.Inventory.Items, dmg)
 			SendSetHealth(otherPlayer.Connection, uint16(oldHP-dmg))
 			otherPlayer.MovementState.IsHurt = true
-
-		} else if other.GetEntityType() == constants.Mob {
-			if mob, ok := other.(*entities.Mob); ok {
-				mob.MovementState.IsHurt = true
-				mob.SetTargetForced(pl.GetEntityId())
-			}
 		}
 
 		newHP := oldHP - dmg
 		other.SetHP(newHP)
 
 		eType := other.GetEntityType()
-		if eType == constants.Player || eType == constants.Mob {
+		if eType == constants.Player {
 			applyKnockback(world, pl, other)
-
 		}
 
 		if eType == constants.Ridable {
@@ -313,42 +314,30 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 					world.DropItemFromMinedBlock(x, y, z, constants.Minecart.Value, 0, 1, other.GetDim(), 5)
 				}
 			}
-
-			if other.GetEntityType() == constants.Mob {
-				m, _ := other.(*entities.Mob)
-				m.DespawnIn = 21
-				x, y, z := m.GetPosition()
-				switch m.MobType {
-				case constants.Spider:
-					dropMobLoot(world, x, y, z, constants.String.Value, other.GetDim())
-					m.Vx, m.Vy, m.Vz = 0, 0, 0
-				case constants.Skeleton:
-					dropMobLoot(world, x, y, z, constants.Bone.Value, other.GetDim())
-					dropMobLoot(world, x, y, z, constants.Arrow.Value, other.GetDim())
-					m.Vx, m.Vy, m.Vz = 0, 0, 0
-				case constants.Pig:
-					dropMobLoot(world, x, y, z, constants.Porkchop.Value, other.GetDim())
-					m.Vx, m.Vy, m.Vz = 0, 0, 0
-				}
-			}
 		}
 		return
 	}
 
 	pl.MovementState.ArmSwing = true
+	if mob, ok := other.(*entities.Mob); ok {
+		if pl.Inventory.Items[pl.HotbarSlot].TypeId == constants.Shears.Value && mob.Shear(world) {
+			damageHeldItemOnDig(pl)
+		}
+		return
+	}
 	if other.GetEntityType() == constants.Ridable {
 		ridable, _ := other.(*entities.RideableEntity)
 		if pl.IsRiding != -1 {
 			pl.OnGround = true
 			pl.IsRiding = -1
-			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, false))
-			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
+			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.PlayerEntityMetadataPacketRiding(pl, false))
+			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
 			pl.Immune = 75
 			log.Printf("%s got off", pl.Username)
 		} else {
-			world.BroadcastPacket(packets.PlayerEntityMetadataPacketRiding(pl, true))
-			world.BroadcastPacket(packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))
+			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.PlayerEntityMetadataPacketRiding(pl, true))
+			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))
 			pl.IsRiding = other.GetEntityId()
 			ridable.PassengerEntityId = pl.GetEntityId()
 			pl.Lx = pl.X
@@ -379,13 +368,24 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 	}
 }
 
-func dropMobLoot(world *level.World, x, y, z float64, item int16, dim int32) {
-	if n := rand.Intn(3); n > 0 {
-		world.DropItemFromMinedBlock(x, y, z, item, 0, byte(n), dim, 5)
+func HurtPlayer(world *level.World, pl *player.Player, attacker constants.Entity, dmg int16) int16 {
+	if pl.HP <= 0 {
+		return pl.HP
 	}
-}
-
-func BroadcastDespawn(world *level.World, id int32) {
-	despawn := packets.DespawnEntityPacket{EntityId: id}
-	world.BroadcastPacket(despawn.Serialize())
+	dmg = dmgReduced(world, pl, pl.Inventory.Items, dmg)
+	pl.SetHP(max(pl.HP-dmg, 0))
+	SendSetHealth(pl.Connection, uint16(pl.HP))
+	pl.MovementState.IsHurt = true
+	if attacker != nil {
+		applyKnockback(world, attacker, pl)
+	}
+	if pl.HP == 0 {
+		cause := "an explosion"
+		if attacker != nil {
+			cause = "a " + attacker.GetName()
+		}
+		msg := packets.ChatMessagePacket{Message: pl.GetName() + " was killed by " + cause}
+		world.BroadcastPacket(msg.Serialize())
+	}
+	return pl.HP
 }

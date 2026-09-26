@@ -68,7 +68,6 @@ func main() {
 	world.SetCollectItem(packets.CollectItem)
 	world.SetSendSetSlot(packethandler.SendSetSlot)
 	world.SetSendContainerData(packethandler.SendContainerData)
-	world.SetBroadcastDespawn(packethandler.BroadcastDespawn)
 	world.SetBroadcastSetSlot(packethandler.BroadcastSetSlot)
 	world.SetBroadcastContainerData(packethandler.BroadcastContainerData)
 	world.SetBroadcastBlockChange(packets.BroadcastBlockChange)
@@ -76,6 +75,7 @@ func main() {
 	world.SetBroadcastTime(packethandler.BroadcastTime)
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
+	world.SetHurtPlayer(packethandler.HurtPlayer)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 
 	world.SetOppedUsernames(ops)
