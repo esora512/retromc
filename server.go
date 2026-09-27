@@ -201,6 +201,7 @@ func (s *Server) Run() {
 					tick := s.World.Tick
 					if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
 						ents := s.World.CaptureEntities(removed, 0, s.Tracker.ResetEntity)
+							s.World.RelightForSave(removed, ents, 0)
 						go func() {
 							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, 0, tick); err != nil {
 								log.Println("Failed to save the s.World:", err)
@@ -209,6 +210,7 @@ func (s *Server) Run() {
 					}
 					if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
 						ents := s.World.CaptureEntities(removed, -1, s.Tracker.ResetEntity)
+							s.World.RelightForSave(removed, ents, -1)
 						go func() {
 							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, -1, tick); err != nil {
 								log.Println("Failed to save the s.World:", err)

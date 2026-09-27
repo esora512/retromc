@@ -133,7 +133,7 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 		}
 
 		if chunk, ok := world.PeekChunk(coord.X, coord.Z, dim); ok {
-			world.RelightForSend(coord.X, coord.Z, dim, chunk)
+			world.RelightChunk(coord.X, coord.Z, dim, chunk)
 			sendChunkToPlayer(pl, coord, chunk)
 			continue
 		}
@@ -167,7 +167,7 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 				}
 				chunk := world.InsertChunk(coord.X, coord.Z, dim, generated)
 				if !pl.SentChunks.Has(coord.String()) {
-					world.RelightForSend(coord.X, coord.Z, dim, chunk)
+					world.RelightChunk(coord.X, coord.Z, dim, chunk)
 					sendChunkToPlayer(pl, coord, chunk)
 				}
 				remaining--

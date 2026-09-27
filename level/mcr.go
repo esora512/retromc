@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/leNicDev/retromc/constants"
@@ -64,6 +65,8 @@ func buildFurnaceNBT(x, y, z int32, furnace *inventory.Furnace) *mcregion.Compou
 	comp.Int("x", x)
 	comp.Int("y", y)
 	comp.Int("z", z)
+	comp.Short("BurnTime", int16(furnace.FuelRemain))
+	comp.Short("CookTime", int16(furnace.Progress))
 	comp.CompoundList("Items", items)
 	return comp
 }
@@ -87,38 +90,25 @@ func buildDispenserNBT(x, y, z int32, dispenser *inventory.Dispenser) *mcregion.
 }
 
 // Uses chunk.GetBlock to build NBT chunk block by block
-func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, ents []*mcregion.Compound, tick int64) *mcregion.Compound {
-	blocks := make([]byte, 16*CHUNK_HEIGHT*16)
-	data := make([]byte, len(blocks)/2)
-	skyLight := make([]byte, len(blocks)/2)
-	blockLight := make([]byte, len(blocks)/2)
+func (w *World) buildChunkNBT(ch *Chunk, cx, cz, dim int32, ents []*mcregion.Compound, tick int64) *mcregion.Compound {
+	// Chunk.Data already uses the MCRegion index order and nibble packing.
+	blocks := append([]byte(nil), ch.Data[:chunkBlocksAmount]...)
+	data := append([]byte(nil), ch.Data[chunkMetaOffset:chunkMetaOffset+chunkNibbleCount]...)
+	blockLight := append([]byte(nil), ch.Data[chunkLightOffset:chunkLightOffset+chunkNibbleCount]...)
+	skyLight := append([]byte(nil), ch.Data[chunkSkyOffset:chunkSkyOffset+chunkNibbleCount]...)
+
 	heightMap := make([]byte, 256)
-
-	setNibble := func(arr []byte, index int, v byte) {
-		if index%2 == 0 {
-			arr[index/2] = (arr[index/2] & 0xF0) | (v & 0x0F)
-		} else {
-			arr[index/2] = (arr[index/2] & 0x0F) | (v << 4)
-		}
-	}
-
 	for lx := 0; lx < 16; lx++ {
 		for lz := 0; lz < 16; lz++ {
-			top := byte(0)
-			for y := 0; y < CHUNK_HEIGHT; y++ {
-				b := ch.GetBlock(lx, y, lz)
-				idx := lx*CHUNK_HEIGHT*16 + lz*CHUNK_HEIGHT + y
-
-				blocks[idx] = b.TypeId
-				setNibble(data, idx, b.Metadata)
-				setNibble(skyLight, idx, b.SkyLight)
-				setNibble(blockLight, idx, b.Light)
-
-				if b.SkyLight > 0 || b.TypeId != 0 {
-					top = byte(y + 1)
+			base := lx*CHUNK_HEIGHT*16 + lz*CHUNK_HEIGHT
+			top := 0
+			for y := CHUNK_HEIGHT - 1; y >= 0; y-- {
+				if constants.LightOpacity[blocks[base+y]] != 0 {
+					top = y + 1
+					break
 				}
 			}
-			heightMap[lz*16+lx] = top
+			heightMap[lz*16+lx] = byte(top)
 		}
 	}
 
@@ -138,48 +128,26 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz int32, ents []*mcregion.Compound
 		level.EmptyList("Entities")
 	}
 
-	if len(w.Containers.Chests) > 0 {
-		var tileEntities []*mcregion.Compound
-		for pos, inv := range w.Containers.Chests {
-			chunkX := WorldToChunkCoord(pos.X)
-			chunkZ := WorldToChunkCoord(pos.Z)
-			if chunkX != cx || chunkZ != cz {
-				continue
-			}
-			// Negative coord correction
-			lx := pos.X & 15
-			lz := pos.Z & 15
-			worldX := cx*16 + lx
-			worldZ := cz*16 + lz
-			tileEntities = append(tileEntities, buildChestNBT(worldX, int32(pos.Y), worldZ, inv))
+	var tileEntities []*mcregion.Compound
+	inChunk := func(k BlockKey) bool {
+		return k.Dim == dim && WorldToChunkCoord(k.X) == cx && WorldToChunkCoord(k.Z) == cz
+	}
+	for pos, inv := range w.Containers.Chests {
+		if inChunk(pos) {
+			tileEntities = append(tileEntities, buildChestNBT(pos.X, int32(pos.Y), pos.Z, inv))
 		}
-
-		for pos, inv := range w.Containers.Furnaces {
-			chunkX := WorldToChunkCoord(pos.X)
-			chunkZ := WorldToChunkCoord(pos.Z)
-			if chunkX != cx || chunkZ != cz {
-				continue
-			}
-			lx := pos.X & 15
-			lz := pos.Z & 15
-			worldX := cx*16 + lx
-			worldZ := cz*16 + lz
-			tileEntities = append(tileEntities, buildFurnaceNBT(worldX, int32(pos.Y), worldZ, inv))
+	}
+	for pos, inv := range w.Containers.Furnaces {
+		if inChunk(pos) {
+			tileEntities = append(tileEntities, buildFurnaceNBT(pos.X, int32(pos.Y), pos.Z, inv))
 		}
-
-		for pos, inv := range w.Containers.Dispensers {
-			chunkX := WorldToChunkCoord(pos.X)
-			chunkZ := WorldToChunkCoord(pos.Z)
-			if chunkX != cx || chunkZ != cz {
-				continue
-			}
-			lx := pos.X & 15
-			lz := pos.Z & 15
-			worldX := cx*16 + lx
-			worldZ := cz*16 + lz
-			tileEntities = append(tileEntities, buildDispenserNBT(worldX, int32(pos.Y), worldZ, inv))
+	}
+	for pos, inv := range w.Containers.Dispensers {
+		if inChunk(pos) {
+			tileEntities = append(tileEntities, buildDispenserNBT(pos.X, int32(pos.Y), pos.Z, inv))
 		}
-
+	}
+	if len(tileEntities) > 0 {
 		level.CompoundList("TileEntities", tileEntities)
 	} else {
 		level.EmptyList("TileEntities")
@@ -224,26 +192,42 @@ func snapshotChunks(w *World) chunkSnapshot {
 	for coord, ch := range w.nChunks {
 		nChunks[coord] = ch
 	}
-	return chunkSnapshot{
+	snap := chunkSnapshot{
 		oChunks: oChunks,
 		nChunks: nChunks,
 		oEnts:   w.CaptureEntities(oChunks, 0, nil),
 		nEnts:   w.CaptureEntities(nChunks, -1, nil),
 		tick:    w.Tick,
 	}
+	w.RelightForSave(oChunks, snap.oEnts, 0)
+	w.RelightForSave(nChunks, snap.nEnts, -1)
+	return snap
+}
+
+// SetBlock copies the placed block's own light values into the chunk, so stored light
+// is stale until the chunk is relit.
+func (w *World) RelightForSave(chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, dim int32) {
+	for coord, ch := range chunks {
+		if _, hasEnts := ents[coord]; ch != nil && (ch.HasChanged || hasEnts) {
+			w.RelightChunk(coord.X, coord.Z, dim, ch)
+		}
+	}
 }
 
 func saveChunkSnapshot(w *World, worldDir string, snap chunkSnapshot) error {
-	if err := saveChunksToRegion(w, worldDir, snap.oChunks, snap.oEnts, snap.tick); err != nil {
+	if err := saveChunksToRegion(w, worldDir, 0, snap.oChunks, snap.oEnts, snap.tick); err != nil {
 		return fmt.Errorf("saving overworld region: %w", err)
 	}
-	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), snap.nChunks, snap.nEnts, snap.tick); err != nil {
+	if err := saveChunksToRegion(w, filepath.Join(worldDir, "DIM-1"), -1, snap.nChunks, snap.nEnts, snap.tick); err != nil {
 		return fmt.Errorf("saving nether region: %w", err)
 	}
-	return saveLevelDat(worldDir, snap.tick)
+	return saveLevelDat(worldDir, w.Seed, snap.tick)
 }
 
-func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, tick int64) error {
+// Region and level.dat saves are read-modify-write and can run from several goroutines.
+var saveMu sync.Mutex
+
+func saveChunksToRegion(w *World, dir string, dim int32, chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, tick int64) error {
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -264,8 +248,11 @@ func saveChunksToRegion(w *World, dir string, chunks map[ChunkCoord]*Chunk, ents
 		if byRegion[rkey] == nil {
 			byRegion[rkey] = make(map[[2]int32]*mcregion.Compound)
 		}
-		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, chunkEnts, tick)
+		byRegion[rkey][[2]int32{lx, lz}] = w.buildChunkNBT(ch, coord.X, coord.Z, dim, chunkEnts, tick)
 	}
+
+	saveMu.Lock()
+	defer saveMu.Unlock()
 
 	regionDir := filepath.Join(dir, "region")
 	if err := os.MkdirAll(regionDir, 0o755); err != nil {
@@ -296,22 +283,40 @@ func SaveChunks(w *World, worldDir string, chunks map[ChunkCoord]*Chunk, ents ma
 		dir = filepath.Join(worldDir, "DIM-1")
 	}
 
-	if err := saveChunksToRegion(w, dir, chunks, ents, tick); err != nil {
+	if err := saveChunksToRegion(w, dir, dimension, chunks, ents, tick); err != nil {
 		return err
 	}
-	return saveLevelDat(worldDir, tick)
+	return saveLevelDat(worldDir, w.Seed, tick)
 }
 
-func saveLevelDat(worldDir string, tick int64) error {
+func saveLevelDat(worldDir string, seed, tick int64) error {
+	saveMu.Lock()
+	defer saveMu.Unlock()
+
+	var sizeOnDisk int64
+	filepath.WalkDir(worldDir, func(_ string, d os.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			if info, err := d.Info(); err == nil {
+				sizeOnDisk += info.Size()
+			}
+		}
+		return nil
+	})
+
 	data := mcregion.NewCompound()
+	data.Long("RandomSeed", seed)
+	data.Int("SpawnX", int32(player.SpawnX))
+	data.Int("SpawnY", int32(player.SpawnY))
+	data.Int("SpawnZ", int32(player.SpawnZ))
+	data.Int("rainTime", 0)
+	data.Int("thunderTime", 0)
+	data.Byte("raining", 0)
+	data.Byte("thundering", 0)
 	data.Long("Time", tick)
 	data.Long("LastPlayed", time.Now().UnixMilli())
-	data.Long("RandomSeed", 0)
-	data.Int("SpawnX", 0)
-	data.Int("SpawnY", 100)
-	data.Int("SpawnZ", 0)
+	data.Long("SizeOnDisk", sizeOnDisk)
 	data.String("LevelName", "world")
-	data.Int("version", 19132) // Version introduced in Beta 1.3
+	data.Int("version", 19132) // McRegion format version
 
 	root := mcregion.NewCompound()
 	root.AddCompound("Data", data)
@@ -327,7 +332,18 @@ func saveLevelDat(worldDir string, tick int64) error {
 	if err := gw.Close(); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(worldDir, "level.dat"), buf.Bytes(), 0o644)
+
+	path := filepath.Join(worldDir, "level.dat")
+	if old, err := os.ReadFile(path); err == nil {
+		if err := os.WriteFile(path+"_old", old, 0o644); err != nil {
+			return err
+		}
+	}
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, buf.Bytes(), 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, error) {
@@ -394,6 +410,18 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 				furnace.SetPosition(x, y, z)
 				furnace.Dim = dim
 				loadItemSlots(te, furnace.Items[:])
+				if t := te.Get("BurnTime"); t != nil && t.ShortVal > 0 {
+					furnace.FuelRemain = int(t.ShortVal)
+					furnace.IsBurning = true
+					// Vanilla also derives the fuel bar's max from the item left in the fuel slot.
+					furnace.MaxFuel = inventory.FuelBurnTime(furnace.Items[1].TypeId)
+					if furnace.MaxFuel < furnace.FuelRemain {
+						furnace.MaxFuel = furnace.FuelRemain
+					}
+				}
+				if t := te.Get("CookTime"); t != nil {
+					furnace.Progress = int(t.ShortVal)
+				}
 				w.Containers.Furnaces[key] = furnace
 			case "Trap":
 				dispenser := inventory.NewDispenser()
@@ -627,22 +655,60 @@ func playerDataFromNBT(root *mcregion.Tag) (*PlayerData, error) {
 }
 
 func ToPlayerData(p *player.Player) *PlayerData {
-	items := make([]PlayerInventorySlot, len(p.Inventory.Items))
+	var items []PlayerInventorySlot
 	for i, item := range p.Inventory.Items {
-		items[i].Slot = byte(i)
-		items[i].ItemID = item.TypeId
-		items[i].Damage = int16(item.Metadata)
-		items[i].Count = item.Count
+		nbtSlot, ok := windowToNbtSlot(i)
+		if !ok || item.TypeId <= 0 || item.Count == 0 {
+			continue
+		}
+		items = append(items, PlayerInventorySlot{
+			Slot:   nbtSlot,
+			ItemID: item.TypeId,
+			Damage: int16(item.Metadata),
+			Count:  item.Count,
+		})
 	}
 
-	return &PlayerData{
-		X: p.X, Y: p.Y, Z: p.Z,
-		Yaw:       p.Yaw,
-		Pitch:     p.Pitch,
-		Health:    p.HP,
-		Inventory: items,
-		Dimension: p.Dimension,
+	var onGround byte
+	if p.OnGround {
+		onGround = 1
 	}
+	data := NewPlayerData()
+	data.X, data.Y, data.Z = p.X, p.Y, p.Z
+	data.MotionX, data.MotionY, data.MotionZ = p.Vx, p.Vy, p.Vz
+	data.Yaw, data.Pitch = p.Yaw, p.Pitch
+	data.FallDistance = float32(p.FallDistance)
+	data.OnGround = onGround
+	data.Health = p.HP
+	data.Inventory = items
+	data.Dimension = p.Dimension
+	return data
+}
+
+// Beta NBT player slots: 0-8 hotbar, 9-35 main, 100-103 armor (boots..helmet).
+// The player window uses 5-8 armor (helmet..boots), 9-35 main, 36-44 hotbar.
+func windowToNbtSlot(w int) (byte, bool) {
+	switch {
+	case w >= 9 && w <= 35:
+		return byte(w), true
+	case w >= 36 && w <= 44:
+		return byte(w - 36), true
+	case w >= 5 && w <= 8:
+		return byte(108 - w), true
+	}
+	return 0, false
+}
+
+func nbtToWindowSlot(s byte) (int, bool) {
+	switch {
+	case s <= 8:
+		return int(s) + 36, true
+	case s <= 35:
+		return int(s), true
+	case s >= 100 && s <= 103:
+		return 108 - int(s), true
+	}
+	return 0, false
 }
 
 func ApplyPlayerData(p *player.Player, data *PlayerData) {
@@ -652,10 +718,11 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 		items[i] = inventory.NewItem(-1, 0, 0)
 	}
 	for _, saved := range data.Inventory {
-		if int(saved.Slot) < 0 || int(saved.Slot) >= size {
+		slot, ok := nbtToWindowSlot(saved.Slot)
+		if !ok || slot >= size || saved.ItemID <= 0 || saved.Count == 0 {
 			continue
 		}
-		items[saved.Slot] = inventory.Item{
+		items[slot] = inventory.Item{
 			TypeId:   saved.ItemID,
 			Metadata: uint16(saved.Damage),
 			Count:    saved.Count,
@@ -663,7 +730,10 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 	}
 	//log.Printf("Stored Coords x=%f, y=%f, z=%f", data.X, data.Y, data.Z)
 	p.X, p.Y, p.Z = data.X, data.Y, data.Z
+	p.Vx, p.Vy, p.Vz = data.MotionX, data.MotionY, data.MotionZ
 	p.Yaw, p.Pitch = data.Yaw, data.Pitch
+	p.FallDistance = float64(data.FallDistance)
+	p.OnGround = data.OnGround != 0
 	p.HP = data.Health
 	p.Inventory.Items = items
 	p.Dimension = data.Dimension

@@ -9,7 +9,7 @@ const (
 
 type lightPos struct{ x, y, z int16 }
 
-func (w *World) RelightForSend(cx, cz, dim int32, c *Chunk) {
+func (w *World) RelightChunk(cx, cz, dim int32, c *Chunk) {
 	c.RelightAll()
 
 	var grid [3][3]*Chunk

@@ -27,12 +27,6 @@ func WriteRegion(path string, chunks map[[2]int32]*Compound, rawChunks map[[2]in
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	locations := make([]byte, sectorSize)
 	timestamps := make([]byte, sectorSize)
 
@@ -102,16 +96,29 @@ func WriteRegion(path string, chunks map[[2]int32]*Compound, rawChunks map[[2]in
 		}
 	}
 
-	if _, err := f.Write(locations); err != nil {
+	// Write to a temp file and rename so an interrupted save can't leave a truncated region.
+	tmpPath := path + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
 		return err
 	}
-	if _, err := f.Write(timestamps); err != nil {
+	for _, part := range [][]byte{locations, timestamps, body.Bytes()} {
+		if _, err := f.Write(part); err != nil {
+			f.Close()
+			os.Remove(tmpPath)
+			return err
+		}
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
 		return err
 	}
-	if _, err := f.Write(body.Bytes()); err != nil {
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
 		return err
 	}
-	return nil
+	return os.Rename(tmpPath, path)
 }
 
 // RegionFileName returns e.g. "r.8.20.mcr" for the region containing the
