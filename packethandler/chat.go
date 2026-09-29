@@ -43,6 +43,7 @@ var commandHelp = []struct {
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
 	{"/size", "/size"},
 	{"/version", "/version"},
+	{"/stats", "/stats"},
 	{"/summon", "/summon [zombie|skeleton|spider|creeper|pig|sheep] [x y z]"},
 	{"/chainmine", "/chainmine"},
 }
@@ -234,6 +235,16 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			sendDebugMessage(pl, sys)
 			sendDebugMessage(pl, totalAlloc)
 			sendDebugMessage(pl, numGC)
+		}
+
+		if strings.HasPrefix(message, "/stats") {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			mb := func(b uint64) float64 { return float64(b) / 1024 / 1024 }
+			sendDebugMessage(pl,
+				fmt.Sprintf("Memory used: %.1f MB (heap %.1f MB)", mb(m.Sys-m.HeapReleased), mb(m.HeapAlloc)),
+				fmt.Sprintf("Reserved from OS: %.1f MB", mb(m.Sys)),
+			)
 		}
 
 		if strings.HasPrefix(message, "/version") {
