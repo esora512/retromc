@@ -282,15 +282,12 @@ func applyChunkVisibility(world *level.World, pl *player.Player, cx, cz int32, w
 			continue
 		}
 
-		chunk := world.GetOrCreateChunk(coord.X, coord.Z, pl.Dimension)
-
-		pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
-		pl.Connection.Write(pre.Serialize())
-
-		mapChunk := packets.ChunkBlockRegionPacket{}
-		mapChunk.Apply(*chunk)
-		pl.Connection.Write(mapChunk.Serialize())
-		pl.SentChunks.Set(key, coord.X, coord.Z)
+		if chunk, ok := world.PeekChunk(coord.X, coord.Z, pl.Dimension); ok {
+			world.RelightChunk(coord.X, coord.Z, pl.Dimension, chunk)
+			sendChunkToPlayer(pl, coord, chunk)
+			continue
+		}
+		requestChunkForPlayer(world, pl, coord)
 	}
 
 	for key, coord := range pl.SentChunks {
@@ -300,6 +297,37 @@ func applyChunkVisibility(world *level.World, pl *player.Player, cx, cz int32, w
 			delete(pl.SentChunks, key)
 		}
 	}
+}
+
+func requestChunkForPlayer(world *level.World, pl *player.Player, coord level.ChunkCoord) {
+	key := coord.String()
+	if pl.RequestedChunks == nil {
+		pl.RequestedChunks = make(player.ChunkSet)
+	}
+	if pl.RequestedChunks.Has(key) {
+		return
+	}
+	pl.RequestedChunks.Set(key, coord.X, coord.Z)
+	dim := pl.Dimension
+	world.RequestChunkAsync(coord.X, coord.Z, dim, func(generated *level.Chunk) {
+		world.Enqueue(func() {
+			delete(pl.RequestedChunks, key)
+			chunk := world.InsertChunk(coord.X, coord.Z, dim, generated)
+			if !world.HasPlayer(pl) || pl.Dimension != dim {
+				return
+			}
+			dx, dz := coord.X-pl.LastChunkX, coord.Z-pl.LastChunkZ
+			if dx < -VIEW_DISTANCE || dx > VIEW_DISTANCE || dz < -VIEW_DISTANCE || dz > VIEW_DISTANCE {
+				return
+			}
+			pl.SentChunksMu.Lock()
+			defer pl.SentChunksMu.Unlock()
+			if !pl.SentChunks.Has(key) {
+				world.RelightChunk(coord.X, coord.Z, dim, chunk)
+				sendChunkToPlayer(pl, coord, chunk)
+			}
+		})
+	})
 }
 
 func decodeChunkCoord(key string) (level.ChunkCoord, bool) {

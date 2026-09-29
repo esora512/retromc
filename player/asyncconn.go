@@ -9,7 +9,7 @@ import (
 
 const writeDeadline = 15 * time.Second
 
-const sendQueueSize = 512
+const sendQueueSize = 8192
 
 type asyncConn struct {
 	net.Conn

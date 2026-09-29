@@ -146,6 +146,7 @@ type Player struct {
 	DebugBlock           bool
 
 	SentChunks           ChunkSet
+	RequestedChunks      ChunkSet
 	LastChunkX           int32
 	LastChunkZ           int32
 	HasInitializedChunks bool
