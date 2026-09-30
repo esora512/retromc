@@ -890,9 +890,6 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	if !pl.LoggedIn {
 		return
 	}
-	oldExisting := world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
-	logPlacementDebug(pl, oldExisting, p)
-
 	isUse := p.X == -1 && p.Y == 255 && p.Z == -1
 	if !isUse && !inReach(pl, p.X, int32(p.Y), p.Z, 8) {
 		return
@@ -901,6 +898,12 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	if isUse && tryEat(world, pl) {
 		return
 	}
+
+	oldExisting := constants.NewAirBlock()
+	if !isUse {
+		oldExisting = world.GetBlock(p.X, byte(p.Y), p.Z, pl.Dimension)
+	}
+	logPlacementDebug(pl, oldExisting, p)
 
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return

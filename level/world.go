@@ -587,6 +587,9 @@ func printCallStack() {
 
 // SetBlock updates a single block in the world using world-space coordinates.
 func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constants.WBlock, dim int32) {
+	if int(worldY) >= CHUNK_SIZE_Y {
+		return
+	}
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, dim)
@@ -598,6 +601,9 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constant
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) constants.WBlock {
+	if int(worldY) >= CHUNK_SIZE_Y {
+		return constants.NewAirBlock()
+	}
 	cx := WorldToChunkCoord(worldX)
 	cz := WorldToChunkCoord(worldZ)
 	chunk := w.GetOrCreateChunk(cx, cz, dim)
