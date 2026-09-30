@@ -1732,16 +1732,16 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *con
 	switch face {
 	case 3:
 		block.Metadata = directions.South
-		log.Println("South")
+		//log.Println("South")
 	case 2:
 		block.Metadata = directions.North
-		log.Println("North")
+		//log.Println("North")
 	case 4:
 		block.Metadata = directions.West
-		log.Println("West")
+		//log.Println("West")
 	case 5:
 		block.Metadata = directions.East
-		log.Println("East")
+		//log.Println("East")
 	default:
 		block.Metadata = 0
 	}
@@ -1835,15 +1835,9 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 
 	cx := level.WorldToChunkCoord(int32(newX))
 	cz := level.WorldToChunkCoord(int32(newZ))
-	coord := level.ChunkCoord{X: cx, Z: cz}
-	if !pl.SentChunks.Has(coord.String()) {
+	if !pl.SentChunks.Has(cx, cz) {
 		chunk := world.GetOrCreateChunk(cx, cz, pl.Dimension)
-		pre := packets.SetChunkVisibilityPacket{X: cx, Z: cz, Mode: true}
-		connection.Write(pre.Serialize())
-		mapChunk := packets.ChunkBlockRegionPacket{}
-		mapChunk.Apply(*chunk)
-		connection.Write(mapChunk.Serialize())
-		pl.SentChunks.Set(coord.String(), coord.X, coord.Z)
+		sendChunkToPlayer(world, pl, level.ChunkCoord{X: cx, Z: cz}, pl.Dimension, chunk)
 	}
 }
 

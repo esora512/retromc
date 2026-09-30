@@ -1,6 +1,9 @@
 package packets
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet"
 )
@@ -20,40 +23,21 @@ func (p *SetChunkVisibilityPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-type ChunkBlockRegionPacket struct {
-	X              int32
-	Y              int16
-	Z              int32
-	SizeX          byte
-	SizeY          byte
-	SizeZ          byte
-	CompressedSize int32
-	CompressedData []byte
-}
-
-func (p *ChunkBlockRegionPacket) Apply(chunk level.Chunk) {
-	p.X = chunk.X
-	p.Y = chunk.Y
-	p.Z = chunk.Z
-	p.SizeX = chunk.SizeX
-	p.SizeY = chunk.SizeY
-	p.SizeZ = chunk.SizeZ
-	p.CompressedData = chunk.CompressData()
-	p.CompressedSize = int32(len(p.CompressedData))
-}
-
-func (p *ChunkBlockRegionPacket) Serialize() []byte {
-	writer := packet.NewPacketWriter()
-	writer.WriteByte(packet.ChunkBlockRegion)
-	writer.WriteInt32(p.X)              // write chunk x position
-	writer.WriteInt16(p.Y)              // write chunk y position
-	writer.WriteInt32(p.Z)              // write chunk z position
-	writer.WriteByte(p.SizeX)           // write chunk size x
-	writer.WriteByte(p.SizeY)           // write chunk size y
-	writer.WriteByte(p.SizeZ)           // write chunk size z
-	writer.WriteInt32(p.CompressedSize) // write compressed chunk data size
-	writer.Write(p.CompressedData)      // write compressed chunk data
-	return writer.Bytes()
+// NewChunkBlockRegionPacket serializes a full chunk, compressing its data straight into the packet buffer.
+func NewChunkBlockRegionPacket(chunk *level.Chunk, light *level.ChunkLight) []byte {
+	var buf bytes.Buffer
+	buf.Grow(16 * 1024)
+	buf.WriteByte(packet.ChunkBlockRegion)
+	binary.Write(&buf, binary.BigEndian, chunk.X)
+	binary.Write(&buf, binary.BigEndian, chunk.Y)
+	binary.Write(&buf, binary.BigEndian, chunk.Z)
+	buf.Write([]byte{chunk.SizeX, chunk.SizeY, chunk.SizeZ})
+	sizeOffset := buf.Len()
+	buf.Write(make([]byte, 4)) // compressed size, filled in below
+	chunk.WriteCompressed(&buf, light)
+	out := buf.Bytes()
+	binary.BigEndian.PutUint32(out[sizeOffset:], uint32(len(out)-sizeOffset-4))
+	return out
 }
 
 type WorldEventPacket struct {

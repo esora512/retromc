@@ -199,20 +199,15 @@ func (s *Server) Run() {
 				s.World.AdvanceTick(nextTick, s.Tracker)
 				if s.World.Tick%120 == 0 {
 					tick := s.World.Tick
-					if removed := s.World.PopUnusedChunks(0); len(removed) > 0 {
-						ents := s.World.CaptureEntities(removed, 0, s.Tracker.ResetEntity)
-							s.World.RelightForSave(removed, ents, 0)
+					for _, dim := range []int32{0, -1} {
+						removed := s.World.PopUnusedChunks(dim)
+						if len(removed) == 0 {
+							continue
+						}
+						ents := s.World.CaptureEntities(removed, dim, s.Tracker.ResetEntity)
+						save := s.World.PrepareSave(removed, ents, dim)
 						go func() {
-							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, 0, tick); err != nil {
-								log.Println("Failed to save the s.World:", err)
-							}
-						}()
-					}
-					if removed := s.World.PopUnusedChunks(-1); len(removed) > 0 {
-						ents := s.World.CaptureEntities(removed, -1, s.Tracker.ResetEntity)
-							s.World.RelightForSave(removed, ents, -1)
-						go func() {
-							if err := level.SaveChunks(s.World, s.World.WorldDir, removed, ents, -1, tick); err != nil {
+							if err := level.SaveChunks(s.World, save, tick); err != nil {
 								log.Println("Failed to save the s.World:", err)
 							}
 						}()

@@ -96,8 +96,6 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 
 	blockTypes := make([]byte, blocksAmount)
 	blockMetadata := make([]byte, nibbleCount)
-	blockLight := make([]byte, nibbleCount)
-	blockSkyLight := make([]byte, nibbleCount)
 
 	grid := generateMazeGrid(seed, cx, cz)
 	applyMazeBorders(seed, cx, cz, grid)
@@ -129,12 +127,8 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 		ni := i / 2
 		if i%2 == 0 {
 			blockMetadata[ni] = block.Metadata & 0x0f
-			blockLight[ni] = block.Light & 0x0f
-			blockSkyLight[ni] = block.SkyLight & 0x0f
 		} else {
 			blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
-			blockLight[ni] |= (block.Light & 0x0f) << 4
-			blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
 		}
 	}
 
@@ -150,7 +144,6 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 				var block constants.WBlock
 				if corridor {
 					block = constants.NewAirBlock()
-					block.SkyLight = 0x0f
 				} else {
 					block = constants.NewBedrockBlock()
 				}
@@ -159,9 +152,5 @@ func (c *Chunk) GenerateMaze(seed int64, cx, cz int32) {
 		}
 	}
 
-	c.Data = blockTypes
-	c.Data = append(c.Data, blockMetadata...)
-	c.Data = append(c.Data, blockLight...)
-	c.Data = append(c.Data, blockSkyLight...)
-	c.RelightAll()
+	c.setData(blockTypes, blockMetadata)
 }

@@ -54,9 +54,12 @@ func (ac *asyncConn) writeLoop() {
 func (ac *asyncConn) Write(b []byte) (int, error) {
 	data := make([]byte, len(b))
 	copy(data, b)
+	return ac.WriteOwned(data)
+}
 
+func (ac *asyncConn) WriteOwned(b []byte) (int, error) {
 	select {
-	case ac.sendCh <- data:
+	case ac.sendCh <- b:
 		return len(b), nil
 	case <-ac.closed:
 		return 0, net.ErrClosed
@@ -65,6 +68,13 @@ func (ac *asyncConn) Write(b []byte) (int, error) {
 		ac.Close()
 		return 0, net.ErrClosed
 	}
+}
+
+func WriteOwned(conn net.Conn, b []byte) (int, error) {
+	if ac, ok := conn.(*asyncConn); ok {
+		return ac.WriteOwned(b)
+	}
+	return conn.Write(b)
 }
 
 func (ac *asyncConn) Close() error {

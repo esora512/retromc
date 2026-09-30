@@ -3,6 +3,7 @@ package mcregion
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"math"
 )
 
@@ -64,6 +65,11 @@ func (c *Compound) FloatList(name string, values []float32) {
 
 func NewCompound() *Compound {
 	return &Compound{}
+}
+
+// Grow reserves room for n more bytes, avoiding repeated reallocation for large compounds.
+func (c *Compound) Grow(n int) {
+	c.buf.Grow(n)
 }
 
 func writeName(buf *bytes.Buffer, name string) {
@@ -137,11 +143,23 @@ func (c *Compound) Bytes() []byte {
 // TAG_Compound(""), contents, TAG_End.
 func (c *Compound) Root() []byte {
 	var out bytes.Buffer
-	out.WriteByte(tagCompound)
-	writeName(&out, "")
-	out.Write(c.buf.Bytes())
-	out.WriteByte(tagEnd)
+	c.WriteRoot(&out)
 	return out.Bytes()
+}
+
+// WriteRoot writes the same bytes as Root to w without building an intermediate copy.
+func (c *Compound) WriteRoot(w io.Writer) error {
+	var head bytes.Buffer
+	head.WriteByte(tagCompound)
+	writeName(&head, "")
+	if _, err := w.Write(head.Bytes()); err != nil {
+		return err
+	}
+	if _, err := w.Write(c.buf.Bytes()); err != nil {
+		return err
+	}
+	_, err := w.Write([]byte{tagEnd})
+	return err
 }
 
 func (c *Compound) CompoundList(name string, children []*Compound) {

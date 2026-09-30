@@ -31,7 +31,7 @@ type Tag struct {
 	IntVal    int32
 	LongVal   int64
 	StrVal    string
-	ByteArr   []byte
+	ByteArr   []byte // aliases the buffer passed to ParseRoot
 	ListType  TagType
 	List      []*Tag
 	Compound  map[string]*Tag
@@ -146,7 +146,7 @@ func (r *nbtReader) readPayload(t TagType) (*Tag, error) {
 		if err != nil {
 			return nil, err
 		}
-		tag.ByteArr = append([]byte(nil), b...)
+		tag.ByteArr = b[:len(b):len(b)] // aliases the parsed buffer; copy it before keeping it around
 	case TagString:
 		n, err := r.i16()
 		if err != nil {

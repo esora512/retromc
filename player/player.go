@@ -84,15 +84,15 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
-type ChunkSet map[string]*ChunkCoord
+type ChunkSet map[ChunkCoord]struct{}
 
-func (s ChunkSet) Has(key string) bool {
-	_, ok := s[key]
+func (s ChunkSet) Has(x, z int32) bool {
+	_, ok := s[ChunkCoord{X: x, Z: z}]
 	return ok
 }
 
-func (s ChunkSet) Set(key string, x, z int32) {
-	s[key] = &ChunkCoord{X: x, Z: z}
+func (s ChunkSet) Set(x, z int32) {
+	s[ChunkCoord{X: x, Z: z}] = struct{}{}
 }
 
 func (pl *Player) GetLoggedIn() bool {

@@ -494,8 +494,6 @@ func (c *Chunk) GenerateBareironBiomes(seed uint32, cx, cz int32) {
 
 	blockTypes := make([]byte, blocksAmount)
 	blockMetadata := make([]byte, nibbleCount)
-	blockLight := make([]byte, nibbleCount)
-	blockSkyLight := make([]byte, nibbleCount)
 
 	worldX := int(cx) * CHUNK_SIZE_X
 	worldZ := int(cz) * CHUNK_SIZE_Z
@@ -564,10 +562,6 @@ func (c *Chunk) GenerateBareironBiomes(seed uint32, cx, cz int32) {
 		}
 	}
 
-	c.Data = blockTypes
-	c.Data = append(c.Data, blockMetadata...)
-	c.Data = append(c.Data, blockLight...)
-	c.Data = append(c.Data, blockSkyLight...)
+	c.setData(blockTypes, blockMetadata)
 	applySnowToTrees(c, anchors)
-	c.RelightAll()
 }

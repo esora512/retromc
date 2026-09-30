@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"github.com/leNicDev/retromc/constants"
@@ -41,13 +42,16 @@ func (c *Chunk) Size() int64 {
 	return structOverhead + dataBytes
 }
 
-func (c *Chunk) CompressData() []byte {
-	var buf bytes.Buffer
-	writer := zlib.NewWriter(&buf)
-	writer.Write(c.Data)
-	writer.Close()
-	return buf.Bytes()
+func (c *Chunk) WriteCompressed(buf *bytes.Buffer, light *ChunkLight) {
+	zw := zlibWriterPool.Get().(*zlib.Writer)
+	zw.Reset(buf)
+	zw.Write(c.Data)
+	zw.Write(light.buf[:])
+	zw.Close()
+	zlibWriterPool.Put(zw)
 }
+
+var zlibWriterPool = sync.Pool{New: func() any { return zlib.NewWriter(nil) }}
 
 const GROUND_LEVEL = 64
 const GROUND_DEPTH = 16
@@ -62,8 +66,6 @@ func (c *Chunk) GenerateTemplate() {
 
 	blockTypes := make([]byte, blocksAmount)
 	blockMetadata := make([]byte, nibbleCount)
-	blockLight := make([]byte, nibbleCount)
-	blockSkyLight := make([]byte, nibbleCount)
 
 	for i := 0; i < blocksAmount; i++ {
 		y := i % CHUNK_SIZE_Y
@@ -81,7 +83,6 @@ func (c *Chunk) GenerateTemplate() {
 				} else {
 					block = constants.NewGrassBlock()
 				}
-				block.SkyLight = 0x0f
 			}
 		} else {
 			block = constants.NewAirBlock()
@@ -91,20 +92,12 @@ func (c *Chunk) GenerateTemplate() {
 		ni := i / 2
 		if i%2 == 0 { // lower nibble (bits 0-3)
 			blockMetadata[ni] = block.Metadata & 0x0f
-			blockLight[ni] = block.Light & 0x0f
-			blockSkyLight[ni] = block.SkyLight & 0x0f
 		} else { // upper nibble (bits 4-7)
 			blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
-			blockLight[ni] |= (block.Light & 0x0f) << 4
-			blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
 		}
 	}
 
-	c.Data = blockTypes
-	c.Data = append(c.Data, blockMetadata...)
-	c.Data = append(c.Data, blockLight...)
-	c.Data = append(c.Data, blockSkyLight...)
-	c.RelightAll()
+	c.setData(blockTypes, blockMetadata)
 	c.HasChanged = false
 }
 
@@ -114,83 +107,26 @@ func (c *Chunk) GenerateEmpty() {
 
 	blockTypes := make([]byte, blocksAmount)
 	blockMetadata := make([]byte, nibbleCount)
-	blockLight := make([]byte, nibbleCount)
-	blockSkyLight := make([]byte, nibbleCount)
 
-	for i := 0; i < blocksAmount; i++ {
-		ni := i / 2
-		if i%2 == 0 {
-			blockSkyLight[ni] = 0x0f
-		} else {
-			blockSkyLight[ni] |= 0x0f << 4
-		}
-	}
-
-	c.Data = blockTypes
-	c.Data = append(c.Data, blockMetadata...)
-	c.Data = append(c.Data, blockLight...)
-	c.Data = append(c.Data, blockSkyLight...)
-	c.RelightAll()
+	c.setData(blockTypes, blockMetadata)
 	c.HasChanged = false
-
-}
-
-// RelightColumn recalculates skylight for a single (lx, lz) column using a
-// simple top-down scan: skylight is 15 until the first non-transparent
-// block is hit (going top to bottom), then 0 for everything below.
-// No flood-fill / cave handling — assumes no overhangs reachable from
-// underground gaps, which holds for this world generation.
-func (c *Chunk) RelightColumn(lx, lz int) {
-	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
-	nibbleCount := blocksAmount / 2
-	skyOffset := blocksAmount + 2*nibbleCount
-
-	lit := true
-	for ly := CHUNK_SIZE_Y - 1; ly >= 0; ly-- {
-		i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
-		block := c.GetBlock(lx, ly, lz)
-
-		if lit && !block.IsTransparent() {
-			lit = false
-		}
-
-		var sky byte
-		if lit {
-			sky = 0x0f
-		} else {
-			sky = 0x00
-		}
-
-		ni := i / 2
-		if i%2 == 0 {
-			c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0xf0) | sky
-		} else {
-			c.Data[skyOffset+ni] = (c.Data[skyOffset+ni] & 0x0f) | (sky << 4)
-		}
-	}
-}
-
-// RelightAll relights every column in the chunk.
-func (c *Chunk) RelightAll() {
-	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
-		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
-			c.RelightColumn(lx, lz)
-		}
-	}
 }
 
 const (
 	chunkBlocksAmount = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	chunkNibbleCount  = chunkBlocksAmount / 2
 	chunkMetaOffset   = chunkBlocksAmount
-	chunkLightOffset  = chunkBlocksAmount + chunkNibbleCount
-	chunkSkyOffset    = chunkBlocksAmount + 2*chunkNibbleCount
+	chunkDataLen = chunkBlocksAmount + chunkNibbleCount
 )
+
+func (c *Chunk) setData(blocks, metadata []byte) {
+	c.Data = make([]byte, chunkDataLen)
+	copy(c.Data, blocks)
+	copy(c.Data[chunkMetaOffset:], metadata)
+}
 
 // SetBlock mutates a single block inside an already-generated chunk.
 // lx, ly, lz are local (0-based) coordinates within the chunk.
-// The Data layout mirrors generate(): blockTypes | blockMetadata | blockLight | blockSkyLight,
-// with nibble arrays packed two 4-bit values per byte.
 func (c *Chunk) SetBlock(lx, ly, lz int, block constants.WBlock) {
 	i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + ly
 	c.Data[i] = block.TypeId
@@ -200,8 +136,6 @@ func (c *Chunk) SetBlock(lx, ly, lz int, block constants.WBlock) {
 	mask := byte(0x0f) << shift
 
 	c.Data[chunkMetaOffset+ni] = (c.Data[chunkMetaOffset+ni] &^ mask) | ((block.Metadata << shift) & mask)
-	c.Data[chunkLightOffset+ni] = (c.Data[chunkLightOffset+ni] &^ mask) | ((block.Light << shift) & mask)
-	c.Data[chunkSkyOffset+ni] = (c.Data[chunkSkyOffset+ni] &^ mask) | ((block.SkyLight << shift) & mask)
 }
 
 func (c *Chunk) GetBlock(lx, ly, lz int) constants.WBlock {
@@ -212,20 +146,6 @@ func (c *Chunk) GetBlock(lx, ly, lz int) constants.WBlock {
 	metadata := (c.Data[chunkMetaOffset+ni] >> shift) & 0x0f
 
 	return constants.WBlock{TypeId: c.Data[i], Metadata: metadata}
-}
-
-func NewChunk() Chunk {
-	chunk := Chunk{
-		X:     0,
-		Y:     0,
-		Z:     0,
-		SizeX: CHUNK_SIZE_X - 1,
-		SizeY: CHUNK_SIZE_Y - 1,
-		SizeZ: CHUNK_SIZE_Z - 1,
-	}
-	chunk.GenerateEmpty()
-	chunk.HasChanged = false
-	return chunk
 }
 
 func chunkRand(worldSeed int64, cx, cz int32) *rand.Rand {
@@ -241,12 +161,6 @@ func chunkRand(worldSeed int64, cx, cz int32) *rand.Rand {
 	return rand.New(rand.NewSource(int64(h)))
 }
 
-// externalChunkGenEligible reports whether the requested chunk is one the
-// external generator should be given a chance to produce: the "real" terrain
-// case in each dimension (Default in the Overworld, Noodle -- the hardcoded
-// Nether path -- in the Nether), not an explicitly-chosen gimmick world type
-// like Maze/SkyGrid/Esorian/Template/Empty. A user who explicitly asked for
-// one of those via -wt still gets it even with external chunkgen configured.
 func externalChunkGenEligible(dim int32, worldType WorldType) bool {
 	if dim == -1 {
 		return worldType == Noodle
@@ -319,8 +233,6 @@ func (c *Chunk) GenerateSkyGrid() {
 
 	blockTypes := make([]byte, blocksAmount)
 	blockMetadata := make([]byte, nibbleCount)
-	blockLight := make([]byte, nibbleCount)
-	blockSkyLight := make([]byte, nibbleCount)
 
 	for i := 0; i < blocksAmount; i++ {
 		y := i % CHUNK_SIZE_Y
@@ -343,25 +255,17 @@ func (c *Chunk) GenerateSkyGrid() {
 		} else {
 			block = constants.NewAirBlock()
 		}
-		block.SkyLight = 0x0f
 
 		blockTypes[i] = block.TypeId
 
 		ni := i / 2
 		if i%2 == 0 {
 			blockMetadata[ni] = block.Metadata & 0x0f
-			blockLight[ni] = block.Light & 0x0f
-			blockSkyLight[ni] = block.SkyLight & 0x0f
 		} else {
 			blockMetadata[ni] |= (block.Metadata & 0x0f) << 4
-			blockLight[ni] |= (block.Light & 0x0f) << 4
-			blockSkyLight[ni] |= (block.SkyLight & 0x0f) << 4
 		}
 	}
-	c.Data = blockTypes
-	c.Data = append(c.Data, blockMetadata...)
-	c.Data = append(c.Data, blockLight...)
-	c.Data = append(c.Data, blockSkyLight...)
+	c.setData(blockTypes, blockMetadata)
 }
 
 // Global Chunk Operations
@@ -596,6 +500,12 @@ func (w *World) getRegionFile(path string) (*os.File, error) {
 	}
 	w.regionFiles[path] = f
 	return f, nil
+}
+
+func (w *World) forgetRegionFile(path string) {
+	w.regionFilesMu.Lock()
+	defer w.regionFilesMu.Unlock()
+	delete(w.regionFiles, path)
 }
 
 func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {

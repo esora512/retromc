@@ -19,7 +19,9 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-const VIEW_DISTANCE = 12
+// VIEW_DISTANCE is the chunk radius sent to and kept loaded around each player.
+// 10 matches the vanilla Beta 1.7.3 server.properties default.
+const VIEW_DISTANCE = 10
 
 // ChunkCoord is the map key for a chunk's position in the world.
 type ChunkCoord struct {

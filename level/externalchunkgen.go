@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/leNicDev/retromc/mcregion"
@@ -57,12 +58,13 @@ func (w *World) generateChunkExternal(cx, cz, dim int32) (*Chunk, error) {
 		return nil, fmt.Errorf("chunkgen invocation failed: %w (stderr: %s)", err, stderr.String())
 	}
 
-	raw, err := os.ReadFile(outPath)
+	raw, err := os.Open(outPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading chunkgen output: %w", err)
 	}
+	defer raw.Close()
 
-	c, err := chunkFromNBTBytes(w, raw, cx, cz, dim)
+	c, err := chunkFromNBT(w, raw, cx, cz, dim)
 	if err != nil {
 		return nil, err
 	}
@@ -70,19 +72,29 @@ func (w *World) generateChunkExternal(cx, cz, dim int32) (*Chunk, error) {
 	return c, nil
 }
 
-// chunkFromNBTBytes decodes a gzip-compressed standalone chunk NBT file 
-func chunkFromNBTBytes(w *World, raw []byte, cx, cz, dim int32) (*Chunk, error) {
-	gr, err := gzip.NewReader(bytes.NewReader(raw))
+var gzipReaderPool sync.Pool
+
+// chunkFromNBT decodes a gzip-compressed standalone chunk NBT file 
+func chunkFromNBT(w *World, raw io.Reader, cx, cz, dim int32) (*Chunk, error) {
+	var gr *gzip.Reader
+	var err error
+	if pooled := gzipReaderPool.Get(); pooled != nil {
+		gr = pooled.(*gzip.Reader)
+		err = gr.Reset(raw)
+	} else {
+		gr, err = gzip.NewReader(raw)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("chunkgen output is not gzip: %w", err)
 	}
-	defer gr.Close()
-	nbtData, err := io.ReadAll(gr)
-	if err != nil {
+	defer gzipReaderPool.Put(gr)
+	// A chunk's NBT is a little over 80 KB; size the buffer up front instead of growing it repeatedly.
+	nbtData := bytes.NewBuffer(make([]byte, 0, 96*1024))
+	if _, err := nbtData.ReadFrom(gr); err != nil {
 		return nil, fmt.Errorf("decompressing chunkgen output: %w", err)
 	}
 
-	root, err := mcregion.ParseRoot(nbtData)
+	root, err := mcregion.ParseRoot(nbtData.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("parsing chunkgen NBT: %w", err)
 	}

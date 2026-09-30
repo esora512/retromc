@@ -1,6 +1,7 @@
 package mcregion
 
 import (
+	"bufio"
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 const sectorSize = 4096
@@ -20,60 +22,80 @@ func regionCoord(c int32) int32 { return c >> 5 }
 // localCoord gives the 0-31 position of a chunk within its region.
 func localCoord(c int32) int32 { return c & 31 }
 
+// A zlib writer allocates ~1 MB of compressor state, so reuse them instead of creating one per chunk.
+var zlibWriterPool = sync.Pool{New: func() any { return zlib.NewWriter(nil) }}
+
 // WriteRegion writes one .mcr file containing the given chunks. chunks maps
 // local-in-region (lx, lz), each 0-31, to that chunk's already-built root
 // NBT compound (the "" compound whose only child is "Level").
+// Chunks are streamed to disk one by one; the header is filled in last.
 func WriteRegion(path string, chunks map[[2]int32]*Compound, rawChunks map[[2]int32]RawChunk) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	locations := make([]byte, sectorSize)
-	timestamps := make([]byte, sectorSize)
 
-	var body bytes.Buffer
-	nextSector := int32(2) // sectors 0-1 are the header
+	// Write to a temp file and rename so an interrupted save can't leave a truncated region.
+	tmpPath := path + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return err
+	}
+	fail := func(err error) error {
+		f.Close()
+		os.Remove(tmpPath)
+		return err
+	}
 
-	writeEntry := func(lx, lz int32, chunkBuf *bytes.Buffer) error {
-		sectors := (chunkBuf.Len() + sectorSize - 1) / sectorSize
-		padding := sectors*sectorSize - chunkBuf.Len()
-		chunkBuf.Write(make([]byte, padding))
+	// Sectors 0-1 hold the locations and timestamps tables.
+	header := make([]byte, 2*sectorSize)
+	if _, err := f.Seek(int64(len(header)), io.SeekStart); err != nil {
+		return fail(err)
+	}
+	bw := bufio.NewWriterSize(f, 64*1024)
+	nextSector := int32(2)
+	var padding [sectorSize]byte
 
+	writeEntry := func(lx, lz int32, compressionType byte, payload []byte) error {
+		total := 5 + len(payload)
+		sectors := (total + sectorSize - 1) / sectorSize
 		if sectors > 255 {
 			return fmt.Errorf("chunk (%d,%d) too large: %d sectors", lx, lz, sectors)
 		}
 
-		locEntryOff := 4 * (lx + lz*32)
-		locations[locEntryOff] = byte(nextSector >> 16)
-		locations[locEntryOff+1] = byte(nextSector >> 8)
-		locations[locEntryOff+2] = byte(nextSector)
-		locations[locEntryOff+3] = byte(sectors)
+		var lenBuf [5]byte
+		binary.BigEndian.PutUint32(lenBuf[:4], uint32(len(payload)+1))
+		lenBuf[4] = compressionType
+		bw.Write(lenBuf[:])
+		bw.Write(payload)
+		if _, err := bw.Write(padding[:sectors*sectorSize-total]); err != nil {
+			return err
+		}
 
-		body.Write(chunkBuf.Bytes())
+		locEntryOff := 4 * (lx + lz*32)
+		header[locEntryOff] = byte(nextSector >> 16)
+		header[locEntryOff+1] = byte(nextSector >> 8)
+		header[locEntryOff+2] = byte(nextSector)
+		header[locEntryOff+3] = byte(sectors)
+
 		nextSector += int32(sectors)
 		return nil
 	}
 
 	// Freshly built chunks (loaded in memory, possibly modified this session).
+	zw := zlibWriterPool.Get().(*zlib.Writer)
+	defer zlibWriterPool.Put(zw)
+	var compressed bytes.Buffer
 	for pos, comp := range chunks {
-		lx, lz := pos[0], pos[1]
-
-		var compressed bytes.Buffer
-		zw := zlib.NewWriter(&compressed)
-		if _, err := zw.Write(comp.Root()); err != nil {
-			return err
+		compressed.Reset()
+		zw.Reset(&compressed)
+		if err := comp.WriteRoot(zw); err != nil {
+			return fail(err)
 		}
 		if err := zw.Close(); err != nil {
-			return err
+			return fail(err)
 		}
-
-		payloadLen := compressed.Len() + 1
-		var chunkBuf bytes.Buffer
-		binary.Write(&chunkBuf, binary.BigEndian, int32(payloadLen))
-		chunkBuf.WriteByte(2)
-		chunkBuf.Write(compressed.Bytes())
-
-		if err := writeEntry(lx, lz, &chunkBuf); err != nil {
-			return err
+		if err := writeEntry(pos[0], pos[1], 2, compressed.Bytes()); err != nil {
+			return fail(err)
 		}
 	}
 
@@ -83,36 +105,19 @@ func WriteRegion(path string, chunks map[[2]int32]*Compound, rawChunks map[[2]in
 		if _, alreadyWritten := chunks[pos]; alreadyWritten {
 			continue // in-memory version takes priority
 		}
-		lx, lz := pos[0], pos[1]
-
-		payloadLen := len(raw.Payload) + 1
-		var chunkBuf bytes.Buffer
-		binary.Write(&chunkBuf, binary.BigEndian, int32(payloadLen))
-		chunkBuf.WriteByte(raw.CompressionType)
-		chunkBuf.Write(raw.Payload)
-
-		if err := writeEntry(lx, lz, &chunkBuf); err != nil {
-			return err
+		if err := writeEntry(pos[0], pos[1], raw.CompressionType, raw.Payload); err != nil {
+			return fail(err)
 		}
 	}
 
-	// Write to a temp file and rename so an interrupted save can't leave a truncated region.
-	tmpPath := path + ".tmp"
-	f, err := os.Create(tmpPath)
-	if err != nil {
-		return err
+	if err := bw.Flush(); err != nil {
+		return fail(err)
 	}
-	for _, part := range [][]byte{locations, timestamps, body.Bytes()} {
-		if _, err := f.Write(part); err != nil {
-			f.Close()
-			os.Remove(tmpPath)
-			return err
-		}
+	if _, err := f.WriteAt(header, 0); err != nil {
+		return fail(err)
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
-		os.Remove(tmpPath)
-		return err
+		return fail(err)
 	}
 	if err := f.Close(); err != nil {
 		os.Remove(tmpPath)
@@ -159,22 +164,32 @@ func ReadChunk(f *os.File, lx, lz int32) (*Tag, error) {
 		return nil, err
 	}
 
-	zr, err := zlib.NewReader(bytes.NewReader(payload))
+	var zr io.ReadCloser
+	var err error
+	if pooled := zlibReaderPool.Get(); pooled != nil {
+		zr = pooled.(io.ReadCloser)
+		err = zr.(zlib.Resetter).Reset(bytes.NewReader(payload), nil)
+	} else {
+		zr, err = zlib.NewReader(bytes.NewReader(payload))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("chunk (%d,%d) zlib: %w", lx, lz, err)
 	}
-	defer zr.Close()
-	raw, err := io.ReadAll(zr)
-	if err != nil {
+	defer zlibReaderPool.Put(zr)
+	// A chunk's NBT is a little over 80 KB; size the buffer up front instead of growing it repeatedly.
+	raw := bytes.NewBuffer(make([]byte, 0, 96*1024))
+	if _, err := raw.ReadFrom(zr); err != nil {
 		return nil, fmt.Errorf("chunk (%d,%d) inflate: %w", lx, lz, err)
 	}
 
-	root, err := ParseRoot(raw)
+	root, err := ParseRoot(raw.Bytes())
 	if err != nil {
 		return nil, err
 	}
 	return root.Get("Level"), nil
 }
+
+var zlibReaderPool sync.Pool
 
 type RawChunk struct {
 	CompressionType byte
@@ -202,11 +217,15 @@ func ReadRegionRaw(path string) (map[[2]int32]RawChunk, error) {
 		}
 		return nil, err
 	}
-	if _, err := f.Seek(sectorSize, io.SeekCurrent); err != nil { // skip timestamps
+	info, err := f.Stat()
+	if err != nil {
 		return nil, err
 	}
-	body, err := io.ReadAll(f)
-	if err != nil {
+	if info.Size() < 2*sectorSize {
+		return nil, nil // truncated, see above
+	}
+	body := make([]byte, info.Size()-2*sectorSize)
+	if _, err := f.ReadAt(body, 2*sectorSize); err != nil { // skip timestamps
 		return nil, err
 	}
 
@@ -236,12 +255,9 @@ func ReadRegionRaw(path string) (map[[2]int32]RawChunk, error) {
 				return nil, fmt.Errorf("region %s: chunk (%d,%d) payload out of bounds", path, lx, lz)
 			}
 
-			payload := make([]byte, length-1)
-			copy(payload, body[start:end])
-
 			result[[2]int32{lx, lz}] = RawChunk{
 				CompressionType: compressionType,
-				Payload:         payload,
+				Payload:         body[start:end:end], // shares the region body, no copy
 			}
 		}
 	}

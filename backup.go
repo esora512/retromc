@@ -139,7 +139,9 @@ func (c *b2Client) resolveBucketID(sess *b2Session) (string, error) {
 
 var errB2NotFound = errors.New("b2: file not found")
 
-func (c *b2Client) download(fileName string) ([]byte, error) {
+// download streams the file into a temp file, so a large world never has to fit in memory.
+// The caller must close and remove the returned file.
+func (c *b2Client) download(fileName string) (*os.File, error) {
 	sess, err := c.authorize()
 	if err != nil {
 		return nil, err
@@ -160,17 +162,29 @@ func (c *b2Client) download(fileName string) ([]byte, error) {
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, errB2NotFound
 	}
-	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("b2 download: %s: %s", resp.Status, body)
+	}
+
+	f, err := os.CreateTemp("", "retromc-restore-*.tar.gz")
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("b2 download: %s: %s", resp.Status, body)
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return nil, err
 	}
-	return body, nil
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		os.Remove(f.Name())
+		return nil, err
+	}
+	return f, nil
 }
 
-func (c *b2Client) upload(fileName string, data []byte) error {
+func (c *b2Client) upload(fileName string, data io.Reader, size int64, sha1Hex string) error {
 	sess, err := c.authorize()
 	if err != nil {
 		return err
@@ -203,16 +217,15 @@ func (c *b2Client) upload(fileName string, data []byte) error {
 		return err
 	}
 
-	sum := sha1.Sum(data)
-	uploadReq, err := http.NewRequest(http.MethodPost, uploadInfo.UploadURL, bytes.NewReader(data))
+	uploadReq, err := http.NewRequest(http.MethodPost, uploadInfo.UploadURL, data)
 	if err != nil {
 		return err
 	}
 	uploadReq.Header.Set("Authorization", uploadInfo.AuthorizationToken)
 	uploadReq.Header.Set("X-Bz-File-Name", url.PathEscape(fileName))
 	uploadReq.Header.Set("Content-Type", "b2/x-auto")
-	uploadReq.Header.Set("X-Bz-Content-Sha1", hex.EncodeToString(sum[:]))
-	uploadReq.ContentLength = int64(len(data))
+	uploadReq.Header.Set("X-Bz-Content-Sha1", sha1Hex)
+	uploadReq.ContentLength = size
 
 	uploadResp, err := c.http.Do(uploadReq)
 	if err != nil {
@@ -227,13 +240,25 @@ func (c *b2Client) upload(fileName string, data []byte) error {
 }
 
 // archiveDir tars+gzips dir's contents (relative paths, no leading dir
-// component) into a single in-memory blob.
-func archiveDir(dir string) ([]byte, error) {
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
+// component) into a temp file, positioned at its start, and returns its size and SHA-1.
+// The caller must close and remove the file.
+func archiveDir(dir string) (f *os.File, size int64, sha1Hex string, err error) {
+	f, err = os.CreateTemp("", "retromc-backup-*.tar.gz")
+	if err != nil {
+		return nil, 0, "", err
+	}
+	defer func() {
+		if err != nil {
+			f.Close()
+			os.Remove(f.Name())
+		}
+	}()
+
+	hash := sha1.New()
+	gw := gzip.NewWriter(io.MultiWriter(f, hash))
 	tw := tar.NewWriter(gw)
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -266,21 +291,27 @@ func archiveDir(dir string) ([]byte, error) {
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return nil, 0, "", err
 	}
-	if err := tw.Close(); err != nil {
-		return nil, err
+	if err = tw.Close(); err != nil {
+		return nil, 0, "", err
 	}
-	if err := gw.Close(); err != nil {
-		return nil, err
+	if err = gw.Close(); err != nil {
+		return nil, 0, "", err
 	}
-	return buf.Bytes(), nil
+	if size, err = f.Seek(0, io.SeekCurrent); err != nil {
+		return nil, 0, "", err
+	}
+	if _, err = f.Seek(0, io.SeekStart); err != nil {
+		return nil, 0, "", err
+	}
+	return f, size, hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// extractArchive unpacks a tar.gz blob (as produced by archiveDir) into
+// extractArchive unpacks a tar.gz stream (as produced by archiveDir) into
 // destDir, creating it if needed.
-func extractArchive(data []byte, destDir string) error {
-	gr, err := gzip.NewReader(bytes.NewReader(data))
+func extractArchive(data io.Reader, destDir string) error {
+	gr, err := gzip.NewReader(data)
 	if err != nil {
 		return err
 	}
@@ -329,6 +360,10 @@ func extractArchive(data []byte, destDir string) error {
 // accepting connections.
 func restoreWorldFromB2(b2 *b2Client, worldDir string) {
 	data, err := b2.download(b2FileName)
+	if err == nil {
+		defer os.Remove(data.Name())
+		defer data.Close()
+	}
 	if err != nil {
 		if errors.Is(err, errB2NotFound) {
 			log.Println("B2: no existing backup found, starting with a fresh world")
@@ -380,16 +415,18 @@ func backupWorldToB2(b2 *b2Client, world *level.World) {
 		return
 	}
 
-	data, err := archiveDir(world.WorldDir)
+	data, size, sha1Hex, err := archiveDir(world.WorldDir)
 	if err != nil {
 		log.Println("B2: failed to archive world:", err)
 		return
 	}
-	if err := b2.upload(b2FileName, data); err != nil {
+	defer os.Remove(data.Name())
+	defer data.Close()
+	if err := b2.upload(b2FileName, data, size, sha1Hex); err != nil {
 		log.Println("B2: failed to upload backup:", err)
 		return
 	}
-	log.Printf("B2: backup uploaded (%d bytes)", len(data))
+	log.Printf("B2: backup uploaded (%d bytes)", size)
 }
 
 // startBackupLoop periodically backs up the world, and does one last backup

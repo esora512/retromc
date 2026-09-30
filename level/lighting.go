@@ -1,6 +1,10 @@
 package level
 
-import "github.com/leNicDev/retromc/constants"
+import (
+	"sync"
+
+	"github.com/leNicDev/retromc/constants"
+)
 
 const (
 	lightAreaXZ = 3 * CHUNK_SIZE_X
@@ -9,8 +13,45 @@ const (
 
 type lightPos struct{ x, y, z int16 }
 
-func (w *World) RelightChunk(cx, cz, dim int32, c *Chunk) {
-	c.RelightAll()
+type ChunkLight struct {
+	buf [2 * chunkNibbleCount]byte
+}
+
+func (l *ChunkLight) BlockLight() []byte { return l.buf[:chunkNibbleCount] }
+func (l *ChunkLight) SkyLight() []byte   { return l.buf[chunkNibbleCount:] }
+func (l *ChunkLight) Release()           { chunkLightPool.Put(l) }
+
+var chunkLightPool = sync.Pool{New: func() any { return new(ChunkLight) }}
+
+var lightAreaPool = sync.Pool{New: func() any { return new([lightAreaXZ * lightAreaXZ * lightAreaY]byte) }}
+
+func setNibble(arr []byte, i int, v byte) {
+	shift := uint((i & 1) * 4)
+	mask := byte(0x0f) << shift
+	arr[i>>1] = (arr[i>>1] &^ mask) | (v << shift)
+}
+
+func (c *Chunk) computeSkyLight(sky []byte) {
+	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
+		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
+			lit := true
+			for ly := CHUNK_SIZE_Y - 1; ly >= 0; ly-- {
+				if block := c.GetBlock(lx, ly, lz); lit && !block.IsTransparent() {
+					lit = false
+				}
+				var v byte
+				if lit {
+					v = 0x0f
+				}
+				setNibble(sky, lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y+lz*CHUNK_SIZE_Y+ly, v)
+			}
+		}
+	}
+}
+
+func (w *World) ComputeLight(cx, cz, dim int32, c *Chunk) *ChunkLight {
+	out := chunkLightPool.Get().(*ChunkLight)
+	c.computeSkyLight(out.SkyLight())
 
 	var grid [3][3]*Chunk
 	for dx := -1; dx <= 1; dx++ {
@@ -34,6 +75,7 @@ func (w *World) RelightChunk(cx, cz, dim int32, c *Chunk) {
 	}
 
 	var light []byte
+	var area *[lightAreaXZ * lightAreaXZ * lightAreaY]byte
 	var queue []lightPos
 	idx := func(x, y, z int) int { return (x*lightAreaXZ+z)*lightAreaY + y }
 
@@ -55,7 +97,9 @@ func (w *World) RelightChunk(cx, cz, dim int32, c *Chunk) {
 					continue
 				}
 				if light == nil {
-					light = make([]byte, lightAreaXZ*lightAreaXZ*lightAreaY)
+					area = lightAreaPool.Get().(*[lightAreaXZ * lightAreaXZ * lightAreaY]byte)
+					light = area[:]
+					clear(light)
 				}
 				if light[idx(x, y, z)] < e {
 					light[idx(x, y, z)] = e
@@ -92,19 +136,18 @@ func (w *World) RelightChunk(cx, cz, dim int32, c *Chunk) {
 		}
 	}
 
+	blockLight := out.BlockLight()
+	if light == nil {
+		clear(blockLight)
+		return out
+	}
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
 			for y := 0; y < CHUNK_SIZE_Y; y++ {
-				var v byte
-				if light != nil {
-					v = light[idx(16+lx, y, 16+lz)]
-				}
-				i := lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y + lz*CHUNK_SIZE_Y + y
-				shift := uint((i & 1) * 4)
-				mask := byte(0x0f) << shift
-				ni := chunkLightOffset + i>>1
-				c.Data[ni] = (c.Data[ni] &^ mask) | (v << shift)
+				setNibble(blockLight, lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y+lz*CHUNK_SIZE_Y+y, light[idx(16+lx, y, 16+lz)])
 			}
 		}
 	}
+	lightAreaPool.Put(area)
+	return out
 }
