@@ -103,21 +103,29 @@ func runOnRender(s *Server) {
 
 	mux := http.NewServeMux()
 
-	// Satisfies Render's health check (TCP probe or HTTP GET, either way).
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("retromc is up"))
-	})
-
-	// Real game traffic tunnels through here.
-	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	serveWS := func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println("WS upgrade failed:", err)
 			return
 		}
 		go handleConnection(newWSConn(conn), s.World, s.Tracker)
+	}
+
+	// Satisfies Render's health check (TCP probe or HTTP GET, either way).
+	// WebSocket upgrades on "/" are also accepted, since some clients
+	// (e.g. BetaSharp) always connect to the root path.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if websocket.IsWebSocketUpgrade(r) {
+			serveWS(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("retromc is up"))
 	})
+
+	// Real game traffic tunnels through here.
+	mux.HandleFunc("/ws", serveWS)
 
 	log.Printf("Render detected: HTTP/WebSocket bridge listening on :%s (game traffic on /ws, PID: %d)", port, os.Getpid())
 	log.Fatal(http.ListenAndServe(":"+port, mux))
