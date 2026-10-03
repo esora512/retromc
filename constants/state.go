@@ -76,6 +76,7 @@ const (
 	Ridable
 	DroppedItem
 	FallingBlock
+	ArrowEntity
 )
 
 type Entity interface {

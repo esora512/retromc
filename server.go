@@ -75,6 +75,7 @@ func main() {
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
 	world.SetHurtPlayer(packethandler.HurtPlayer)
+	world.SetAttackEntity(packethandler.AttackEntity)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 
 	world.SetOppedUsernames(ops)

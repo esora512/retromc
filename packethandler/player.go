@@ -171,6 +171,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ flo
 				Action:   3,
 			}
 			world.BroadcastPacket(p.Serialize())
+			killPlayer(world, pl)
 		}
 	}
 	pl.FallDistance = 0
@@ -883,6 +884,10 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 
 	if isUse && tryEat(world, pl) {
+		return
+	}
+
+	if isUse && tryShootBow(world, pl) {
 		return
 	}
 
@@ -1839,4 +1844,31 @@ func handleSetHotbarSlot(p packets.SetHotbarSlotPacket, pl *player.Player, world
 	}
 	pl.HotbarSlot = p.Slot + 36
 	sendEquipmentChangeForHotbarSlot(world, pl)
+}
+
+func tryShootBow(world *level.World, pl *player.Player) bool {
+	if pl.Inventory.Items[pl.HotbarSlot].TypeId != constants.Bow.Value {
+		return false
+	}
+	if pl.HP <= 0 {
+		return true
+	}
+	slot := int16(-1)
+	for i := int16(36); i <= 44 && slot < 0; i++ {
+		if pl.Inventory.Items[i].TypeId == constants.Arrow.Value {
+			slot = i
+		}
+	}
+	for i := int16(9); i <= 35 && slot < 0; i++ {
+		if pl.Inventory.Items[i].TypeId == constants.Arrow.Value {
+			slot = i
+		}
+	}
+	if slot < 0 {
+		return true
+	}
+	pl.Inventory.RemoveOne(slot)
+	SendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
+	world.AddEntity(entities.NewArrow(world.NextEntityId(), pl, pl.X, pl.Y+playerEyeHeight, pl.Z, pl.Yaw, pl.Pitch, pl.Dimension))
+	return true
 }

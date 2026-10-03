@@ -11,6 +11,13 @@ var mobNames = map[byte]string{
 	c.Zombie: "Zombie", c.Pig: "Pig", c.Sheep: "Sheep",
 }
 
+func boolByte(b bool) byte {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func baseNBT(id string, x, y, z, vx, vy, vz float64, yaw, pitch, fall float32, fire, air int16, onGround bool) *mcregion.Compound {
 	n := mcregion.NewCompound()
 	n.String("id", id)
@@ -65,6 +72,20 @@ func EntityToNBT(e constants.Entity) *mcregion.Compound {
 		item.Short("Damage", int16(v.Metadata))
 		item.Byte("Count", v.Amount)
 		n.AddCompound("Item", item)
+		return n
+	case *Arrow:
+		if v.Dead || v.CollectorId != -1 {
+			return nil
+		}
+		n := baseNBT("Arrow", v.X, v.Y, v.Z, v.Vx, v.Vy, v.Vz, v.Yaw, v.Pitch, 0, 0, 300, false)
+		n.Short("xTile", int16(v.TileX))
+		n.Short("yTile", int16(v.TileY))
+		n.Short("zTile", int16(v.TileZ))
+		n.Byte("inTile", v.InTile)
+		n.Byte("inData", v.InData)
+		n.Byte("shake", byte(v.Shake))
+		n.Byte("inGround", boolByte(v.InGround))
+		n.Byte("player", boolByte(v.FromPlayer))
 		return n
 	case *RideableEntity:
 		if v.HP <= 0 || v.ShouldDespawn {
@@ -167,6 +188,30 @@ func EntityFromNBT(t *mcregion.Tag, id int32, dim int32) constants.Entity {
 		}
 		d.InitSyncState()
 		return d
+	case "Arrow":
+		a := &Arrow{
+			EntityId:    id,
+			X:           pos[0],
+			Y:           pos[1],
+			Z:           pos[2],
+			Vx:          motion[0],
+			Vy:          motion[1],
+			Vz:          motion[2],
+			Yaw:         rot[0],
+			Pitch:       rot[1],
+			Dim:         dim,
+			TileX:       int32(tagShort(t, "xTile", -1)),
+			TileY:       int32(tagShort(t, "yTile", -1)),
+			TileZ:       int32(tagShort(t, "zTile", -1)),
+			InTile:      tagByte(t, "inTile"),
+			InData:      tagByte(t, "inData"),
+			Shake:       int32(tagByte(t, "shake")),
+			InGround:    tagByte(t, "inGround") != 0,
+			FromPlayer:  tagByte(t, "player") != 0,
+			CollectorId: -1,
+		}
+		a.syncState(false)
+		return a
 	case "Boat", "Minecart":
 		objType := c.ObjectBoat
 		if idTag.StrVal == "Minecart" {

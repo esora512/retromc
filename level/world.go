@@ -143,6 +143,7 @@ type World struct {
 
 	sendSetHealth func(conn net.Conn, hp uint16)
 	hurtPlayer    func(w *World, pl *player.Player, attacker constants.Entity, dmg int16) int16
+	attackEntity  func(w *World, victim, attacker constants.Entity, dmg int16) bool
 
 	newPositionAndRotationOrTeleportPacket    func(e constants.Entity, m constants.MovementState) []byte
 	newTeleportPacket                         func(e constants.Entity, m constants.MovementState) []byte
@@ -416,6 +417,14 @@ func (w *World) SetHurtPlayer(f func(w *World, pl *player.Player, attacker const
 
 func (w *World) HurtPlayer(pl *player.Player, attacker constants.Entity, dmg int16) int16 {
 	return w.hurtPlayer(w, pl, attacker, dmg)
+}
+
+func (w *World) SetAttackEntity(f func(w *World, victim, attacker constants.Entity, dmg int16) bool) {
+	w.attackEntity = f
+}
+
+func (w *World) AttackEntity(victim, attacker constants.Entity, dmg int16) bool {
+	return w.attackEntity(w, victim, attacker, dmg)
 }
 
 func (w *World) SetOppedUsernames(names map[string]bool) {

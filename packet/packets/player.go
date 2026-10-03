@@ -165,6 +165,12 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
+const objectArrow byte = 60
+
+func objectVelocity(v float64) int16 {
+	return int16(math.Max(-3.9, math.Min(3.9, v)) * 8000)
+}
+
 func NewSpawnObjectPacket(e constants.Entity) []byte {
 	// NOTE: Bad practice but we wing it...
 	eType := e.GetEntityType()
@@ -195,6 +201,24 @@ func NewSpawnObjectPacket(e constants.Entity) []byte {
 			VelocityY:     int16(f.MovementState.VelocityY),
 			VelocityZ:     0,
 			OwnerEntityId: 0,
+		}
+		return p.Serialize()
+	case constants.ArrowEntity:
+		a, _ := e.(*entities.Arrow)
+		owner := a.OwnerId
+		if owner <= 0 {
+			owner = a.EntityId
+		}
+		p := SpawnObjectPacket{
+			EntityId:      a.EntityId,
+			ObjectType:    objectArrow,
+			X:             int32(math.Floor(a.X * 32)),
+			Y:             int32(math.Floor(a.Y * 32)),
+			Z:             int32(math.Floor(a.Z * 32)),
+			VelocityX:     objectVelocity(a.Vx),
+			VelocityY:     objectVelocity(a.Vy),
+			VelocityZ:     objectVelocity(a.Vz),
+			OwnerEntityId: owner,
 		}
 		return p.Serialize()
 	default:

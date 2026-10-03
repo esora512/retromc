@@ -232,6 +232,10 @@ func (et *EntityTracker) Manage(w WorldShared) {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 
 					}
+				case c.ArrowEntity:
+					if teleported {
+						viewer.Connection.Write(w.NewTeleportPacket(target, msCopy))
+					}
 				case c.DroppedItem:
 					t, _ := target.(*DroppedItem)
 					if t.CollectorId != -1 {
@@ -261,7 +265,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					viewer.Connection.Write(w.SpawnPlayerPacket(t))
 					w.SetEquipment(t, viewer)
 
-				case c.Ridable, c.FallingBlock:
+				case c.Ridable, c.FallingBlock, c.ArrowEntity:
 					viewer.Connection.Write(w.SpawnObjectPacket(target))
 
 				case c.Mob:
@@ -281,7 +285,7 @@ func (et *EntityTracker) Manage(w WorldShared) {
 
 			} else if isVisible && (!inRange || shouldDespawn(target)) {
 				switch targetType {
-				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem:
+				case c.Player, c.Mob, c.Ridable, c.FallingBlock, c.DroppedItem, c.ArrowEntity:
 					if !inRange || !alive || shouldDespawn(target) {
 						// if !alive {
 						// 	log.Println("Not alive")

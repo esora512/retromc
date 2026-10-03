@@ -274,6 +274,46 @@ func (w *World) FastForwardFurnaces(ticks int) {
 	}
 }
 
+func (w *World) TickArrows(tracker *entities.EntityTracker) {
+	var arrows []*entities.Arrow
+	for _, e := range w.Entities {
+		if a, ok := e.(*entities.Arrow); ok {
+			arrows = append(arrows, a)
+		}
+	}
+	for _, a := range arrows {
+		if w.IsLoaded(int32(math.Floor(a.X)), int32(math.Floor(a.Z)), a.Dim) {
+			a.Tick(w)
+		}
+		for _, pl := range w.Players {
+			if pl.HP <= 0 || pl.Dimension != a.Dim || !a.CanBePickedUpBy(pl) {
+				continue
+			}
+			it := inventory.NewItem(constants.Arrow.Value, 1, 0)
+			touched := pl.Inventory.PickupItem(&it)
+			for _, slot := range touched {
+				w.SendSetSlot(pl.Connection, 0, slot, pl.Inventory.Items[slot])
+			}
+			if it.Count == 0 {
+				a.CollectorId = pl.GetEntityId()
+				break
+			}
+		}
+		if a.CollectorId != -1 {
+			tracker.SendToViewers(w, a.EntityId, w.NewCollectItemPacket(a.EntityId, a.CollectorId))
+		} else if a.Dead {
+			tracker.SendToViewers(w, a.EntityId, w.DespawnEntity(a.EntityId))
+			if victim, ok := w.Players[a.HitId]; ok && victim.HP <= 0 {
+				tracker.ResetViewer(w, victim.GetEntityId())
+			}
+		} else {
+			continue
+		}
+		w.RemoveEntity(a.EntityId)
+		tracker.ResetEntity(a.EntityId)
+	}
+}
+
 func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.Tick = nextTick
 	w.AdvanceTime()
@@ -284,6 +324,7 @@ func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.RidablePhysics()
 	w.RandomTickPhysics()
 	w.DroppedItemPhysics()
+	w.TickArrows(tracker)
 	w.TickFurnaces()
 	w.TickSleep()
 	w.TickPlayers()

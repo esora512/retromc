@@ -292,10 +292,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				}
 				world.BroadcastPacket(cMsgPkt.Serialize())
 
-				x, y, z := other.GetPosition()
-				otherPl, _ := world.Players[other.GetEntityId()]
-				otherPl.DespawnIn = 21
-				DropInventory(world, &otherPl.Inventory, x, y, z, otherPl.GetDim())
+				killPlayer(world, world.Players[other.GetEntityId()])
 				tracker.ResetViewer(world, other.GetEntityId())
 			}
 
@@ -381,11 +378,40 @@ func HurtPlayer(world *level.World, pl *player.Player, attacker constants.Entity
 	}
 	if pl.HP == 0 {
 		cause := "an explosion"
-		if attacker != nil {
+		if killer, ok := attacker.(*player.Player); ok {
+			cause = killer.Username
+		} else if attacker != nil {
 			cause = "a " + attacker.GetName()
 		}
 		msg := packets.ChatMessagePacket{Message: pl.GetName() + " was killed by " + cause}
 		world.BroadcastPacket(msg.Serialize())
+		killPlayer(world, pl)
 	}
 	return pl.HP
+}
+
+func killPlayer(world *level.World, pl *player.Player) {
+	pl.DespawnIn = 21
+	DropInventory(world, &pl.Inventory, pl.X, pl.Y, pl.Z, pl.GetDim())
+}
+
+func AttackEntity(world *level.World, victim, attacker constants.Entity, dmg int16) bool {
+	switch v := victim.(type) {
+	case *entities.Mob:
+		_, fresh := v.Hurt(world, dmg)
+		if fresh && attacker != nil {
+			applyKnockback(world, attacker, v)
+		}
+		if pl, ok := attacker.(*player.Player); ok {
+			v.SetTargetForced(pl.GetEntityId())
+		}
+		return fresh
+	case *player.Player:
+		if v.HP <= 0 {
+			return false
+		}
+		HurtPlayer(world, v, attacker, dmg)
+		return true
+	}
+	return false
 }

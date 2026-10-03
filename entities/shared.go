@@ -18,6 +18,9 @@ type WorldShared interface {
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
 	HurtPlayer(pl *player.Player, attacker constants.Entity, dmg int16) int16
+	AttackEntity(victim, attacker constants.Entity, dmg int16) bool
+	NextEntityId() int32
+	AddEntity(e constants.Entity)
 	DropItemFromMinedBlock(x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32)
 
 	BroadcastPacket(data []byte)

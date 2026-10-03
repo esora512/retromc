@@ -1004,6 +1004,9 @@ func (m *Mob) tryAttack(w WorldShared, p *player.Player, dist float32, tracker *
 			m.defuse()
 		}
 		return
+	case c.Skeleton:
+		m.shootArrow(w, p, dist)
+		return
 	case c.Spider:
 		if !m.dark(w) && rand.Intn(100) == 0 {
 			m.TargetId = -1
@@ -1027,6 +1030,23 @@ func (m *Mob) tryAttack(w WorldShared, p *player.Player, dist float32, tracker *
 			tracker.ResetViewer(w, p.GetEntityId())
 		}
 	}
+}
+
+func (m *Mob) shootArrow(w WorldShared, p *player.Player, dist float32) {
+	if dist >= 10 {
+		return
+	}
+	dx, dz := p.X-m.X, p.Z-m.Z
+	if m.AttackCooldown <= 0 {
+		a := NewArrow(w.NextEntityId(), m, m.X, m.Y+m.eyeHeight(), m.Z, m.RotYaw, m.RotPitch, m.Dimension)
+		a.Y++
+		vy := p.Y + 1.62 - 0.2 - a.Y
+		a.SetHeading(dx, vy+math.Sqrt(dx*dx+dz*dz)*0.2, dz, 0.6, 12)
+		w.AddEntity(a)
+		m.AttackCooldown = 30
+	}
+	m.RotYaw = float32(math.Atan2(dz, dx)*180/math.Pi) - 90
+	m.hasAttacked = true
 }
 
 func (m *Mob) onTargetLostSight() {

@@ -185,9 +185,11 @@ func (p *SpawnObjectPacket) Serialize() []byte {
 	writer.WriteInt32(p.Y)
 	writer.WriteInt32(p.Z)
 	writer.WriteInt32(p.OwnerEntityId)
-	writer.WriteInt16(p.VelocityX)
-	writer.WriteInt16(p.VelocityY)
-	writer.WriteInt16(p.VelocityZ)
+	if p.OwnerEntityId > 0 {
+		writer.WriteInt16(p.VelocityX)
+		writer.WriteInt16(p.VelocityY)
+		writer.WriteInt16(p.VelocityZ)
+	}
 	return writer.Bytes()
 }
 
