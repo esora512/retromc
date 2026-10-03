@@ -98,6 +98,8 @@ func main() {
 	world.SetNewAnimationPacket(packethandler.NewAnimationPacket)
 	world.SetNewEntityMetadataPacket(packets.NewEntityMetadataPacket)
 
+	world.PrepareNetherSpawn()
+
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	runOnRender(&server)

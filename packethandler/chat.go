@@ -161,31 +161,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		}
 
 		if strings.HasPrefix(message, "/dim") {
-			pl.X = player.SpawnX
-			pl.Y = player.SpawnY
-			pl.Z = player.SpawnZ
-			pl.Stance = player.SpawnStance
-			pl.Yaw = 0
-			pl.Pitch = 0
-			pl.OnGround = true
-			loc := int32(0)
-			if pl.Dimension == loc {
-				loc = -1
-				pl.Dimension = -1
+			if pl.Dimension == 0 {
+				transferToNether(world, pl)
 			} else {
-				pl.Dimension = loc
+				transferToOverworld(world, pl)
 			}
-
-			pl.SentChunks = make(player.ChunkSet)
-			pl.HasInitializedChunks = false
-
-			pl.Immune = 200
-
-			sendRespawn(pl.Connection, byte(loc))
-
-			pl.SetHP(20)
-			SendSetHealth(pl.Connection, 20.0)
-			sendPlayerPositionAndLook(pl.Connection, 0, 0, 80)
 		}
 
 		if strings.HasPrefix(message, "/place") {

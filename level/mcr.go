@@ -461,6 +461,8 @@ type PlayerData struct {
 	DeathTime                 int16
 	HurtTime                  int16
 	AttackTime                int16
+	HasSpawn                  bool
+	SpawnX, SpawnY, SpawnZ    int32
 	Inventory                 []PlayerInventorySlot
 }
 
@@ -510,6 +512,11 @@ func buildPlayerNBT(data *PlayerData) *mcregion.Compound {
 	root.Short("DeathTime", data.DeathTime)
 	root.Short("HurtTime", data.HurtTime)
 	root.Short("AttackTime", data.AttackTime)
+	if data.HasSpawn {
+		root.Int("SpawnX", data.SpawnX)
+		root.Int("SpawnY", data.SpawnY)
+		root.Int("SpawnZ", data.SpawnZ)
+	}
 
 	var items []*mcregion.Compound
 	for _, slot := range data.Inventory {
@@ -619,6 +626,11 @@ func playerDataFromNBT(root *mcregion.Tag) (*PlayerData, error) {
 	if t := root.Get("AttackTime"); t != nil {
 		data.AttackTime = t.ShortVal
 	}
+	sx, sy, sz := root.Get("SpawnX"), root.Get("SpawnY"), root.Get("SpawnZ")
+	if sx != nil && sy != nil && sz != nil {
+		data.HasSpawn = true
+		data.SpawnX, data.SpawnY, data.SpawnZ = sx.IntVal, sy.IntVal, sz.IntVal
+	}
 	if inv := root.Get("Inventory"); inv != nil {
 		for _, item := range inv.List {
 			slot := PlayerInventorySlot{}
@@ -669,6 +681,8 @@ func ToPlayerData(p *player.Player) *PlayerData {
 	data.Health = p.HP
 	data.Inventory = items
 	data.Dimension = p.Dimension
+	data.HasSpawn = p.HasBedSpawn
+	data.SpawnX, data.SpawnY, data.SpawnZ = p.BedSpawnX, int32(p.BedSpawnY), p.BedSpawnZ
 	return data
 }
 
@@ -724,4 +738,6 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 	p.HP = data.Health
 	p.Inventory.Items = items
 	p.Dimension = data.Dimension
+	p.HasBedSpawn = data.HasSpawn
+	p.BedSpawnX, p.BedSpawnY, p.BedSpawnZ = data.SpawnX, byte(data.SpawnY), data.SpawnZ
 }

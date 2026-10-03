@@ -171,11 +171,22 @@ type Player struct {
 
 	BedX, BedZ int32
 	BedY       byte
+
+	HasBedSpawn          bool
+	BedSpawnX, BedSpawnZ int32
+	BedSpawnY            byte
+
+	Transferring        bool
+	AwaitingTeleportAck bool
 }
 
 func (pl *Player) GoToBed(x int32, y byte, z int32) {
 	pl.MovementState.WentToBed = true
 	pl.BedX, pl.BedY, pl.BedZ = x, y, z
+	if pl.Dimension == 0 {
+		pl.HasBedSpawn = true
+		pl.BedSpawnX, pl.BedSpawnY, pl.BedSpawnZ = x, y, z
+	}
 }
 
 func (pl *Player) SneakingMetadata() []byte {

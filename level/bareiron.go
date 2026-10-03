@@ -36,6 +36,7 @@ const (
 	idWater      = 9  // stationary water
 	idLava       = 11 // stationary lava
 	idSand       = 12
+	idGravel     = 13
 	idGoldOre    = 14
 	idIronOre    = 15
 	idCoalOre    = 16
@@ -46,6 +47,9 @@ const (
 	idTallGrass  = 31 // metadata 1 = "grass" style
 	idDeadBush   = 32
 	idCactus     = 81
+	idNetherrack = 87
+	idSoulSand   = 88
+	idGlowstone  = 89
 	idDiamondOre = 56
 	idRedstoneOr = 73
 	idSnowLayer  = 78

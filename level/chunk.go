@@ -191,7 +191,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chu
 
 	switch worldType {
 	case Noodle:
-		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz)
+		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz, dim == -1)
 	case SkyGrid:
 		chunk.GenerateSkyGrid()
 	case Template:
@@ -315,6 +315,9 @@ func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 
 func (w *World) wantedChunks(dim int32, viewDist int) map[ChunkCoord]struct{} {
 	wanted := make(map[ChunkCoord]struct{})
+	if dim == -1 {
+		addNetherSpawnChunks(wanted)
+	}
 	for _, pl := range w.Players {
 		if pl.Dimension != dim {
 			continue

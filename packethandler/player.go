@@ -43,28 +43,10 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 }
 
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
-	pl.X = player.SpawnX
-	pl.Y = player.SpawnY
-	pl.Z = player.SpawnZ
 	pl.MovementState.IsDead = false
-	pl.Stance = player.SpawnStance
-	pl.Yaw = 0
-	pl.Pitch = 0
-	pl.OnGround = true
-	pl.Immune = 200
-
-	loc := int32(0)
-	pl.SentChunks = make(player.ChunkSet)
-	pl.HasInitializedChunks = false
-	pl.Dimension = 0
-
-	sendRespawn(connection, byte(loc))
-
 	pl.SetHP(20)
+	transferToOverworld(world, pl)
 	SendSetHealth(connection, 20.0)
-	sendPlayerPositionAndLook(connection, 0, 0, 80)
-	pl.MovementState.Teleported = true
-	updateChunks(world, pl.X, pl.Z, pl)
 }
 
 func sendRespawn(connection net.Conn, world byte) {
@@ -195,7 +177,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ flo
 }
 
 func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.PlayerPositionAndRotationPacket, pl *player.Player, world *level.World) {
-	if !pl.LoggedIn {
+	if !pl.LoggedIn || !acceptsMovement(pl, p.X, p.Z) {
 		return
 	}
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
@@ -260,11 +242,14 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
+	if checkDimensionTransfer(world, pl) {
+		return
+	}
 	updateChunks(world, x, z, pl)
 }
 
 func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPacket, pl *player.Player, world *level.World) {
-	if !pl.LoggedIn {
+	if !pl.LoggedIn || !acceptsMovement(pl, p.X, p.Z) {
 		return
 	}
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
@@ -311,8 +296,10 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
+	if checkDimensionTransfer(world, pl) {
+		return
+	}
 	updateChunks(world, x, z, pl)
-
 }
 
 func handlePlayerRotationPacket(p packets.PlayerRotationPacket, pl *player.Player, world *level.World) {
@@ -336,7 +323,7 @@ func High8Bits(n uint16) byte {
 const playerDropPickupDelay = 40
 const dropInitVelocity = 0.3
 const dropRandomVelocity = 0.02
-const playerEyeHeight = 1.62
+const playerEyeHeight = float64(float32(1.62))
 const JavaPI = 3.141592653589793
 
 func DropItemFromPlayer(world *level.World, pl *player.Player, typeId int16, metadata uint16, count byte) {

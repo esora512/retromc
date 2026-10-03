@@ -60,7 +60,7 @@ const (
 
 // GenerateNoodleWorld fills the chunk based on the two-field intersection
 // test described above, then caps any solid block with air above it in grass.
-func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32) {
+func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, nether bool) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 
@@ -109,12 +109,31 @@ func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32) {
 				if blockTypes[i] != idStone {
 					continue
 				}
-				aboveId := byte(idAir)
+				above, below := byte(idAir), byte(idAir)
 				if y+1 < CHUNK_SIZE_Y {
-					aboveId = blockTypes[x*CHUNK_SIZE_Z*CHUNK_SIZE_Y+z*CHUNK_SIZE_Y+(y+1)]
+					above = blockTypes[i+1]
 				}
-				if aboveId == idAir {
-					blockTypes[i] = idGrass
+				if y > 0 {
+					below = blockTypes[i-1]
+				}
+				if !nether {
+					if above == idAir {
+						blockTypes[i] = idGrass
+					}
+					continue
+				}
+				r := hash3(int64(worldX+x), int64(y), int64(worldZ+z), seed+2)
+				switch {
+				case below == idAir && r > 0.85:
+					blockTypes[i] = idGlowstone
+				case above == idAir && r > 0.5:
+					blockTypes[i] = idSoulSand
+				case above == idAir && r < -0.85:
+					blockTypes[i] = idGravel
+				case above != idAir && below != idAir && r > 0.97:
+					blockTypes[i] = idLava
+				default:
+					blockTypes[i] = idNetherrack
 				}
 			}
 		}
