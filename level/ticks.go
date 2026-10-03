@@ -262,6 +262,18 @@ func (w *World) TickFurnaces() {
 	inventory.TickFurnaces(furnaces, w.makeSendFurnaceProgress(), w.makeSendFurnaceSlot(), w.makeSetFurnaceBlock())
 }
 
+func (w *World) FastForwardFurnaces(ticks int) {
+	sendSlot := w.makeSendFurnaceSlot()
+	setBlock := w.makeSetFurnaceBlock()
+	for _, f := range w.GetAllFurnaces() {
+		f.FastForward(ticks)
+		for slot := range f.Items {
+			sendSlot(f, f.Items[slot], int16(slot))
+		}
+		setBlock(int16(f.Position.X), int16(f.Position.Y), int16(f.Position.Z), f.IsBurning, f.Dim)
+	}
+}
+
 func (w *World) AdvanceTick(nextTick int64, tracker *entities.EntityTracker) {
 	w.Tick = nextTick
 	w.AdvanceTime()

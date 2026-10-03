@@ -506,6 +506,7 @@ func (w *World) SleepThroughNight() {
 		if s > 30 {
 			toNextDay := 24000 - (w.TimeTick % 24000)
 			w.TimeTick += toNextDay
+			w.FastForwardFurnaces(int(toNextDay))
 			pl, ok := w.GetPlayer(k)
 			if !ok {
 				continue

@@ -200,6 +200,89 @@ func TickFurnaces(furnaces []*Furnace,
 	}
 }
 
+const smeltTicks = 200
+// NOTE: As it should have been :D
+func (f *Furnace) FastForward(ticks int) {
+	if ticks <= 0 {
+		return
+	}
+	burning := 0
+	if f.IsBurning {
+		burning = f.FuelRemain
+	}
+
+	if !f.canSmelt() {
+		f.Progress = 0
+		f.burnIdle(burning, ticks)
+		return
+	}
+
+	in := f.Items[0]
+	outType := SmeltsTo(in.TypeId)
+	room := MaxStack(outType)
+	if f.Items[2].TypeId != -1 {
+		room -= int(f.Items[2].Count)
+	}
+	maxItems := min(int(in.Count), room)
+	needed := maxItems*smeltTicks - f.Progress
+
+	fuelCount, burnTime := 0, 0
+	if IsFuel(f.Items[1].TypeId) {
+		fuelCount = int(f.Items[1].Count)
+		burnTime = FuelBurnTime(f.Items[1].TypeId)
+	}
+	fuelTicks := burning + fuelCount*burnTime
+
+	cook := min(ticks, needed, fuelTicks)
+	done := min((f.Progress+cook)/smeltTicks, maxItems)
+
+	usedFuel := 0
+	if cook > burning {
+		extra := cook - burning
+		usedFuel = (extra + burnTime - 1) / burnTime
+		burning = usedFuel*burnTime - extra
+		f.MaxFuel = burnTime
+	} else {
+		burning -= cook
+	}
+
+	f.Progress = (f.Progress + cook) % smeltTicks
+	if done == maxItems || (cook < ticks && cook == fuelTicks) {
+		f.Progress = 0
+	}
+
+	if usedFuel >= fuelCount && usedFuel > 0 {
+		f.Items[1] = NewItem(-1, 0, 0)
+	} else {
+		f.Items[1].Count -= byte(usedFuel)
+	}
+
+	if done > 0 {
+		if int(in.Count) <= done {
+			f.Items[0] = NewItem(-1, 0, 0)
+			f.IsSmelting = false
+		} else {
+			f.Items[0].Count -= byte(done)
+		}
+		if f.Items[2].TypeId == -1 {
+			f.Items[2] = Item{TypeId: outType, Count: byte(done), Metadata: smeltMeta(in.TypeId)}
+		} else {
+			f.Items[2].Count += byte(done)
+		}
+	}
+
+	f.burnIdle(burning, ticks-cook)
+}
+
+func (f *Furnace) burnIdle(remain, ticks int) {
+	remain = max(remain-ticks, 0)
+	f.FuelRemain = remain
+	f.IsBurning = remain > 0
+	if !f.IsBurning {
+		f.MaxFuel = 0
+	}
+}
+
 func (f *Furnace) ShiftSlot(slot int16) int16 {
 	return slot + 6
 }
