@@ -49,7 +49,6 @@ func main() {
 
 	wType := flag.String("wt", "Default", "World type for world generation")
 
-	externalChunkGenBin := flag.String("external-chunkgen-bin", "", "Path to an external chunk-generation binary (e.g. bin/chunkgen); if set, routes normal terrain generation through it instead of the built-in Go generator, falling back to Go on failure")
 
 	flag.Parse()
 	world := level.NewWorld(GitCommit, 3257840388504953787, level.GetWorldType(*wType))
@@ -79,14 +78,6 @@ func main() {
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 
 	world.SetOppedUsernames(ops)
-
-	if *externalChunkGenBin != "" {
-		if _, err := os.Stat(*externalChunkGenBin); err != nil {
-			log.Printf("external-chunkgen-bin set to %q but not accessible (%v); will fall back to the Go generator for every chunk until this is fixed", *externalChunkGenBin, err)
-		}
-		world.SetExternalChunkGenBin(*externalChunkGenBin)
-		log.Printf("External chunk generation enabled via %s", *externalChunkGenBin)
-	}
 
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)

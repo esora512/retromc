@@ -123,9 +123,7 @@ type World struct {
 	Seed            int64
 	sleepers        map[int32]int
 
-	// ExternalChunkGenBin is the path to an optional external chunk-generation
-	ExternalChunkGenBin string
-	chunkGenSem         chan struct{}
+	chunkGenSem chan struct{}
 
 	broadcastPositionAndRotation    func(w *World, c constants.Entity, prevX, prevY, prevZ, nextX, nextY, nextZ float64, yaw byte)
 	newCollectItemPacket            func(itemId, collectorId int32) []byte
@@ -422,10 +420,6 @@ func (w *World) HurtPlayer(pl *player.Player, attacker constants.Entity, dmg int
 
 func (w *World) SetOppedUsernames(names map[string]bool) {
 	w.OppedUsernames = names
-}
-
-func (w *World) SetExternalChunkGenBin(path string) {
-	w.ExternalChunkGenBin = path
 }
 
 // Schedule world state changes

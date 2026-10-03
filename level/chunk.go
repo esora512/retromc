@@ -161,13 +161,6 @@ func chunkRand(worldSeed int64, cx, cz int32) *rand.Rand {
 	return rand.New(rand.NewSource(int64(h)))
 }
 
-func externalChunkGenEligible(dim int32, worldType WorldType) bool {
-	if dim == -1 {
-		return worldType == Noodle
-	}
-	return worldType == Default
-}
-
 func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chunk {
 	worldX := cx * CHUNK_SIZE_X
 	worldZ := cz * CHUNK_SIZE_Z
@@ -179,14 +172,6 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chu
 		SizeX: CHUNK_SIZE_X - 1,
 		SizeY: CHUNK_SIZE_Y - 1,
 		SizeZ: CHUNK_SIZE_Z - 1,
-	}
-
-	if w.ExternalChunkGenBin != "" && externalChunkGenEligible(dim, worldType) {
-		if ext, err := w.generateChunkExternal(cx, cz, dim); err == nil {
-			return ext
-		} else {
-			log.Printf("external chunkgen failed for chunk (%d,%d) dim %d, falling back to Go generator: %v", cx, cz, dim, err)
-		}
 	}
 
 	switch worldType {
