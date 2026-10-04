@@ -740,11 +740,19 @@ func validTarget(w WorldShared, id, dim int32) *player.Player {
 	return p
 }
 
-func (m *Mob) closestPlayer(w WorldShared, maxDist float64) (*player.Player, float64) {
+func validAttackTarget(w WorldShared, id, dim int32) *player.Player {
+	p := validTarget(w, id, dim)
+	if p == nil || p.IsCreative {
+		return nil
+	}
+	return p
+}
+
+func (m *Mob) closestPlayer(w WorldShared, maxDist float64, skipCreative bool) (*player.Player, float64) {
 	var best *player.Player
 	bestSq := maxDist * maxDist
 	for _, p := range w.GetPlayers() {
-		if !p.LoggedIn || p.HP <= 0 || p.Dimension != m.Dimension {
+		if !p.LoggedIn || p.HP <= 0 || p.Dimension != m.Dimension || (skipCreative && p.IsCreative) {
 			continue
 		}
 		dx, dy, dz := p.X-m.X, p.Y-m.Y, p.Z-m.Z
@@ -882,7 +890,7 @@ func (m *Mob) followGoal(w WorldShared) bool {
 func (m *Mob) idle(w WorldShared) {
 	m.forward, m.strafe = 0, 0
 	if rand.Float32() < 0.02 {
-		if p, _ := m.closestPlayer(w, mobLookRange); p != nil {
+		if p, _ := m.closestPlayer(w, mobLookRange, false); p != nil {
 			m.lookTarget = p.GetEntityId()
 			m.lookTicks = int32(10 + rand.Intn(20))
 		} else {
@@ -923,7 +931,7 @@ func (m *Mob) findPlayerToAttack(w WorldShared) *player.Player {
 	if m.MobType == c.Spider && !m.dark(w) {
 		return nil
 	}
-	p, _ := m.closestPlayer(w, mobAggroRange)
+	p, _ := m.closestPlayer(w, mobAggroRange, true)
 	if p == nil || !m.canSeePlayer(w, p) {
 		return nil
 	}
@@ -933,7 +941,7 @@ func (m *Mob) findPlayerToAttack(w WorldShared) *player.Player {
 func (m *Mob) hostileAI(w WorldShared, tracker *EntityTracker) {
 	m.hasAttacked = false
 
-	target := validTarget(w, m.TargetId, m.Dimension)
+	target := validAttackTarget(w, m.TargetId, m.Dimension)
 	if target == nil {
 		m.TargetId = -1
 		if p := m.findPlayerToAttack(w); p != nil {
@@ -951,7 +959,7 @@ func (m *Mob) hostileAI(w WorldShared, tracker *EntityTracker) {
 		if m.HP <= 0 {
 			return
 		}
-		target = validTarget(w, m.TargetId, m.Dimension)
+		target = validAttackTarget(w, m.TargetId, m.Dimension)
 	}
 
 	if m.MobType == c.Creeper && target == nil && m.fuse > 0 {

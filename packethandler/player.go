@@ -123,7 +123,7 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 
 
 func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ float64, clientOnGround bool) {
-	if pl.Immune >= 0 || pl.IsRiding != -1 {
+	if pl.Immune >= 0 || pl.IsRiding != -1 || pl.IsCreative {
 		pl.FallDistance = 0
 		return
 	}
@@ -439,7 +439,7 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 
 	blockItem, blockMeta, count := computeMinedDrop(world, p, oldBlock, pl)
 	damageHeldItemOnDig(pl)
-	if blockItem != 0 && count > 0 {
+	if blockItem != 0 && count > 0 && !pl.IsCreative {
 		DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, blockItem, blockMeta, count, pl.Dimension, 10)
 	}
 	world.TriggerFluidUpdate(p.X, int32(p.Y), p.Z, world.SetBlockInQueue, pl.Dimension)
@@ -528,7 +528,7 @@ func chainMineConnected(world *level.World, pl *player.Player, originX int32, or
 				world.TriggerLeafUpdate(next.X, int32(next.Y), next.Z, world.SetBlockInQueue, dim)
 			}
 
-			if blockItem != 0 && count > 0 {
+			if blockItem != 0 && count > 0 && !pl.IsCreative {
 				DropItemFromBrokenBlock(world, next.X, next.Y, next.Z, blockItem, blockMeta, count, dim, 10)
 			}
 
@@ -690,7 +690,7 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 		}
 		return 0, 0, 0
 	case constants.Wheat.Value:
-		if oldBlock.Metadata >= 7 {
+		if oldBlock.Metadata >= 7 && !pl.IsCreative {
 			DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, constants.WheatItem.Value, 0, 1, pl.Dimension, 10)
 		}
 		seeds := byte(0)
