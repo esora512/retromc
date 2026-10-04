@@ -209,6 +209,7 @@ func (s *Server) Run() {
 				}
 				s.Tracker.Manage(s.World)
 				s.World.FlushBlockQueue()
+				packethandler.FlushPendingChunks(s.World)
 			})
 		}
 	}()

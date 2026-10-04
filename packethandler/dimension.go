@@ -64,6 +64,7 @@ func transferPlayer(world *level.World, pl *player.Player, dim int32, x, y, z fl
 	pl.SentChunks = make(player.ChunkSet)
 	pl.SentChunksMu.Unlock()
 	pl.RequestedChunks = make(player.ChunkSet)
+	pl.PendingChunks = make(player.ChunkSet)
 	pl.HasInitializedChunks = false
 
 	sendRespawn(pl.Connection, byte(dim))

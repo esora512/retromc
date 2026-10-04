@@ -5,6 +5,8 @@ import (
 	"net"
 
 	"math"
+	"sort"
+	"time"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
@@ -110,6 +112,11 @@ func inViewDistance(coord player.ChunkCoord, cx, cz int32) bool {
 
 // unloadFarChunks tells the client to drop the chunks that fell out of range.
 func unloadFarChunks(pl *player.Player, cx, cz int32) {
+	for coord := range pl.PendingChunks {
+		if !inViewDistance(coord, cx, cz) {
+			delete(pl.PendingChunks, coord)
+		}
+	}
 	for coord := range pl.SentChunks {
 		if !inViewDistance(coord, cx, cz) {
 			unload := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: false}
@@ -133,6 +140,9 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 	var pending []level.ChunkCoord
 
 	for _, off := range viewOffsets {
+		if abs32(off.X) > level.SpawnChunkRadius || abs32(off.Z) > level.SpawnChunkRadius {
+			continue
+		}
 		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
 
 		if pl.SentChunks.Has(coord.X, coord.Z) {
@@ -151,9 +161,15 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 	pl.LastChunkX = cx
 	pl.LastChunkZ = cz
 
-	if len(pending) == 0 {
+	finish := func() {
 		pl.HasInitializedChunks = true
+		applyChunkVisibility(world, pl, cx, cz)
+		pl.LastDim = dim
 		onComplete()
+	}
+
+	if len(pending) == 0 {
+		finish()
 		return
 	}
 
@@ -170,8 +186,7 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 				}
 				remaining--
 				if remaining == 0 {
-					pl.HasInitializedChunks = true
-					onComplete()
+					finish()
 				}
 			})
 		})
@@ -179,15 +194,18 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 }
 
 // sendChunkToPlayer must run on the game loop, since lighting reads the neighbouring chunks.
-func sendChunkToPlayer(world *level.World, pl *player.Player, coord level.ChunkCoord, dim int32, chunk *level.Chunk) {
-	pre := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
-	pl.Connection.Write(pre.Serialize())
+func sendChunkToPlayer(world *level.World, pl *player.Player, coord level.ChunkCoord, dim int32, chunk *level.Chunk) int {
+	visibility := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
+	pre := visibility.Serialize()
+	pl.Connection.Write(pre)
 
 	light := world.ComputeLight(coord.X, coord.Z, dim, chunk)
-	player.WriteOwned(pl.Connection, packets.NewChunkBlockRegionPacket(chunk, light))
+	data := packets.NewChunkBlockRegionPacket(chunk, light)
+	player.WriteOwned(pl.Connection, data)
 	light.Release()
 
 	pl.SentChunks.Set(coord.X, coord.Z)
+	return len(pre) + len(data)
 }
 
 func WorldToLocalCoord(world int32) int {
@@ -270,15 +288,100 @@ func applyChunkVisibility(world *level.World, pl *player.Player, cx, cz int32) {
 		if pl.SentChunks.Has(coord.X, coord.Z) {
 			continue
 		}
-
-		if chunk, ok := world.PeekChunk(coord.X, coord.Z, pl.Dimension); ok {
-			sendChunkToPlayer(world, pl, coord, pl.Dimension, chunk)
-			continue
+		if pl.PendingChunks == nil {
+			pl.PendingChunks = make(player.ChunkSet)
 		}
-		requestChunkForPlayer(world, pl, coord)
+		pl.PendingChunks.Set(coord.X, coord.Z)
 	}
 
 	unloadFarChunks(pl, cx, cz)
+}
+
+const (
+	maxChunksPerTick = 16
+	maxChunkBacklog  = 8
+	chunkWindowBytes = 192 * 1024
+	chunkAckTimeout  = 10 * time.Second
+)
+
+func FlushPendingChunks(world *level.World) {
+	world.ForEachPlayer(func(pl *player.Player) {
+		if len(pl.PendingChunks) == 0 {
+			return
+		}
+		pl.SentChunksMu.Lock()
+		defer pl.SentChunksMu.Unlock()
+
+		coords := make([]player.ChunkCoord, 0, len(pl.PendingChunks))
+		for c := range pl.PendingChunks {
+			coords = append(coords, c)
+		}
+		dist := func(c player.ChunkCoord) int32 {
+			dx, dz := c.X-pl.LastChunkX, c.Z-pl.LastChunkZ
+			return dx*dx + dz*dz
+		}
+		sort.Slice(coords, func(i, j int) bool { return dist(coords[i]) < dist(coords[j]) })
+
+		expireChunkAcks(pl)
+		sent, bytes := 0, 0
+		defer func() {
+			if bytes > 0 {
+				sendChunkAck(pl, bytes)
+			}
+		}()
+		for _, c := range coords {
+			if sent >= maxChunksPerTick || player.Backlog(pl.Connection) >= maxChunkBacklog || pl.ChunkBytesInFlight+bytes >= chunkWindowBytes {
+				return
+			}
+			coord := level.ChunkCoord{X: c.X, Z: c.Z}
+			chunk, ok := world.PeekChunk(c.X, c.Z, pl.Dimension)
+			if !ok {
+				requestChunkForPlayer(world, pl, coord)
+				continue
+			}
+			bytes += sendChunkToPlayer(world, pl, coord, pl.Dimension, chunk)
+			delete(pl.PendingChunks, c)
+			sent++
+		}
+	})
+}
+
+func sendChunkAck(pl *player.Player, bytes int) {
+	pl.NextChunkAck--
+	if pl.NextChunkAck >= 0 {
+		pl.NextChunkAck = -1
+	}
+	ping := packets.ContainerTransactionPacket{WindowId: 0, ActionNumber: pl.NextChunkAck, Accepted: false}
+	pl.Connection.Write(ping.Serialize())
+	pl.ChunkAcks = append(pl.ChunkAcks, player.ChunkAck{Id: pl.NextChunkAck, Bytes: bytes, SentAt: time.Now()})
+	pl.ChunkBytesInFlight += bytes
+}
+
+func acknowledgeChunks(pl *player.Player, id int16) {
+	for i, ack := range pl.ChunkAcks {
+		if ack.Id != id {
+			continue
+		}
+		for _, done := range pl.ChunkAcks[:i+1] {
+			pl.ChunkBytesInFlight -= done.Bytes
+		}
+		pl.ChunkAcks = pl.ChunkAcks[i+1:]
+		return
+	}
+}
+
+func expireChunkAcks(pl *player.Player) {
+	for len(pl.ChunkAcks) > 0 && time.Since(pl.ChunkAcks[0].SentAt) > chunkAckTimeout {
+		pl.ChunkBytesInFlight -= pl.ChunkAcks[0].Bytes
+		pl.ChunkAcks = pl.ChunkAcks[1:]
+	}
+}
+
+func abs32(v int32) int32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func requestChunkForPlayer(world *level.World, pl *player.Player, coord level.ChunkCoord) {
@@ -293,18 +396,7 @@ func requestChunkForPlayer(world *level.World, pl *player.Player, coord level.Ch
 	world.RequestChunkAsync(coord.X, coord.Z, dim, func(generated *level.Chunk) {
 		world.Enqueue(func() {
 			delete(pl.RequestedChunks, player.ChunkCoord{X: coord.X, Z: coord.Z})
-			chunk := world.InsertChunk(coord.X, coord.Z, dim, generated)
-			if !world.HasPlayer(pl) || pl.Dimension != dim {
-				return
-			}
-			if !inViewDistance(player.ChunkCoord{X: coord.X, Z: coord.Z}, pl.LastChunkX, pl.LastChunkZ) {
-				return
-			}
-			pl.SentChunksMu.Lock()
-			defer pl.SentChunksMu.Unlock()
-			if !pl.SentChunks.Has(coord.X, coord.Z) {
-				sendChunkToPlayer(world, pl, coord, dim, chunk)
-			}
+			world.InsertChunk(coord.X, coord.Z, dim, generated)
 		})
 	})
 }

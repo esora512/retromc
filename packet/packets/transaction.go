@@ -10,6 +10,14 @@ type ContainerTransactionPacket struct {
 	Accepted     bool
 }
 
+func ReadContainerTransactionPacket(reader *packet.PacketReader) ContainerTransactionPacket {
+	return ContainerTransactionPacket{
+		WindowId:     reader.ReadByte(),
+		ActionNumber: int16(reader.ReadShort()),
+		Accepted:     reader.ReadBool(),
+	}
+}
+
 func (p *ContainerTransactionPacket) Serialize() []byte {
 	writer := packet.NewPacketWriter()
 	writer.WriteByte(packet.ContainerTransaction)

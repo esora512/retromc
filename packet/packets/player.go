@@ -497,7 +497,7 @@ func (p *SetBlockPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta byte) {
+func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta byte, dim int32) {
 	p := SetBlockPacket{
 		X:         x,
 		Y:         byte(y),
@@ -505,7 +505,7 @@ func BroadcastBlockChange(w *level.World, x, y, z int32, blockType, blockMeta by
 		BlockType: blockType,
 		BlockMeta: blockMeta,
 	}
-	w.BroadcastPacket(p.Serialize())
+	w.BroadcastPacketInDim(dim, p.Serialize())
 }
 
 type PlayerInputPacket struct {
@@ -551,7 +551,7 @@ func (p *SetMultipleBlocksPacket) Serialize() []byte {
 	return writer.Bytes()
 }
 
-func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
+func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte, dim int32) {
 	p := SetMultipleBlocksPacket{
 		ChunkX:      chunkX,
 		ChunkZ:      chunkZ,
@@ -560,7 +560,7 @@ func BroadcastMultiBlockChange(world *level.World, chunkX, chunkZ int32, numOfBl
 		BlockTypes:  blockTypes,
 		Metadata:    metadata,
 	}
-	world.BroadcastPacket(p.Serialize())
+	world.BroadcastPacketInDim(dim, p.Serialize())
 }
 
 type InteractWithBlockPacket struct {

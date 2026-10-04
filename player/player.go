@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"fmt"
 	"strings"
@@ -84,6 +85,12 @@ type ChunkCoord struct {
 	X, Z int32
 }
 
+type ChunkAck struct {
+	Id     int16
+	Bytes  int
+	SentAt time.Time
+}
+
 type ChunkSet map[ChunkCoord]struct{}
 
 func (s ChunkSet) Has(x, z int32) bool {
@@ -147,6 +154,10 @@ type Player struct {
 
 	SentChunks           ChunkSet
 	RequestedChunks      ChunkSet
+	PendingChunks        ChunkSet
+	ChunkBytesInFlight   int
+	ChunkAcks            []ChunkAck
+	NextChunkAck         int16
 	LastChunkX           int32
 	LastChunkZ           int32
 	HasInitializedChunks bool

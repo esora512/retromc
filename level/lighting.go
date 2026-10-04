@@ -25,6 +25,16 @@ var chunkLightPool = sync.Pool{New: func() any { return new(ChunkLight) }}
 
 var lightAreaPool = sync.Pool{New: func() any { return new([lightAreaXZ * lightAreaXZ * lightAreaY]byte) }}
 
+func distOutsideCenter(v int) byte {
+	switch {
+	case v < CHUNK_SIZE_X:
+		return byte(CHUNK_SIZE_X - v)
+	case v >= 2*CHUNK_SIZE_X:
+		return byte(v - 2*CHUNK_SIZE_X + 1)
+	}
+	return 0
+}
+
 func setNibble(arr []byte, i int, v byte) {
 	shift := uint((i & 1) * 4)
 	mask := byte(0x0f) << shift
@@ -76,7 +86,7 @@ func (w *World) ComputeLight(cx, cz, dim int32, c *Chunk) *ChunkLight {
 
 	var light []byte
 	var area *[lightAreaXZ * lightAreaXZ * lightAreaY]byte
-	var queue []lightPos
+	var buckets [16][]lightPos
 	idx := func(x, y, z int) int { return (x*lightAreaXZ+z)*lightAreaY + y }
 
 	for gx := 0; gx < 3; gx++ {
@@ -103,36 +113,42 @@ func (w *World) ComputeLight(cx, cz, dim int32, c *Chunk) *ChunkLight {
 				}
 				if light[idx(x, y, z)] < e {
 					light[idx(x, y, z)] = e
-					queue = append(queue, lightPos{int16(x), int16(y), int16(z)})
+					buckets[e] = append(buckets[e], lightPos{int16(x), int16(y), int16(z)})
 				}
 			}
 		}
 	}
 
 	dirs := [6][3]int{{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}}
-	for len(queue) > 0 {
-		p := queue[len(queue)-1]
-		queue = queue[:len(queue)-1]
-		cur := light[idx(int(p.x), int(p.y), int(p.z))]
-		for _, d := range dirs {
-			nx, ny, nz := int(p.x)+d[0], int(p.y)+d[1], int(p.z)+d[2]
-			if nx < 0 || nx >= lightAreaXZ || nz < 0 || nz >= lightAreaXZ || ny < 0 || ny >= lightAreaY {
+	for cur := byte(15); cur > 1; cur-- {
+		for i := 0; i < len(buckets[cur]); i++ {
+			p := buckets[cur][i]
+			if light[idx(int(p.x), int(p.y), int(p.z))] != cur {
 				continue
 			}
-			op := constants.LightOpacity[blockAt(nx, ny, nz)]
-			if op == 0 {
-				op = 1
+			for _, d := range dirs {
+				nx, ny, nz := int(p.x)+d[0], int(p.y)+d[1], int(p.z)+d[2]
+				if nx < 0 || nx >= lightAreaXZ || nz < 0 || nz >= lightAreaXZ || ny < 0 || ny >= lightAreaY {
+					continue
+				}
+				op := constants.LightOpacity[blockAt(nx, ny, nz)]
+				if op == 0 {
+					op = 1
+				}
+				if cur <= op {
+					continue
+				}
+				nv := cur - op
+				if nv <= distOutsideCenter(nx)+distOutsideCenter(nz) {
+					continue
+				}
+				ni := idx(nx, ny, nz)
+				if light[ni] >= nv {
+					continue
+				}
+				light[ni] = nv
+				buckets[nv] = append(buckets[nv], lightPos{int16(nx), int16(ny), int16(nz)})
 			}
-			if cur <= op {
-				continue
-			}
-			nv := cur - op
-			ni := idx(nx, ny, nz)
-			if light[ni] >= nv {
-				continue
-			}
-			light[ni] = nv
-			queue = append(queue, lightPos{int16(nx), int16(ny), int16(nz)})
 		}
 	}
 

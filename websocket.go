@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/leNicDev/retromc/player"
 )
 
 type wsConn struct {
@@ -50,6 +51,13 @@ func (c *wsConn) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return len(p), nil
+}
+
+func (c *wsConn) SetWriteBuffer(bytes int) error {
+	if tc, ok := c.ws.NetConn().(*net.TCPConn); ok {
+		return tc.SetWriteBuffer(bytes)
+	}
+	return nil
 }
 
 func (c *wsConn) Close() error         { return c.ws.Close() }
@@ -116,7 +124,7 @@ func runOnRender(s *Server) {
 			log.Println("WS upgrade failed:", err)
 			return
 		}
-		go handleConnection(newWSConn(conn), s.World, s.Tracker)
+		go handleConnection(player.NewAsyncConn(newWSConn(conn)), s.World, s.Tracker)
 	})
 
 	log.Printf("Render detected: HTTP/WebSocket bridge listening on :%s (game traffic on /ws, PID: %d)", port, os.Getpid())

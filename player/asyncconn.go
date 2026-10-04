@@ -11,6 +11,10 @@ const writeDeadline = 15 * time.Second
 
 const sendQueueSize = 8192
 
+const maxCoalescedWrite = 64 * 1024
+
+const socketSendBuffer = 64 * 1024
+
 type asyncConn struct {
 	net.Conn
 	sendCh    chan []byte
@@ -19,6 +23,9 @@ type asyncConn struct {
 }
 
 func NewAsyncConn(conn net.Conn) net.Conn {
+	if b, ok := conn.(interface{ SetWriteBuffer(int) error }); ok {
+		b.SetWriteBuffer(socketSendBuffer)
+	}
 	ac := &asyncConn{
 		Conn:   conn,
 		sendCh: make(chan []byte, sendQueueSize),
@@ -32,6 +39,7 @@ func (ac *asyncConn) writeLoop() {
 	for {
 		select {
 		case data := <-ac.sendCh:
+			data = ac.coalesce(data)
 			ac.Conn.SetWriteDeadline(time.Now().Add(writeDeadline))
 			if _, err := ac.Conn.Write(data); err != nil {
 				ac.Close()
@@ -49,6 +57,30 @@ func (ac *asyncConn) writeLoop() {
 			}
 		}
 	}
+}
+
+func (ac *asyncConn) coalesce(first []byte) []byte {
+	if len(ac.sendCh) == 0 || len(first) >= maxCoalescedWrite {
+		return first
+	}
+	buf := make([]byte, 0, maxCoalescedWrite)
+	buf = append(buf, first...)
+	for len(buf) < maxCoalescedWrite {
+		select {
+		case next := <-ac.sendCh:
+			buf = append(buf, next...)
+		default:
+			return buf
+		}
+	}
+	return buf
+}
+
+func Backlog(conn net.Conn) int {
+	if ac, ok := conn.(*asyncConn); ok {
+		return len(ac.sendCh)
+	}
+	return 0
 }
 
 func (ac *asyncConn) Write(b []byte) (int, error) {

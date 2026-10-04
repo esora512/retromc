@@ -133,8 +133,8 @@ type World struct {
 	broadcastTeleport               func(w *World, c constants.Entity, cx, cy, cz float64, yaw byte)
 	broadcastContainerData          func(w *World, windowId byte, itemType, itemValue int16)
 	broadcastSetSlot                func(w *World, windowId byte, slot int16, item inventory.Item)
-	broadcastMultiBlockChange       func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)
-	broadcastBlockChange            func(w *World, x, y, z int32, blockType, blockMeta byte)
+	broadcastMultiBlockChange       func(w *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte, dim int32)
+	broadcastBlockChange            func(w *World, x, y, z int32, blockType, blockMeta byte, dim int32)
 	broadcastTime                   func(w *World, tick int64)
 	broadcastWorldMsg               func(w *World, msg string)
 	broadcastMobPositionAndRotation func(w *World, m *entities.Mob, nX, nY, nZ, yaw, pitch float64)
@@ -343,12 +343,12 @@ func (w *World) BroadcastTime(tick int64) {
 	w.broadcastTime(w, tick)
 }
 
-func (w *World) BroadcastBlockChange(x, y, z int32, blockType, blockMeta byte) {
-	w.broadcastBlockChange(w, x, y, z, blockType, blockMeta)
+func (w *World) BroadcastBlockChange(x, y, z int32, blockType, blockMeta byte, dim int32) {
+	w.broadcastBlockChange(w, x, y, z, blockType, blockMeta, dim)
 }
 
-func (w *World) BroadcastMultiBlockChange(chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte) {
-	w.broadcastMultiBlockChange(w, chunkX, chunkZ, numOfBlocks, blockCoords, blockTypes, metadata)
+func (w *World) BroadcastMultiBlockChange(chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte, dim int32) {
+	w.broadcastMultiBlockChange(w, chunkX, chunkZ, numOfBlocks, blockCoords, blockTypes, metadata, dim)
 }
 
 func (w *World) BroadcastContainerData(windowId byte, itemType, itemValue int16) {
@@ -391,11 +391,11 @@ func (w *World) SetBroadcastSetSlot(f func(w *World, windowId byte, slot int16, 
 	w.broadcastSetSlot = f
 }
 
-func (w *World) SetBroadcastBlockChange(f func(w *World, x, y, z int32, blockType, blockMeta byte)) {
+func (w *World) SetBroadcastBlockChange(f func(w *World, x, y, z int32, blockType, blockMeta byte, dim int32)) {
 	w.broadcastBlockChange = f
 }
 
-func (w *World) SetBroadcastMultiBlockChange(f func(world *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte)) {
+func (w *World) SetBroadcastMultiBlockChange(f func(world *World, chunkX, chunkZ int32, numOfBlocks uint16, blockCoords []uint16, blockTypes, metadata []byte, dim int32)) {
 	w.broadcastMultiBlockChange = f
 }
 
@@ -683,6 +683,14 @@ func (w *World) BroadcastPacket(data []byte) {
 	}
 }
 
+func (w *World) BroadcastPacketInDim(dim int32, data []byte) {
+	for _, pl := range w.Players {
+		if pl.LoggedIn && pl.Dimension == dim {
+			pl.Connection.Write(data)
+		}
+	}
+}
+
 func (w *World) ForEachPlayer(fn func(*player.Player)) {
 	for _, pl := range w.Players {
 		if pl.LoggedIn {
@@ -722,7 +730,7 @@ func (w *World) FlushBlockQueue() {
 	w.blockQueue = nil
 	if len(blocks) <= 10 {
 		for _, b := range blocks {
-			w.BroadcastBlockChange(b.X, int32(b.Y), b.Z, b.TypeID, b.Metadata)
+			w.BroadcastBlockChange(b.X, int32(b.Y), b.Z, b.TypeID, b.Metadata, b.Dim)
 		}
 		return
 	}
@@ -733,13 +741,13 @@ func (w *World) FlushBlockQueue() {
 		meta   []byte
 	}
 
-	changes := make(map[[2]int32]*chunkChange)
+	changes := make(map[[3]int32]*chunkChange)
 
 	for _, b := range blocks {
 		chunkX := WorldToChunkCoord(b.X)
 		chunkZ := WorldToChunkCoord(b.Z)
 
-		key := [2]int32{chunkX, chunkZ}
+		key := [3]int32{chunkX, chunkZ, b.Dim}
 
 		change, ok := changes[key]
 		if !ok {
@@ -757,7 +765,7 @@ func (w *World) FlushBlockQueue() {
 	}
 
 	for chunk, change := range changes {
-		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta)
+		w.BroadcastMultiBlockChange(chunk[0], chunk[1], uint16(len(change.coords)), change.coords, change.types, change.meta, chunk[2])
 	}
 }
 

@@ -39,7 +39,7 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 			*line = string(r[:15])
 		}
 	}
-	world.BroadcastPacket(p.Serialize())
+	world.BroadcastPacketInDim(pl.Dimension, p.Serialize())
 }
 
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
@@ -1580,7 +1580,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 		BlockType: growable.TypeId,
 		BlockMeta: growable.Metadata,
 	}
-	world.BroadcastPacket(blockChange.Serialize())
+	world.BroadcastPacketInDim(pl.Dimension, blockChange.Serialize())
 	pl.Inventory.RemoveOne(pl.HotbarSlot)
 	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	return true

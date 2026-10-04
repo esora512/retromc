@@ -152,6 +152,13 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		world.Enqueue(func() {
 			handlePlayerInputPacket(p, pl, world)
 		})
+	case packet.ContainerTransaction:
+		p := packets.ReadContainerTransactionPacket(packetReader)
+		if p.WindowId == 0 && p.ActionNumber < 0 {
+			world.Enqueue(func() {
+				acknowledgeChunks(pl, p.ActionNumber)
+			})
+		}
 	default:
 		log.Printf("Unhandled packet, packet id: 0x%02X", packetId)
 	}
