@@ -445,6 +445,9 @@ func (w *World) spawnMobsAroundPlayers(spawn func(x, y, z, dim int32)) {
 
 		px, py, pz := pl.GetPosition()
 		dim := pl.GetDim()
+		if dim == -1 {
+			continue
+		}
 
 		spawnX, spawnZ := randomPointOnRing(px, pz, 48)
 		sx, sz := int32(math.Floor(spawnX)), int32(math.Floor(spawnZ))
