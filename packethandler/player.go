@@ -685,7 +685,10 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 		if pl.Inventory.Items[pl.HotbarSlot].TypeId == constants.Shears.Value {
 			return constants.Leaves.Value, oldBlock.Metadata & 3, 1
 		}
-		if rand.Intn(20) == 0 {
+		if rand.Intn(level.LeafAppleChance) == 0 && !pl.IsCreative {
+			DropItemFromBrokenBlock(world, p.X, p.Y, p.Z, constants.Apple.Value, 0, 1, pl.Dimension, 10)
+		}
+		if rand.Intn(level.LeafSaplingChance) == 0 {
 			return constants.Sapling.Value, oldBlock.Metadata & 3, 1
 		}
 		return 0, 0, 0
@@ -727,6 +730,12 @@ func computeMinedDrop(world *level.World, p packets.MineBlockPacket, oldBlock co
 }
 
 func DropItemFromMinedBlock(world *level.World, x, y, z float64, blockItem int16, blockMeta byte, count byte, dim, delay int32) {
+	if count > 1 && !inventory.IsStackable(blockItem) {
+		for i := byte(0); i < count; i++ {
+			DropItemFromMinedBlock(world, x, y, z, blockItem, blockMeta, 1, dim, delay)
+		}
+		return
+	}
 	velX := float64(rand.Float32())*0.2 - 0.1
 	velY := 0.2
 	velZ := float64(rand.Float32())*0.2 - 0.1

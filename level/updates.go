@@ -13,8 +13,10 @@ const (
 )
 
 const (
-	LeafDecayChance  = 20
-	LeafRecheckDelay = 20
+	LeafDecayChance   = 20
+	LeafSaplingChance = 20
+	LeafAppleChance   = 20
+	LeafRecheckDelay  = 20
 )
 
 func fluidDelay(b *constants.WBlock, decay bool) int64 {
@@ -195,6 +197,12 @@ func processLeafUpdateJob(w *World, u *BlockUpdate) {
 	}
 	u.SetBlock(u.X, u.Y, u.Z, air, u.Dimension)
 	w.SetBlockInQueue(u.X, u.Y, u.Z, air, u.Dimension)
+	if rand.Intn(LeafSaplingChance) == 0 {
+		w.DropItemFromMinedBlock(float64(u.X)+0.5, float64(u.Y)+0.5, float64(u.Z)+0.5, constants.Sapling.Value, b.Metadata&3, 1, u.Dimension, 10)
+	}
+	if rand.Intn(LeafAppleChance) == 0 {
+		w.DropItemFromMinedBlock(float64(u.X)+0.5, float64(u.Y)+0.5, float64(u.Z)+0.5, constants.Apple.Value, 0, 1, u.Dimension, 10)
+	}
 	notifyLeafNeighbours(w, u.X, u.Y, u.Z, u.SetBlock, u.Dimension)
 }
 
