@@ -95,9 +95,15 @@ func startDiscord(world *level.World) {
 	s.AddHandler(b.onMessage)
 
 	go func() {
-		if err := s.Open(); err != nil {
-			discordStderr.Println("failed to connect to gateway:", err)
-			return
+		backoff := time.Minute
+		for {
+			err := s.Open()
+			if err == nil {
+				break
+			}
+			discordStderr.Printf("failed to connect (likely a Cloudflare IP ban on a shared host), retrying in %v: %v", backoff, err)
+			time.Sleep(backoff)
+			backoff = min(backoff*2, 30*time.Minute)
 		}
 		b.setupWebhook()
 		world.Enqueue(func() { world.SetChatRelay(b.relay) })

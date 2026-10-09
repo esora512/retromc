@@ -17,6 +17,7 @@ skyblock/
 mcr_saves/
 .vscode/
 bin/
+.discord_bot
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
