@@ -294,6 +294,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 					Message: other.GetName() + " was killed by " + player.Username,
 				}
 				world.BroadcastPacket(cMsgPkt.Serialize())
+				world.RelayEvent(other.GetName(), cMsgPkt.Message)
 
 				killPlayer(world, world.Players[other.GetEntityId()])
 				tracker.ResetViewer(world, other.GetEntityId())
@@ -388,6 +389,7 @@ func HurtPlayer(world *level.World, pl *player.Player, attacker constants.Entity
 		}
 		msg := packets.ChatMessagePacket{Message: pl.GetName() + " was killed by " + cause}
 		world.BroadcastPacket(msg.Serialize())
+		world.RelayEvent(pl.GetName(), msg.Message)
 		killPlayer(world, pl)
 	}
 	return pl.HP

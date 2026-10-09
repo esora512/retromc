@@ -34,6 +34,7 @@ func handleDisconnectPacket(p packets.DisconnectPacket, world *level.World, pl *
 
 	world.SavePlayer(pl)
 	world.BroadcastPacket(chatPacket.Serialize())
+	world.RelayEvent(pl.Username, pl.Username+" left the game")
 	world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 	pl.LoggedIn = false
 }
@@ -95,6 +96,7 @@ func finishLogin(connection net.Conn, world *level.World, pl *player.Player) {
 		Message: "\u00a7e" + pl.Username + " joined the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
+	world.RelayEvent(pl.Username, pl.Username+" joined the game")
 	pl.LoggedIn = true
 	// TODO: Figure out a better way to op players
 	pl.IsOp = true

@@ -165,6 +165,24 @@ type World struct {
 	newEntityMetadataPacket func(e constants.Entity, m []byte) []byte
 
 	triggerManualBackup func()
+
+	chatRelay func(name, msg string, event bool)
+}
+
+func (w *World) SetChatRelay(f func(name, msg string, event bool)) {
+	w.chatRelay = f
+}
+
+func (w *World) RelayChat(name, msg string) {
+	if w.chatRelay != nil {
+		w.chatRelay(name, msg, false)
+	}
+}
+
+func (w *World) RelayEvent(name, msg string) {
+	if w.chatRelay != nil {
+		w.chatRelay(name, msg, true)
+	}
 }
 
 func (w *World) SetTriggerManualBackup(f func()) {

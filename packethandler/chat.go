@@ -477,6 +477,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	}
 	p.Message = "<" + pl.Username + "> " + message
 	world.BroadcastPacket(p.Serialize())
+	world.RelayChat(pl.Username, message)
 	return false
 }
 

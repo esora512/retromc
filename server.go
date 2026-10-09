@@ -94,6 +94,7 @@ func main() {
 
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
+	startDiscord(world)
 	runOnRender(&server)
 	server.Run()
 	startShutdownSave(world)
@@ -160,6 +161,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 						if pl.LoggedIn {
 							p := packethandler.NewLeftGameMsg(pl.Username)
 							world.BroadcastPacket(p)
+							world.RelayEvent(pl.Username, pl.Username+" left the game")
 							world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 						}
 						world.RemovePlayer(pl)

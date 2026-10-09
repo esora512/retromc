@@ -46,3 +46,8 @@ When deployed on Render (detected via the `RENDER` env var that Render sets auto
 ```sh
 python3 bridge.py --remote wss://retromc.onrender.com/ws
 ```
+
+### Discord
+Set `DISCORD_TOKEN` (bot token) and `DISCORD_CHANNEL_ID` (chat channel) to bridge in-game chat with a Discord channel; joins, leaves and deaths are posted too. Optionally set `DISCORD_LOG_CHANNEL_ID` to stream server logs to a second channel. Works the same on Render (dashboard env vars) and on a VM (`DISCORD_TOKEN=... DISCORD_CHANNEL_ID=... ./retromc --host 0.0.0.0`).
+
+Bot setup: enable the **Message Content** intent in the Developer Portal and invite the bot with *View Channel*, *Send Messages*, *Embed Links* and *Manage Webhooks* (used to post chat under each player's name and skin face).
