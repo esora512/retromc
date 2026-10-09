@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -34,21 +38,32 @@ var (
 
 var activeDiscord atomic.Pointer[discordBridge]
 
+var discordNoMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
+
 type discordMsg struct {
 	name  string
 	text  string
 	event bool
 }
 
+type discordReq struct {
+	url     string
+	bot     bool
+	payload any
+}
+
 type discordBridge struct {
 	session      *discordgo.Session
 	world        *level.World
+	http         *http.Client
 	chatChannel  string
 	logChannel   string
 	webhookID    string
 	webhookToken string
 	outbox       chan discordMsg
 	logs         chan string
+	dropped      atomic.Int64
+	nextSend     atomic.Int64
 }
 
 type discordLogWriter struct {
@@ -85,9 +100,10 @@ func startDiscord(world *level.World) {
 	b := &discordBridge{
 		session:     s,
 		world:       world,
+		http:        &http.Client{Timeout: 10 * time.Second},
 		chatChannel: chatChannel,
 		logChannel:  os.Getenv("DISCORD_LOG_CHANNEL_ID"),
-		outbox:      make(chan discordMsg, 256),
+		outbox:      make(chan discordMsg, 1000),
 		logs:        make(chan string, 1024),
 	}
 
@@ -110,12 +126,9 @@ func startDiscord(world *level.World) {
 		}
 		b.setupWebhook()
 		world.Enqueue(func() { world.SetChatRelay(b.relay) })
-		go b.runOutbox()
-		if b.logChannel != "" {
-			go b.runLogs()
-		}
 		activeDiscord.Store(b)
-		b.sendStatus("Server is online", 0x55FF55)
+		b.outbox <- discordMsg{text: "Server is online", event: true}
+		go b.runSender()
 		log.Println("Discord bridge connected")
 	}()
 }
@@ -127,22 +140,14 @@ func announceDiscordShutdown() {
 	}
 	done := make(chan struct{})
 	go func() {
-		b.sendStatus("Server is shutting down", 0xFF5555)
+		if _, _, err := b.post(b.statusReq("Server is shutting down", 0xFF5555)); err != nil {
+			discordStderr.Println("failed to send shutdown message:", err)
+		}
 		close(done)
 	}()
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
-	}
-}
-
-func (b *discordBridge) sendStatus(text string, color int) {
-	_, err := b.session.ChannelMessageSendEmbed(b.chatChannel, &discordgo.MessageEmbed{
-		Description: "**" + text + "**",
-		Color:       color,
-	})
-	if err != nil {
-		discordStderr.Println("failed to send status message:", err)
 	}
 }
 
@@ -168,73 +173,155 @@ func (b *discordBridge) relay(name, text string, event bool) {
 	select {
 	case b.outbox <- discordMsg{name: name, text: text, event: event}:
 	default:
+		b.dropped.Add(1)
 	}
 }
 
-func (b *discordBridge) runOutbox() {
-	noMentions := &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
-	for m := range b.outbox {
-		avatar := "https://mc-heads.net/avatar/" + url.PathEscape(m.name) + "/64"
-		var err error
-		switch {
-		case m.event:
-			_, err = b.session.ChannelMessageSendComplex(b.chatChannel, &discordgo.MessageSend{
-				Embeds: []*discordgo.MessageEmbed{{
-					Author: &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
-					Color:  0xFFFF55,
-				}},
-				AllowedMentions: noMentions,
-			})
-		case b.webhookID != "":
-			_, err = b.session.WebhookExecute(b.webhookID, b.webhookToken, false, &discordgo.WebhookParams{
-				Content:         discordMarkdownEsc.Replace(m.text),
-				Username:        m.name,
-				AvatarURL:       avatar,
-				AllowedMentions: noMentions,
-			})
-		default:
-			_, err = b.session.ChannelMessageSendComplex(b.chatChannel, &discordgo.MessageSend{
-				Content:         fmt.Sprintf("**%s**: %s", discordMarkdownEsc.Replace(m.name), discordMarkdownEsc.Replace(m.text)),
-				AllowedMentions: noMentions,
-			})
-		}
-		if err != nil {
-			discordStderr.Println("failed to send chat message:", err)
-		}
+func (b *discordBridge) statusReq(text string, color int) discordReq {
+	return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
+		Embeds:          []*discordgo.MessageEmbed{{Description: "**" + text + "**", Color: color}},
+		AllowedMentions: discordNoMentions,
+	}}
+}
+
+func (b *discordBridge) chatReq(m discordMsg) discordReq {
+	if m.name == "" {
+		return b.statusReq(m.text, 0x55FF55)
+	}
+	avatar := "https://mc-heads.net/avatar/" + url.PathEscape(m.name) + "/64"
+	switch {
+	case m.event:
+		return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
+			Embeds: []*discordgo.MessageEmbed{{
+				Author: &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
+				Color:  0xFFFF55,
+			}},
+			AllowedMentions: discordNoMentions,
+		}}
+	case b.webhookID != "":
+		return discordReq{url: discordgo.EndpointWebhookToken(b.webhookID, b.webhookToken), payload: &discordgo.WebhookParams{
+			Content:         discordMarkdownEsc.Replace(m.text),
+			Username:        m.name,
+			AvatarURL:       avatar,
+			AllowedMentions: discordNoMentions,
+		}}
+	default:
+		return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
+			Content:         fmt.Sprintf("**%s**: %s", discordMarkdownEsc.Replace(m.name), discordMarkdownEsc.Replace(m.text)),
+			AllowedMentions: discordNoMentions,
+		}}
 	}
 }
 
-func (b *discordBridge) runLogs() {
+func (b *discordBridge) runSender() {
 	ticker := time.NewTicker(discordLogFlush)
 	defer ticker.Stop()
-	var buf strings.Builder
-	flush := func() {
-		if buf.Len() == 0 {
-			return
-		}
-		_, err := b.session.ChannelMessageSendComplex(b.logChannel, &discordgo.MessageSend{
-			Content:         "```\n" + buf.String() + "```",
-			AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
-		})
-		if err != nil {
-			discordStderr.Println("failed to send logs:", err)
-		}
-		buf.Reset()
-	}
+	var logBuf strings.Builder
+	skippedLogs := 0
 	for {
 		select {
+		case m := <-b.outbox:
+			b.deliver(b.chatReq(m))
+			if n := b.dropped.Swap(0); n > 0 {
+				b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), 0xFF5555))
+			}
 		case line := <-b.logs:
-			line = strings.ReplaceAll(line, "```", "'''")
-			if len(line) > discordMaxMsgLen {
-				line = truncateRunes(line, discordMaxMsgLen/4) + "\n"
+			if b.logChannel == "" {
+				continue
 			}
-			if buf.Len()+len(line) > discordMaxMsgLen {
-				flush()
+			line = truncateRunes(strings.ReplaceAll(line, "```", "'''"), discordMaxMsgLen/4)
+			if !strings.HasSuffix(line, "\n") {
+				line += "\n"
 			}
-			buf.WriteString(line)
+			if logBuf.Len()+len(line) > discordMaxMsgLen {
+				skippedLogs++
+				continue
+			}
+			logBuf.WriteString(line)
 		case <-ticker.C:
-			flush()
+			if logBuf.Len() == 0 && skippedLogs == 0 {
+				continue
+			}
+			content := "```\n" + logBuf.String() + "```"
+			if skippedLogs > 0 {
+				content += fmt.Sprintf("(%d log line(s) skipped)", skippedLogs)
+			}
+			b.deliver(discordReq{url: discordgo.EndpointChannelMessages(b.logChannel), bot: true, payload: &discordgo.MessageSend{
+				Content:         content,
+				AllowedMentions: discordNoMentions,
+			}})
+			logBuf.Reset()
+			skippedLogs = 0
 		}
+	}
+}
+
+func (b *discordBridge) deliver(req discordReq) {
+	backoff := 5 * time.Second
+	for {
+		if wait := time.Until(time.Unix(0, b.nextSend.Load())); wait > 0 {
+			time.Sleep(wait)
+		}
+		retry, wait, err := b.post(req)
+		if err == nil {
+			return
+		}
+		if !retry {
+			discordStderr.Println("dropping message:", err)
+			return
+		}
+		if wait <= 0 {
+			wait = backoff
+			backoff = min(backoff*2, 5*time.Minute)
+		}
+		discordStderr.Printf("send failed, retrying in %v: %v", wait, err)
+		time.Sleep(wait)
+	}
+}
+
+func (b *discordBridge) post(req discordReq) (retry bool, wait time.Duration, err error) {
+	body, err := json.Marshal(req.payload)
+	if err != nil {
+		return false, 0, err
+	}
+	hr, err := http.NewRequest(http.MethodPost, req.url, bytes.NewReader(body))
+	if err != nil {
+		return false, 0, err
+	}
+	hr.Header.Set("Content-Type", "application/json")
+	hr.Header.Set("User-Agent", b.session.UserAgent)
+	if req.bot {
+		hr.Header.Set("Authorization", b.session.Token)
+	}
+
+	resp, err := b.http.Do(hr)
+	if err != nil {
+		return true, 0, err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+
+	if resp.Header.Get("X-RateLimit-Remaining") == "0" {
+		if after, perr := strconv.ParseFloat(resp.Header.Get("X-RateLimit-Reset-After"), 64); perr == nil {
+			b.nextSend.Store(time.Now().Add(time.Duration(after * float64(time.Second))).UnixNano())
+		}
+	}
+
+	switch {
+	case resp.StatusCode < 300:
+		return false, 0, nil
+	case resp.StatusCode == http.StatusTooManyRequests:
+		var rl struct {
+			RetryAfter float64 `json:"retry_after"`
+		}
+		if json.Unmarshal(respBody, &rl) == nil && rl.RetryAfter > 0 {
+			return true, time.Duration(rl.RetryAfter*float64(time.Second)) + 250*time.Millisecond, fmt.Errorf("rate limited: %s", respBody)
+		}
+		return true, 0, fmt.Errorf("blocked by Cloudflare (shared IP ban?): %s", truncateRunes(string(respBody), 200))
+	case resp.StatusCode >= 500 || !bytes.HasPrefix(bytes.TrimSpace(respBody), []byte("{")):
+		return true, 0, fmt.Errorf("discord %s: %s", resp.Status, truncateRunes(string(respBody), 200))
+	default:
+		return false, 0, fmt.Errorf("discord %s: %s", resp.Status, truncateRunes(string(respBody), 300))
 	}
 }
 
