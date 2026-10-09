@@ -398,6 +398,7 @@ func startShutdownSave(world *level.World) {
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigCh
+		announceDiscordShutdown()
 		log.Println("Shutting down, saving world...")
 		if err := flushWorld(world); err != nil {
 			log.Println("Failed to save world on shutdown:", err)
@@ -436,6 +437,7 @@ func startBackupLoop(b2 *b2Client, world *level.World) {
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-sigCh
+		announceDiscordShutdown()
 		log.Println("Shutting down, backing up world to B2 first...")
 		backupWorldToB2(b2, world)
 		os.Exit(0)

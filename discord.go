@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -30,6 +31,8 @@ var (
 	discordEmojiRe     = regexp.MustCompile(`<a?(:\w+:)\d+>`)
 	discordMarkdownEsc = strings.NewReplacer(`\`, `\\`, `*`, `\*`, `_`, `\_`, `~`, `\~`, "`", "\\`", `|`, `\|`, `>`, `\>`)
 )
+
+var activeDiscord atomic.Pointer[discordBridge]
 
 type discordMsg struct {
 	name  string
@@ -111,8 +114,36 @@ func startDiscord(world *level.World) {
 		if b.logChannel != "" {
 			go b.runLogs()
 		}
+		activeDiscord.Store(b)
+		b.sendStatus("Server is online", 0x55FF55)
 		log.Println("Discord bridge connected")
 	}()
+}
+
+func announceDiscordShutdown() {
+	b := activeDiscord.Load()
+	if b == nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		b.sendStatus("Server is shutting down", 0xFF5555)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
+}
+
+func (b *discordBridge) sendStatus(text string, color int) {
+	_, err := b.session.ChannelMessageSendEmbed(b.chatChannel, &discordgo.MessageEmbed{
+		Description: "**" + text + "**",
+		Color:       color,
+	})
+	if err != nil {
+		discordStderr.Println("failed to send status message:", err)
+	}
 }
 
 func (b *discordBridge) setupWebhook() {
@@ -233,7 +264,7 @@ func (b *discordBridge) onMessage(s *discordgo.Session, m *discordgo.MessageCrea
 		return
 	}
 
-	prefix := "§9[D] §7" + name + "§f: "
+	prefix := "§9<" + name + ">§f "
 	lines := wrapRunes(text, mcChatLineLen-len([]rune(prefix)))
 	if len(lines) > mcMaxDiscordLines {
 		lines = lines[:mcMaxDiscordLines]
