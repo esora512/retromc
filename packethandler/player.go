@@ -184,6 +184,12 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
 		return
 	}
+	if _, ok := world.Entities[pl.IsRiding].(*entities.RideableEntity); !ok {
+		pl.IsRiding = -1
+	}
+	if p.Y <= ignoreY && pl.IsRiding == -1 {
+		return
+	}
 
 	if pl.IsRiding != -1 {
 		maybeRidable := world.Entities[pl.IsRiding]
@@ -254,6 +260,12 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 		return
 	}
 	if p.X <= -1 && p.Y <= -1000000 && p.Z <= -1 {
+		return
+	}
+	if _, ok := world.Entities[pl.IsRiding].(*entities.RideableEntity); !ok {
+		pl.IsRiding = -1
+	}
+	if p.Y <= ignoreY && pl.IsRiding == -1 {
 		return
 	}
 
