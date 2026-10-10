@@ -52,6 +52,7 @@ func main() {
 
 	flag.Parse()
 	world := level.NewWorld(GitCommit, 3257840388504953787, level.GetWorldType(*wType))
+	b2 := setupB2(world)
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
@@ -95,9 +96,9 @@ func main() {
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	startDiscord(world, *host, *port)
-	runOnRender(&server)
+	runOnRender(&server, b2)
 	server.Run()
-	startShutdownSave(world)
+	startPersistence(world, b2)
 
 	l, err := net.Listen(CON_TYPE, *host+":"+*port)
 	if err != nil {

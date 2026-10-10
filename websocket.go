@@ -79,10 +79,9 @@ var upgrader = websocket.Upgrader{
 // runOnRender starts the server in Render mode and never returns when the
 // RENDER env var (set automatically by Render) is present; otherwise it
 // returns immediately so the caller can fall through to the plain TCP
-// listener. In Render mode the world is restored from/backed up to B2 (if
-// configured) and game traffic is tunneled over a WebSocket on $PORT, since
-// Render only exposes HTTP. Use bridge.py locally to connect a client.
-func runOnRender(s *Server) {
+// listener. In Render mode game traffic is tunneled over a WebSocket on
+// $PORT, since Render only exposes HTTP. Use bridge.py locally to connect a client.
+func runOnRender(s *Server, b2 *b2Client) {
 	if _, ok := os.LookupEnv("RENDER"); !ok {
 		return
 	}
@@ -91,23 +90,8 @@ func runOnRender(s *Server) {
 		port = "10000" // Render's default
 	}
 
-	b2 := newB2Client()
-	if b2 != nil {
-		restoreWorldFromB2(b2, s.World.WorldDir)
-		s.World.SetTriggerManualBackup(func() {
-			go backupWorldToB2(b2, s.World)
-		})
-	} else {
-		log.Println("B2 credentials not set (KEY_ID/APP_KEY/B2_BUCKET); world backups disabled")
-	}
-
 	s.Run()
-
-	if b2 != nil {
-		startBackupLoop(b2, s.World)
-	} else {
-		startShutdownSave(s.World)
-	}
+	startPersistence(s.World, b2)
 
 	mux := http.NewServeMux()
 

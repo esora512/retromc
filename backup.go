@@ -372,11 +372,49 @@ func restoreWorldFromB2(b2 *b2Client, worldDir string) {
 		log.Println("B2: failed to download backup, starting with a fresh world:", err)
 		return
 	}
-	if err := extractArchive(data, worldDir); err != nil {
-		log.Println("B2: failed to extract backup, starting with a fresh world:", err)
+	tmpDir := worldDir + ".restore"
+	oldDir := worldDir + ".old"
+	os.RemoveAll(tmpDir)
+	if err := extractArchive(data, tmpDir); err != nil {
+		os.RemoveAll(tmpDir)
+		log.Println("B2: failed to extract backup, keeping local world:", err)
 		return
 	}
-	log.Println("B2: restored world from backup")
+	os.RemoveAll(oldDir)
+	if err := os.Rename(worldDir, oldDir); err != nil && !os.IsNotExist(err) {
+		os.RemoveAll(tmpDir)
+		log.Println("B2: failed to move local world aside, keeping it:", err)
+		return
+	}
+	if err := os.Rename(tmpDir, worldDir); err != nil {
+		os.Rename(oldDir, worldDir)
+		log.Println("B2: failed to swap in restored world, keeping local world:", err)
+		return
+	}
+	log.Printf("B2: restored world from backup (previous local world kept in %s)", oldDir)
+}
+
+// setupB2 restores the world from B2 and enables /save uploads when
+// KEY_ID, APP_KEY and B2_BUCKET are set, regardless of where the server runs.
+func setupB2(world *level.World) *b2Client {
+	b2 := newB2Client()
+	if b2 == nil {
+		log.Println("B2 credentials not set (KEY_ID/APP_KEY/B2_BUCKET); world backups disabled")
+		return nil
+	}
+	restoreWorldFromB2(b2, world.WorldDir)
+	world.SetTriggerManualBackup(func() {
+		go backupWorldToB2(b2, world)
+	})
+	return b2
+}
+
+func startPersistence(world *level.World, b2 *b2Client) {
+	if b2 != nil {
+		startBackupLoop(b2, world)
+	} else {
+		startShutdownSave(world)
+	}
 }
 
 // flushWorld saves all loaded chunks, their entities and online players on the game loop.
@@ -392,7 +430,7 @@ func flushWorld(world *level.World) error {
 	return <-done
 }
 
-// startShutdownSave flushes the world to local disk on SIGTERM/SIGINT (VM / local runs without B2).
+// startShutdownSave flushes the world to local disk on SIGTERM/SIGINT when B2 is not configured.
 func startShutdownSave(world *level.World) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
