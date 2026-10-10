@@ -78,6 +78,7 @@ func main() {
 	world.SetHurtPlayer(packethandler.HurtPlayer)
 	world.SetAttackEntity(packethandler.AttackEntity)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
+	world.SetCloseContainer(packethandler.ForceCloseContainer)
 
 	world.SetOppedUsernames(ops)
 

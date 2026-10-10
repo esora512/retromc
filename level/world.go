@@ -115,13 +115,12 @@ type World struct {
 
 	OppedUsernames map[string]bool
 
-	TickSpeed       int64
-	Containers      Containers
-	ChestPlacements ChestPlacement
-	WorldDir        string
-	CommitHash      string
-	Seed            int64
-	sleepers        map[int32]int
+	TickSpeed  int64
+	Containers Containers
+	WorldDir   string
+	CommitHash string
+	Seed       int64
+	sleepers   map[int32]int
 
 	chunkGenSem chan struct{}
 
@@ -167,6 +166,8 @@ type World struct {
 	triggerManualBackup func()
 
 	chatRelay func(name, msg string, event bool)
+
+	closeContainer func(w *World, pl *player.Player)
 }
 
 func (w *World) SetChatRelay(f func(name, msg string, event bool)) {
@@ -494,10 +495,6 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 			Chests:     make(map[BlockKey]*inventory.Chest),
 			Dispensers: make(map[BlockKey]*inventory.Dispenser),
 			Furnaces:   make(map[BlockKey]*inventory.Furnace),
-		},
-		ChestPlacements: ChestPlacement{
-			AdjacentSlots:  make(map[BlockKey]BlockKey),
-			ForbiddenSlots: make(map[BlockKey]struct{}),
 		},
 		Scheduler:   NewBlockUpdateScheduler(),
 		blockQueue:  make(map[[4]int32]QueueBlock),

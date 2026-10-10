@@ -1,18 +1,18 @@
 package level
 
 import (
+	"math/rand"
+
+	"github.com/leNicDev/retromc/constants"
+	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/inventory"
+	"github.com/leNicDev/retromc/player"
 )
 
 type Containers struct {
 	Chests     map[BlockKey]*inventory.Chest
 	Dispensers map[BlockKey]*inventory.Dispenser
 	Furnaces   map[BlockKey]*inventory.Furnace
-}
-
-type ChestPlacement struct {
-	AdjacentSlots  map[BlockKey]BlockKey
-	ForbiddenSlots map[BlockKey]struct{}
 }
 
 const CHEST_SIZE = 27
@@ -23,6 +23,10 @@ const FURNACE_SIZE = 3
 
 func containerKey(x, y, z, dim int32) BlockKey {
 	return BlockKey{X: x, Y: byte(y), Z: z, Dim: dim}
+}
+
+func (w *World) SetCloseContainer(f func(w *World, pl *player.Player)) {
+	w.closeContainer = f
 }
 
 func (w *World) PlaceDispenser(x, y, z, dim int32) bool {
@@ -63,32 +67,36 @@ func neighbourKeys(x, y, z, dim int32) [4]BlockKey {
 	}
 }
 
-func (w *World) registerDoubleAdjacentChest(x, y, z, dim int32, excludePosition inventory.ContainerPosition) {
+func (w *World) isChestBlock(k BlockKey) bool {
+	ch, ok := w.PeekChunk(WorldToChunkCoord(k.X), WorldToChunkCoord(k.Z), k.Dim)
+	if !ok || len(ch.Data) < chunkBlocksAmount {
+		return true
+	}
+	return ch.GetBlock(int(k.X&15), int(k.Y), int(k.Z&15)).TypeId == byte(constants.Chest.Value)
+}
+
+func (w *World) adjacentChests(x, y, z, dim int32, checkBlocks bool) []*inventory.Chest {
+	var out []*inventory.Chest
 	for _, n := range neighbourKeys(x, y, z, dim) {
-		if n == containerKey(excludePosition.X, excludePosition.Y, excludePosition.Z, dim) {
-			continue
+		if c, ok := w.Containers.Chests[n]; ok && (!checkBlocks || w.isChestBlock(n)) {
+			out = append(out, c)
 		}
-		w.ChestPlacements.ForbiddenSlots[n] = struct{}{}
 	}
+	return out
 }
 
-func (w *World) unregisterDoubleAdjacentChest(x, y, z, dim int32) {
-	for _, n := range neighbourKeys(x, y, z, dim) {
-		delete(w.ChestPlacements.ForbiddenSlots, n)
-	}
+func attachChestHalf(c *inventory.Chest, x, y, z int32, items []inventory.Item) {
+	c.Size = DOUBLE_CHEST_SIZE
+	c.Items = append(c.Items[:CHEST_SIZE:CHEST_SIZE], items...)
+	c.SetSecondPosition(x, y, z)
 }
 
-func (w *World) registerSingleAdjacentChest(x, y, z, dim int32) {
-	ownKey := containerKey(x, y, z, dim)
-	for _, n := range neighbourKeys(x, y, z, dim) {
-		w.ChestPlacements.AdjacentSlots[n] = ownKey
+func emptyChestItems() []inventory.Item {
+	items := make([]inventory.Item, CHEST_SIZE)
+	for i := range items {
+		items[i] = inventory.NewItem(-1, 0, 0)
 	}
-}
-
-func (w *World) unregisterSingleAdjacentChest(x, y, z, dim int32) {
-	for _, n := range neighbourKeys(x, y, z, dim) {
-		delete(w.ChestPlacements.AdjacentSlots, n)
-	}
+	return items
 }
 
 func (w *World) GetChest(x, y, z, dim int32) *inventory.Chest {
@@ -99,80 +107,165 @@ func (w *World) GetChest(x, y, z, dim int32) *inventory.Chest {
 	return nil
 }
 
-func (w *World) RemoveChest(x, y, z, dim int32) {
-	if w.Containers.Chests == nil {
-		return
+// ChestHalfItems returns the 27 slots that belong to the chest block at x, y, z.
+func ChestHalfItems(chest *inventory.Chest, x, y, z int32) []inventory.Item {
+	if chest.Size != DOUBLE_CHEST_SIZE {
+		return chest.Items
 	}
-	key := containerKey(x, y, z, dim)
-	chest := w.Containers.Chests[key]
-
-	if chest.Size == DOUBLE_CHEST_SIZE {
-		// Find surviving chest position
-		var sPos inventory.ContainerPosition
-		if x == chest.Position.X && y == chest.Position.Y && z == chest.Position.Z {
-			sPos = chest.SecondPosition
-		} else {
-			sPos = chest.Position
-		}
-
-		chest.Size = CHEST_SIZE
-		chest.Items = chest.Items[:CHEST_SIZE]
-
-		delete(w.Containers.Chests, key)
-		w.unregisterDoubleAdjacentChest(x, y, z, dim)
-		w.unregisterDoubleAdjacentChest(sPos.X, sPos.Y, sPos.Z, dim)
-
-		chest.Position = sPos
-		chest.SecondPosition = inventory.ContainerPosition{}
-		w.registerSingleAdjacentChest(sPos.X, sPos.Y, sPos.Z, dim)
-		return
+	if x == chest.SecondPosition.X && y == chest.SecondPosition.Y && z == chest.SecondPosition.Z {
+		return chest.Items[CHEST_SIZE:]
 	}
-
-	delete(w.Containers.Chests, key)
-	w.unregisterSingleAdjacentChest(x, y, z, dim)
-	for _, n := range neighbourKeys(x, y, z, dim) {
-		delete(w.ChestPlacements.ForbiddenSlots, n)
-	}
-	delete(w.ChestPlacements.AdjacentSlots, key)
-	delete(w.ChestPlacements.ForbiddenSlots, key)
+	return chest.Items[:CHEST_SIZE]
 }
 
-func (w *World) PlaceChest(x, y, z, dim int32) bool {
-
+// RemoveChest removes the chest block at x, y, z and returns the items stored in that half.
+func (w *World) RemoveChest(x, y, z, dim int32) []inventory.Item {
 	key := containerKey(x, y, z, dim)
-	if _, forbidden := w.ChestPlacements.ForbiddenSlots[key]; forbidden {
-		return false
+	chest, ok := w.Containers.Chests[key]
+	if !ok {
+		return nil
+	}
+	delete(w.Containers.Chests, key)
+
+	removed := append([]inventory.Item(nil), ChestHalfItems(chest, x, y, z)...)
+	if chest.Size == DOUBLE_CHEST_SIZE {
+		atFirst := x == chest.Position.X && y == chest.Position.Y && z == chest.Position.Z
+		if atFirst {
+			chest.Items = append([]inventory.Item(nil), chest.Items[CHEST_SIZE:]...)
+			chest.Position = chest.SecondPosition
+		} else {
+			chest.Items = append([]inventory.Item(nil), chest.Items[:CHEST_SIZE]...)
+		}
+		chest.Size = CHEST_SIZE
+		chest.SecondPosition = inventory.ContainerPosition{}
+	}
+	return removed
+}
+
+// PlaceChest follows vanilla's rule: a chest may join exactly one adjacent single chest,
+// and may not touch a double chest or two chests at once.
+func (w *World) PlaceChest(x, y, z, dim int32) bool {
+	key := containerKey(x, y, z, dim)
+	if _, ok := w.Containers.Chests[key]; ok {
+		w.RemoveChest(x, y, z, dim)
 	}
 
-	if neighbourKey, adjacent := w.ChestPlacements.AdjacentSlots[key]; adjacent {
-		existingChest := w.Containers.Chests[neighbourKey]
-
-		existingChest.Size = DOUBLE_CHEST_SIZE
-		extra := make([]inventory.Item, CHEST_SIZE)
-		for i := range extra {
-			extra[i] = inventory.NewItem(-1, 0, 0)
+	adj := w.adjacentChests(x, y, z, dim, true)
+	if len(adj) > 1 {
+		return false
+	}
+	if len(adj) == 1 {
+		if adj[0].Size == DOUBLE_CHEST_SIZE {
+			return false
 		}
-		existingChest.Items = append(existingChest.Items, extra...)
-		// Point to same chest
-		w.Containers.Chests[key] = existingChest
-
-		// Single chest adjacency for ALLOWING placing new chests
-		nx, ny, nz := existingChest.Position.X, existingChest.Position.Y, existingChest.Position.Z
-		w.unregisterSingleAdjacentChest(nx, ny, nz, dim)
-		delete(w.ChestPlacements.AdjacentSlots, key)
-
-		// Double chest adjaency for PREVENTING placing new chest
-		w.registerDoubleAdjacentChest(nx, ny, nz, dim, inventory.ContainerPosition{X: x, Y: y, Z: z})
-		w.registerDoubleAdjacentChest(x, y, z, dim, existingChest.Position)
-		existingChest.SetSecondPosition(x, y, z)
+		attachChestHalf(adj[0], x, y, z, emptyChestItems())
+		w.Containers.Chests[key] = adj[0]
 		return true
 	}
 
 	chest := inventory.NewChest(CHEST_SIZE)
 	chest.SetPosition(x, y, z)
 	w.Containers.Chests[key] = &chest
-	w.registerSingleAdjacentChest(x, y, z, dim)
 	return true
+}
+
+// loadChest registers a chest read from disk, joining it with an already loaded neighbour
+// half. Chests still held in memory are newer than disk and are kept as is.
+func (w *World) loadChest(x, y, z, dim int32, items []inventory.Item) {
+	key := containerKey(x, y, z, dim)
+	if _, ok := w.Containers.Chests[key]; ok {
+		return
+	}
+	if adj := w.adjacentChests(x, y, z, dim, false); len(adj) == 1 && adj[0].Size == CHEST_SIZE {
+		attachChestHalf(adj[0], x, y, z, items)
+		w.Containers.Chests[key] = adj[0]
+		return
+	}
+	chest := inventory.Chest{Size: CHEST_SIZE, Items: items}
+	chest.SetPosition(x, y, z)
+	w.Containers.Chests[key] = &chest
+}
+
+// BreakContainer removes the container behind a destroyed block, closes it for anyone
+// viewing it and scatters its contents like vanilla.
+func (w *World) BreakContainer(x, y, z int32, oldType byte, dim int32) {
+	var items []inventory.Item
+
+	switch oldType {
+	case byte(constants.Chest.Value):
+		chest := w.GetChest(x, y, z, dim)
+		if chest == nil {
+			return
+		}
+		w.closeViewers(func(pl *player.Player) bool {
+			return pl.InventoryType == player.ChestInventory && w.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim) == chest
+		})
+		items = w.RemoveChest(x, y, z, dim)
+	case byte(constants.Furnace.Value), byte(constants.FurnaceLit.Value):
+		furnace := w.GetFurnace(x, y, z, dim)
+		if furnace == nil {
+			return
+		}
+		w.closeViewers(func(pl *player.Player) bool {
+			return pl.InventoryType == player.FurnaceInventory && w.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim) == furnace
+		})
+		items = furnace.Items[:]
+		w.RemoveFurnace(x, y, z, dim)
+	case byte(constants.Dispenser.Value):
+		dispenser := w.GetDispenser(x, y, z, dim)
+		if dispenser == nil {
+			return
+		}
+		w.closeViewers(func(pl *player.Player) bool {
+			return pl.InventoryType == player.DispenserInventory && w.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim) == dispenser
+		})
+		items = dispenser.Items[:]
+		w.RemoveDispenser(x, y, z, dim)
+	default:
+		return
+	}
+
+	w.ScatterItems(items, float64(x), float64(y), float64(z), dim, 10)
+}
+
+func (w *World) closeViewers(viewing func(pl *player.Player) bool) {
+	if w.closeContainer == nil {
+		return
+	}
+	for _, pl := range w.Players {
+		if pl.LoggedIn && viewing(pl) {
+			w.closeContainer(w, pl)
+		}
+	}
+}
+
+// ScatterItems drops stacks around a block corner the way vanilla empties containers,
+// splitting each stack into random chunks of 10-30.
+func (w *World) ScatterItems(items []inventory.Item, x, y, z float64, dim, pickupDelay int32) {
+	for _, stack := range items {
+		if stack.TypeId == -1 || stack.Count == 0 {
+			continue
+		}
+		offsetX := rand.Float64()*0.8 + 0.1
+		offsetY := rand.Float64()*0.8 + 0.1
+		offsetZ := rand.Float64()*0.8 + 0.1
+
+		remaining := int(stack.Count)
+		for remaining > 0 {
+			n := min(rand.Intn(21)+10, remaining)
+			remaining -= n
+
+			const velocity = 0.05
+			velX := rand.NormFloat64() * velocity
+			velY := rand.NormFloat64()*velocity + 0.2
+			velZ := rand.NormFloat64() * velocity
+
+			id := w.AddDroppedItem(x+offsetX, y+offsetY, z+offsetZ, int32(stack.TypeId), byte(n), stack.Metadata, pickupDelay, dim, velX, velY, velZ)
+			if d, ok := w.Entities[id].(*entities.DroppedItem); ok {
+				d.MovementState.VelocityChanged = true
+			}
+		}
+	}
 }
 
 func (w *World) PlaceFurnace(x, y, z, dim int32) bool {

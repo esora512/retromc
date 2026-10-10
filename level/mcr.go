@@ -32,7 +32,7 @@ func buildItemNBT(slot int, itemID int16, damage int16, count byte) *mcregion.Co
 
 func buildChestNBT(x, y, z int32, chest *inventory.Chest) *mcregion.Compound {
 	var items []*mcregion.Compound
-	for slot, stack := range chest.Items {
+	for slot, stack := range ChestHalfItems(chest, x, y, z) {
 		if stack.TypeId == -1 || stack.Count == 0 {
 			continue
 		}
@@ -388,10 +388,9 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 
 			switch id.StrVal {
 			case "Chest":
-				chest := inventory.NewChest(CHEST_SIZE)
-				chest.SetPosition(x, y, z)
-				loadItemSlots(te, chest.Items)
-				w.Containers.Chests[key] = &chest
+				items := emptyChestItems()
+				loadItemSlots(te, items)
+				w.loadChest(x, y, z, dim, items)
 			case "Furnace":
 				furnace := inventory.NewFurnace()
 				furnace.SetPosition(x, y, z)

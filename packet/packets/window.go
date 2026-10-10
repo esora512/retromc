@@ -140,6 +140,13 @@ func NewFurnace() OpenContainerPacket {
 	return p
 }
 
+func (p *CloseContainerPacket) Serialize() []byte {
+	w := packet.NewPacketWriter()
+	w.WriteByte(packet.CloseContainer)
+	w.WriteByte(p.WindowId)
+	return w.Bytes()
+}
+
 func (p *OpenContainerPacket) Serialize() []byte {
 	w := packet.NewPacketWriter()
 	w.WriteByte(packet.OpenContainer)

@@ -284,6 +284,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				return false
 			}
 			air := constants.NewAirBlock()
+			world.BreakContainer(x, y, z, world.GetBlock(x, byte(y), z, pl.Dimension).TypeId, pl.Dimension)
 			world.SetBlock(x, byte(y), z, air, pl.Dimension)
 			blockChange := packets.SetBlockPacket{
 				X:         x,

@@ -20,55 +20,8 @@ func DropInventory(
 	x, y, z float64,
 	dim int32,
 ) {
+	world.ScatterItems(inv.Items, x, y, z, dim, 60)
 	for i := range inv.Items {
-		stack := &inv.Items[i]
-
-		if stack.TypeId == -1 {
-			continue
-		}
-
-		// Same as:
-		// rand.NextFloat() * 0.8f + 0.1f
-		offsetX := rand.Float64()*0.8 + 0.1
-		offsetY := rand.Float64()*0.8 + 0.1
-		offsetZ := rand.Float64()*0.8 + 0.1
-
-		remaining := int(stack.Count)
-
-		for remaining > 0 {
-			countDecrement := rand.Intn(21) + 10
-
-			if countDecrement > remaining {
-				countDecrement = remaining
-			}
-
-			remaining -= countDecrement
-
-			spawnX := x + offsetX
-			spawnY := y + offsetY
-			spawnZ := z + offsetZ
-
-			velocity := 0.05
-
-			velX := rand.Float64() * velocity
-			velY := rand.Float64()*velocity + 0.2
-			velZ := rand.Float64() * velocity
-
-			CreateDroppedItem(
-				world,
-				spawnX,
-				spawnY,
-				spawnZ,
-				int32(stack.TypeId),
-				byte(countDecrement),
-				stack.Metadata,
-				velX,
-				velY,
-				velZ,
-				60,
-				dim,
-			)
-		}
 		inv.Items[i] = inventory.EmptyItem()
 	}
 }

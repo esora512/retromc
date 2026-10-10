@@ -558,17 +558,7 @@ func damageHeldItemOnDig(pl *player.Player) {
 }
 
 func removeMinedBlockEntity(world *level.World, p packets.MineBlockPacket, oldBlock constants.WBlock, dim int32) {
-	if oldBlock.TypeId == byte(constants.Chest.Value) {
-		world.RemoveChest(p.X, int32(p.Y), p.Z, dim)
-	}
-
-	if oldBlock.TypeId == byte(constants.Dispenser.Value) {
-		world.RemoveDispenser(p.X, int32(p.Y), p.Z, dim)
-	}
-
-	if oldBlock.TypeId == byte(constants.Furnace.Value) || oldBlock.TypeId == byte(constants.FurnaceLit.Value) {
-		world.RemoveFurnace(p.X, int32(p.Y), p.Z, dim)
-	}
+	world.BreakContainer(p.X, int32(p.Y), p.Z, oldBlock.TypeId, dim)
 }
 
 // pickaxeLevel: 0 none, 1 wood/gold, 2 stone, 3 iron, 4 diamond
@@ -1103,6 +1093,12 @@ func openBlockEntityUI(connection net.Conn, world *level.World, pl *player.Playe
 
 	if oldExisting.TypeId == byte(constants.Chest.Value) {
 		chest := world.GetChest(p.X, int32(p.Y), p.Z, pl.Dimension)
+		if chest == nil && world.PlaceChest(p.X, int32(p.Y), p.Z, pl.Dimension) {
+			chest = world.GetChest(p.X, int32(p.Y), p.Z, pl.Dimension)
+		}
+		if chest == nil {
+			return true
+		}
 		chestPacket := packets.NewChest(byte(chest.Size))
 		connection.Write(chestPacket.Serialize())
 		pl.InventoryType = player.ChestInventory

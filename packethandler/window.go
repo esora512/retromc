@@ -547,6 +547,12 @@ func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {
 	connection.Write(out.Serialize())
 }
 
+func ForceCloseContainer(world *level.World, pl *player.Player) {
+	p := packets.CloseContainerPacket{WindowId: 1}
+	pl.Connection.Write(p.Serialize())
+	handleCloseContainerPacket(pl.Connection, p, pl, world)
+}
+
 func handleCloseContainerPacket(connection net.Conn, p packets.CloseContainerPacket, pl *player.Player, world *level.World) {
 	// like vanilla, drop the cursor and crafting grid contents instead of voiding them
 	dropStack := func(it inventory.Item) {
