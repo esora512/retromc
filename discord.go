@@ -129,7 +129,7 @@ func startDiscord(world *level.World, host, port string) {
 		b.setupWebhook()
 		world.Enqueue(func() { world.SetChatRelay(b.relay) })
 		activeDiscord.Store(b)
-		b.outbox <- discordMsg{text: "Server is online", detail: "Address: `" + b.serverAddress(host, port) + "`", event: true}
+		b.outbox <- discordMsg{text: "Server is online", detail: "Address: `" + b.serverAddress(host, port) + "`\nCommit: `" + world.CommitHash + "`", event: true}
 		go b.runSender()
 		log.Println("Discord bridge connected")
 	}()
