@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -41,9 +42,10 @@ var activeDiscord atomic.Pointer[discordBridge]
 var discordNoMentions = &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}}
 
 type discordMsg struct {
-	name  string
-	text  string
-	event bool
+	name   string
+	text   string
+	detail string
+	event  bool
 }
 
 type discordReq struct {
@@ -78,7 +80,7 @@ func (w discordLogWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func startDiscord(world *level.World) {
+func startDiscord(world *level.World, host, port string) {
 	token := os.Getenv("DISCORD_TOKEN")
 	chatChannel := os.Getenv("DISCORD_CHANNEL_ID")
 	if token == "" || chatChannel == "" {
@@ -127,7 +129,7 @@ func startDiscord(world *level.World) {
 		b.setupWebhook()
 		world.Enqueue(func() { world.SetChatRelay(b.relay) })
 		activeDiscord.Store(b)
-		b.outbox <- discordMsg{text: "Server is online", event: true}
+		b.outbox <- discordMsg{text: "Server is online", detail: "Address: `" + b.serverAddress(host, port) + "`", event: true}
 		go b.runSender()
 		log.Println("Discord bridge connected")
 	}()
@@ -140,7 +142,7 @@ func announceDiscordShutdown() {
 	}
 	done := make(chan struct{})
 	go func() {
-		if _, _, err := b.post(b.statusReq("Server is shutting down", 0xFF5555)); err != nil {
+		if _, _, err := b.post(b.statusReq("Server is shutting down", "", 0xFF5555)); err != nil {
 			discordStderr.Println("failed to send shutdown message:", err)
 		}
 		close(done)
@@ -177,16 +179,38 @@ func (b *discordBridge) relay(name, text string, event bool) {
 	}
 }
 
-func (b *discordBridge) statusReq(text string, color int) discordReq {
+func (b *discordBridge) serverAddress(host, port string) string {
+	if ext := os.Getenv("RENDER_EXTERNAL_URL"); ext != "" {
+		return strings.Replace(strings.Replace(ext, "https://", "wss://", 1), "http://", "ws://", 1) + "/ws"
+	}
+	if host == "localhost" || strings.HasPrefix(host, "127.") {
+		return host + ":" + port + " (local only)"
+	}
+	resp, err := b.http.Get("https://ifconfig.io/ip")
+	if err == nil {
+		defer resp.Body.Close()
+		ip, _ := io.ReadAll(io.LimitReader(resp.Body, 64))
+		if resp.StatusCode == http.StatusOK && net.ParseIP(strings.TrimSpace(string(ip))) != nil {
+			return strings.TrimSpace(string(ip)) + ":" + port
+		}
+	}
+	return host + ":" + port
+}
+
+func (b *discordBridge) statusReq(text, detail string, color int) discordReq {
+	desc := "**" + text + "**"
+	if detail != "" {
+		desc += "\n" + detail
+	}
 	return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
-		Embeds:          []*discordgo.MessageEmbed{{Description: "**" + text + "**", Color: color}},
+		Embeds:          []*discordgo.MessageEmbed{{Description: desc, Color: color}},
 		AllowedMentions: discordNoMentions,
 	}}
 }
 
 func (b *discordBridge) chatReq(m discordMsg) discordReq {
 	if m.name == "" {
-		return b.statusReq(m.text, 0x55FF55)
+		return b.statusReq(m.text, m.detail, 0x55FF55)
 	}
 	avatar := "https://mc-heads.net/avatar/" + url.PathEscape(m.name) + "/64"
 	switch {
@@ -223,7 +247,7 @@ func (b *discordBridge) runSender() {
 		case m := <-b.outbox:
 			b.deliver(b.chatReq(m))
 			if n := b.dropped.Swap(0); n > 0 {
-				b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), 0xFF5555))
+				b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), "", 0xFF5555))
 			}
 		case line := <-b.logs:
 			if b.logChannel == "" {

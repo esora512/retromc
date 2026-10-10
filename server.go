@@ -94,7 +94,7 @@ func main() {
 
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
-	startDiscord(world)
+	startDiscord(world, *host, *port)
 	runOnRender(&server)
 	server.Run()
 	startShutdownSave(world)
