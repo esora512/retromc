@@ -213,7 +213,7 @@ func processFluidUpdate(w *World, u *BlockUpdate) {
 	}
 
 	if b.IsLava() {
-		log.Printf("x=%d, y=%d, z=%d is lava", u.X, u.Y, u.Z)
+		//log.Printf("x=%d, y=%d, z=%d is lava", u.X, u.Y, u.Z)
 		if tryHardenLava(w, u.X, u.Y, u.Z, b, u.SetBlock, u.Dimension) {
 			return
 		}
