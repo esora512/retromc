@@ -292,21 +292,6 @@ func (b *WBlock) IsGrowable() bool {
 	return b.TypeId == byte(Wheat.Value) || b.TypeId == byte(Sugarcane.Value) || b.TypeId == byte(Cactus.Value) || b.TypeId == byte(Sapling.Value) || b.TypeId == byte(Dirt.Value)
 }
 
-func (b *WBlock) IsTransparent() bool {
-	return b.TypeId == byte(Air.Value) ||
-		b.TypeId == byte(Dandelion.Value) ||
-		b.TypeId == byte(Tallgrass.Value) ||
-		b.TypeId == byte(Deadbush.Value) ||
-		b.TypeId == byte(Grass.Value) ||
-		b.TypeId == byte(Glass.Value) ||
-		b.TypeId == byte(Sugarcane.Value) ||
-		b.TypeId == byte(Rail.Value) ||
-		b.TypeId == byte(PoweredRail.Value) ||
-		b.TypeId == byte(DetectorRail.Value) ||
-		b.TypeId == byte(Leaves.Value) ||
-		b.TypeId == byte(SnowLayer.Value)
-}
-
 func (b *WBlock) IsFluidReplaceable() bool {
 	return b.IsAir() ||
 		b.IsSnowLayer() ||

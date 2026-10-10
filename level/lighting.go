@@ -44,14 +44,15 @@ func setNibble(arr []byte, i int, v byte) {
 func (c *Chunk) computeSkyLight(sky []byte) {
 	for lx := 0; lx < CHUNK_SIZE_X; lx++ {
 		for lz := 0; lz < CHUNK_SIZE_Z; lz++ {
-			lit := true
+			v := byte(0x0f)
 			for ly := CHUNK_SIZE_Y - 1; ly >= 0; ly-- {
-				if block := c.GetBlock(lx, ly, lz); lit && !block.IsTransparent() {
-					lit = false
-				}
-				var v byte
-				if lit {
-					v = 0x0f
+				if v > 0 {
+					op := constants.LightOpacity[c.GetBlock(lx, ly, lz).TypeId]
+					if op >= v {
+						v = 0
+					} else {
+						v -= op
+					}
 				}
 				setNibble(sky, lx*CHUNK_SIZE_Z*CHUNK_SIZE_Y+lz*CHUNK_SIZE_Y+ly, v)
 			}
