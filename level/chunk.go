@@ -229,7 +229,7 @@ func (c *Chunk) GenerateSkyGrid() {
 		worldZ := int(cz)*CHUNK_SIZE_Z + z
 
 		// Place a block where world X and Z are multiples of 2,
-		// and Y is a multiple of 4 — giving a 3-block vertical gap.
+		// and Y is a multiple of 4, giving a 3-block vertical gap.
 		// The world-space check ensures x=0,z=0 always has a block.
 		isSkyGridBlock := (mod(worldX, 3) == 0) && (mod(worldZ, 3) == 0) && (y%4 == 0)
 		//isSkyGridBlock := (worldX%2 == 0) && (worldZ%2 == 0) && (y%4 == 0)

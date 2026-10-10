@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// Slots 0-8 are crafting output/grid and armour — not usable for item storage.
+	// Slots 0-8 are crafting output/grid and armour, not usable for item storage.
 	// Slots 9-35 are the main inventory; 36-44 are the hotbar.
 	StorageStart       = 9
 	StorageEnd         = 44

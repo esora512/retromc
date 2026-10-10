@@ -66,7 +66,7 @@ func (cart *RideableEntity) TickMinecart(
 		meta &= 7
 	}
 
-	// slope gravity nudge — exact values from original
+	// slope gravity nudge exact values from original
 	switch meta {
 	case 2:
 		cart.VelocityX -= 1.0 / 128.0
@@ -127,7 +127,7 @@ func (cart *RideableEntity) TickMinecart(
 				cart.MovementState.VelocityZ = cart.VelocityZ
 			}
 		} else {
-			// brake — unpowered powered rail
+			// brake unpowered powered rail
 			if speed < 0.03 {
 				cart.VelocityX = 0
 				cart.VelocityY = 0

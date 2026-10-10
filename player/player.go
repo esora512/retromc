@@ -132,7 +132,7 @@ type Player struct {
 	HotbarSlot   int16
 	HotbarLocked atomic.Bool // locked while a BlockPlacement is being processed
 
-	// Last valid position — used for boundary rubber-banding.
+	// Last valid position, used for boundary rubber-banding.
 	X, Y, Z              float64
 	Vx, Vy, Vz           float64
 	Lx, Ly, Lz           float64

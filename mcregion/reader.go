@@ -216,7 +216,7 @@ func (r *nbtReader) readPayload(t TagType) (*Tag, error) {
 	return tag, nil
 }
 
-// ParseRoot parses TAG_Compound(""), contents, TAG_End — the format
+// ParseRoot parses TAG_Compound(""), contents, TAG_End; the format
 // produced by Compound.Root().
 func ParseRoot(data []byte) (*Tag, error) {
 	r := &nbtReader{buf: data}

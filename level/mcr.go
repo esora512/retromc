@@ -20,7 +20,7 @@ import (
 const CHUNK_HEIGHT = 128
 
 // buildItemNBT encodes one inventory slot. Empty slots should just be
-// omitted from the Items list entirely — Beta format doesn't pad it.
+// omitted from the Items list entirely, Beta format doesn't pad it.
 func buildItemNBT(slot int, itemID int16, damage int16, count byte) *mcregion.Compound {
 	item := mcregion.NewCompound()
 	item.Short("id", itemID)
@@ -533,7 +533,7 @@ func buildPlayerNBT(data *PlayerData) *mcregion.Compound {
 
 // LoadPlayerData reads worldDir/players/<name>.dat. If the file doesn't
 // exist, it returns a fresh PlayerData (NewPlayerData()) rather than an
-// error — matching the C++ reference's "create on first join" behavior.
+// error matching the C++ reference's "create on first join" behavior.
 func LoadPlayerData(worldDir, name string) (*PlayerData, error) {
 	path := playerFilePath(worldDir, name)
 	raw, err := os.ReadFile(path)

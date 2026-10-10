@@ -375,7 +375,7 @@ func furnaceOutputClick(pl *player.Player, slot int16, rightClick bool, world *l
 		return // nothing to pick up
 	}
 	if pl.SelectedItem.Selected {
-		return // something held — can't place into output slot
+		return // something held, can't place into output slot
 	}
 
 	if rightClick {

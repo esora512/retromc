@@ -977,7 +977,7 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	//  return
 	// }
 
-	// Only place into air — don't overwrite existing blocks.
+	// Only place into air, don't overwrite existing blocks.
 	existing := world.GetBlock(newX, byte(newY), newZ, pl.Dimension)
 	if !existing.IsAir() && !existing.IsLiquid() && !existing.IsSnowLayer() {
 		return

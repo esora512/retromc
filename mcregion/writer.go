@@ -39,7 +39,7 @@ func (c *Compound) Double(name string, v float64) {
 	binary.Write(&c.buf, binary.BigEndian, math.Float64bits(v))
 }
 
-// DoubleList writes a TAG_List of unnamed TAG_Double values — used for
+// DoubleList writes a TAG_List of unnamed TAG_Double values, used for
 // Pos and Motion.
 func (c *Compound) DoubleList(name string, values []float64) {
 	c.buf.WriteByte(tagList)
@@ -51,7 +51,7 @@ func (c *Compound) DoubleList(name string, values []float64) {
 	}
 }
 
-// FloatList writes a TAG_List of unnamed TAG_Float values — used for
+// FloatList writes a TAG_List of unnamed TAG_Float values, used for
 // Rotation.
 func (c *Compound) FloatList(name string, values []float32) {
 	c.buf.WriteByte(tagList)
@@ -116,7 +116,7 @@ func (c *Compound) ByteArray(name string, v []byte) {
 }
 
 // EmptyList writes a zero-length list tag (valid regardless of element type
-// when count is 0 — used for Entities/TileEntities/TileTicks).
+// when count is 0, used for Entities/TileEntities/TileTicks).
 func (c *Compound) EmptyList(name string) {
 	c.buf.WriteByte(tagList)
 	writeName(&c.buf, name)
@@ -133,7 +133,7 @@ func (c *Compound) AddCompound(name string, child *Compound) {
 	c.buf.WriteByte(tagEnd)
 }
 
-// Bytes returns the encoded tag payload (without the trailing End tag —
+// Bytes returns the encoded tag payload (without the trailing End tag
 // callers append that themselves via AddCompound / Root).
 func (c *Compound) Bytes() []byte {
 	return c.buf.Bytes()
