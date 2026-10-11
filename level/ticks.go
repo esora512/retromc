@@ -343,6 +343,9 @@ func (w *World) TickPlayers() {
 		if pl.Immune >= 0 {
 			pl.Immune--
 		}
+		if pl.HurtTime > 0 {
+			pl.HurtTime--
+		}
 	}
 }
 

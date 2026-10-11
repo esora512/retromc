@@ -165,7 +165,11 @@ type Player struct {
 
 	HP     int16
 	Immune int64
-	IsOp   bool
+
+	HurtTime   int
+	LastDamage int16
+	DmgCarry   int
+	IsOp       bool
 
 	DespawnIn     int
 	IsDead        bool

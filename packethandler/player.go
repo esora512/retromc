@@ -44,6 +44,7 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 
 func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
 	pl.MovementState.IsDead = false
+	pl.HurtTime = 0
 	pl.SetHP(20)
 	transferToOverworld(world, pl)
 	SendSetHealth(connection, 20.0)
@@ -147,32 +148,14 @@ func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ flo
 	}
 
 	if pl.FallDistance > 3 {
-		dmg := int16(math.Ceil(pl.FallDistance - 3))
-		newHP := pl.HP - dmg
-		if newHP < 0 {
-			newHP = 0
-		}
-		pl.SetHP(newHP)
-		pl.MovementState.IsHurt = true
-
-		p := packets.SetHealthPacket{
-			Health: uint16(pl.HP),
-		}
-		pl.Connection.Write(p.Serialize())
-
-		if pl.HP == 0 {
-			cMsgPkt := packets.ChatMessagePacket{
-				Message: pl.GetName() + " was killed by gravity",
-			}
-			world.BroadcastPacket(cMsgPkt.Serialize())
-			world.RelayEvent(pl.GetName(), cMsgPkt.Message)
-
+		alive := pl.HP > 0
+		damagePlayer(world, pl, nil, int16(math.Ceil(pl.FallDistance-3)), "gravity")
+		if alive && pl.HP == 0 {
 			p := packets.EntityEventPacket{
 				EntityId: pl.GetEntityId(),
 				Action:   3,
 			}
 			world.BroadcastPacket(p.Serialize())
-			killPlayer(world, pl)
 		}
 	}
 	pl.FallDistance = 0

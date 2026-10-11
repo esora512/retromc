@@ -105,32 +105,44 @@ func dmgGiven(typeId int16) (int16, bool) {
 	return 1, false
 }
 
+// helmet, chestplate, leggings, boots
+var armorProtection = [4]int{3, 8, 6, 3}
+
 func dmgReduced(world *level.World, pl *player.Player, items []inventory.Item, dmg int16) int16 {
-	checkArmor := func(slot int, dmg, reduction int16) int16 {
-		if items[slot].TypeId != -1 {
-			newDmg := dmg
-			items[slot].Metadata++
-			SendSetSlot(pl.Connection, 0, int16(slot), items[slot])
-			if crafting.Durability(items[slot].TypeId) <= items[slot].Metadata {
-				items[slot] = inventory.EmptyItem()
-				SendSetSlot(pl.Connection, 0, int16(slot), inventory.EmptyItem())
-				sendSetEquipment(world, int16(slot), -1, pl.GetEntityId())
-			}
-			if reduction > newDmg {
-				return 0
-			}
-			newDmg -= reduction
-			return newDmg
+	for slot := 5; slot <= 8; slot++ {
+		if items[slot].TypeId == -1 {
+			continue
 		}
-		return dmg
+		items[slot].Metadata++
+		SendSetSlot(pl.Connection, 0, int16(slot), items[slot])
+		if crafting.Durability(items[slot].TypeId) <= items[slot].Metadata {
+			items[slot] = inventory.EmptyItem()
+			SendSetSlot(pl.Connection, 0, int16(slot), inventory.EmptyItem())
+			sendSetEquipment(world, int16(slot), -1, pl.GetEntityId())
+		}
 	}
 
-	newDmg := checkArmor(5, dmg, 3)   // Helmet
-	newDmg = checkArmor(6, newDmg, 8) // Chestplate
-	newDmg = checkArmor(7, newDmg, 6) // Leggings
-	newDmg = checkArmor(8, newDmg, 3) // Boots
-	return newDmg
+	total, remaining, max := 0, 0, 0
+	for i, prot := range armorProtection {
+		item := items[5+i]
+		if item.TypeId == -1 {
+			continue
+		}
+		d := int(crafting.Durability(item.TypeId))
+		total += prot
+		max += d
+		remaining += d - int(item.Metadata)
+	}
+	armor := 0
+	if max > 0 {
+		armor = (total-1)*remaining/max + 1
+	}
+	scaled := int(dmg)*(25-armor) + pl.DmgCarry
+	pl.DmgCarry = scaled % 25
+	return int16(scaled / 25)
 }
+
+const playerMaxHurtTime = 20
 
 const (
 	knockbackVelocityDampening = 0.5
@@ -323,23 +335,40 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 }
 
 func HurtPlayer(world *level.World, pl *player.Player, attacker constants.Entity, dmg int16) int16 {
-	if pl.HP <= 0 || pl.IsCreative {
+	cause := "an explosion"
+	if killer, ok := attacker.(*player.Player); ok {
+		cause = killer.Username
+	} else if attacker != nil {
+		cause = "a " + attacker.GetName()
+	}
+	return damagePlayer(world, pl, attacker, dmg, cause)
+}
+
+func damagePlayer(world *level.World, pl *player.Player, attacker constants.Entity, dmg int16, cause string) int16 {
+	if pl.HP <= 0 || pl.IsCreative || dmg <= 0 {
 		return pl.HP
+	}
+	fresh := true
+	if pl.HurtTime > playerMaxHurtTime/2 {
+		if dmg <= pl.LastDamage {
+			return pl.HP
+		}
+		dmg, pl.LastDamage = dmg-pl.LastDamage, dmg
+		fresh = false
+	} else {
+		pl.LastDamage = dmg
+		pl.HurtTime = playerMaxHurtTime
 	}
 	dmg = dmgReduced(world, pl, pl.Inventory.Items, dmg)
 	pl.SetHP(max(pl.HP-dmg, 0))
 	SendSetHealth(pl.Connection, uint16(pl.HP))
-	pl.MovementState.IsHurt = true
-	if attacker != nil {
-		applyKnockback(world, attacker, pl)
+	if fresh {
+		pl.MovementState.IsHurt = true
+		if attacker != nil {
+			applyKnockback(world, attacker, pl)
+		}
 	}
 	if pl.HP == 0 {
-		cause := "an explosion"
-		if killer, ok := attacker.(*player.Player); ok {
-			cause = killer.Username
-		} else if attacker != nil {
-			cause = "a " + attacker.GetName()
-		}
 		msg := packets.ChatMessagePacket{Message: pl.GetName() + " was killed by " + cause}
 		world.BroadcastPacket(msg.Serialize())
 		world.RelayEvent(pl.GetName(), msg.Message)
