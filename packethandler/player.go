@@ -1014,7 +1014,8 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 
 	if block.IsRail() {
 		placeRailBlock(world, &block, newX, newY, newZ, pl.Dimension)
-		pl.Inventory.RemoveOne(slot)
+		consumePlacedItem(pl, slot)
+		SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		return
 	}
 
@@ -1309,7 +1310,7 @@ func handleTrapDoor(world *level.World, p packets.PlaceBlockPacket, pl *player.P
 	trapDoor.Metadata = trapDoorMeta(false, facing)
 	world.SetBlockInQueue(x, y, z, trapDoor, pl.Dimension)
 
-	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	consumePlacedItem(pl, pl.HotbarSlot)
 	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
@@ -1344,7 +1345,7 @@ func handleDoorPlacement(world *level.World, p packets.PlaceBlockPacket, pl *pla
 	world.SetBlockInQueue(p.X, y, p.Z, bottomDoor, pl.Dimension)
 	world.SetBlockInQueue(p.X, y+1, p.Z, topDoor, pl.Dimension)
 
-	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	consumePlacedItem(pl, pl.HotbarSlot)
 	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
@@ -1476,8 +1477,8 @@ func handleBedPlacement(world *level.World, p packets.PlaceBlockPacket, pl *play
 	world.SetBlockInQueue(p.X, y, p.Z, footBlock, pl.Dimension)
 	world.SetBlockInQueue(p.X+dx, y, p.Z+dz, headBlock, pl.Dimension)
 
-	pl.Inventory.Items[pl.HotbarSlot] = inventory.EmptyItem()
-	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, inventory.EmptyItem())
+	consumePlacedItem(pl, pl.HotbarSlot)
+	SendSetSlot(pl.Connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	sendEquipmentChangeForHotbarSlot(world, pl)
 }
 
@@ -1582,7 +1583,7 @@ func tryPlacePlant(connection net.Conn, world *level.World, pl *player.Player, n
 		BlockMeta: growable.Metadata,
 	}
 	world.BroadcastPacketInDim(pl.Dimension, blockChange.Serialize())
-	pl.Inventory.RemoveOne(pl.HotbarSlot)
+	consumePlacedItem(pl, pl.HotbarSlot)
 	SendSetSlot(connection, 0, pl.HotbarSlot, pl.Inventory.Items[pl.HotbarSlot])
 	return true
 }
@@ -1802,14 +1803,12 @@ func tryPlaceFluidFromBucket(connection net.Conn, world *level.World, pl *player
 		}
 		b := fp.newBlock
 		world.SetBlockInQueue(newX, int32(newY), newZ, b, pl.Dimension)
-		if heldItem.TypeId == fp.bucketId {
-			bucket := inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
-			pl.Inventory.Items[slot] = bucket
-			SendSetSlot(connection, 0, slot, bucket)
-		} else {
-			pl.Inventory.RemoveOne(slot)
-			SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
+		if heldItem.TypeId == fp.bucketId && !pl.IsCreative {
+			pl.Inventory.Items[slot] = inventory.Item{TypeId: constants.Bucket.Value, Count: 1, Metadata: 0}
+		} else if heldItem.TypeId != fp.bucketId {
+			consumePlacedItem(pl, slot)
 		}
+		SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 		world.TriggerFluidUpdate(newX, int32(newY), newZ, world.SetBlockInQueue, pl.Dimension)
 		return true
 	}
@@ -1823,7 +1822,7 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	world.UpdatePoweredRails(newX, int32(newY), newZ, pl.Dimension)
 
 	// Decrement the item in the in-memory inventory and sync to client.
-	pl.Inventory.RemoveOne(slot)
+	consumePlacedItem(pl, slot)
 	SendSetSlot(connection, 0, slot, pl.Inventory.Items[slot])
 	if pl.Inventory.PeekItem(slot).TypeId == -1 {
 		sendEquipmentChangeForHotbarSlot(world, pl)
@@ -1834,6 +1833,12 @@ func finalizePlacement(connection net.Conn, world *level.World, pl *player.Playe
 	if !pl.SentChunks.Has(cx, cz) {
 		chunk := world.GetOrCreateChunk(cx, cz, pl.Dimension)
 		sendChunkToPlayer(world, pl, level.ChunkCoord{X: cx, Z: cz}, pl.Dimension, chunk)
+	}
+}
+
+func consumePlacedItem(pl *player.Player, slot int16) {
+	if !pl.IsCreative {
+		pl.Inventory.RemoveOne(slot)
 	}
 }
 

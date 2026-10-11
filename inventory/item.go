@@ -131,6 +131,10 @@ var nonStackableItems = map[int16]bool{
 	constants.Shears.Value:          true,
 	constants.Bow.Value:             true,
 	constants.FishingRod.Value:      true,
+
+	constants.Porkchop.Value: true,
+	constants.CookedPorkchop.Value: true,
+	constants.Apple.Value: true,
 }
 
 func IsStackable(typeId int16) bool {

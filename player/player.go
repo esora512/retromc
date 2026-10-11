@@ -319,21 +319,22 @@ func (pl *Player) GivePlayer(input string) {
 	if len(args) < 1 {
 		return
 	}
-	if len(args) < 2 {
-		amountInt = 1
-	} else {
+	if len(args) >= 2 {
 		_, err := fmt.Sscanf(args[1], "%d", &amountInt)
-		if err != nil {
+		if err != nil || amountInt <= 0 || amountInt > 64 {
 			return
 		}
 	}
 	name := args[0]
-	if amountInt <= 0 || amountInt > 64 {
-		return
+	give := func(typeId int16, meta uint16) {
+		if amountInt == 0 {
+			amountInt = inventory.MaxStack(typeId)
+		}
+		pl.Inventory.AddItem(typeId, meta, byte(amountInt))
 	}
 	block := constants.GetBlockByName(name)
 	if block.Value != -1 {
-		pl.Inventory.AddItem(block.Value, block.Meta, byte(amountInt))
+		give(block.Value, block.Meta)
 		return
 	}
 	item := constants.GetItemByName(name)
@@ -341,7 +342,7 @@ func (pl *Player) GivePlayer(input string) {
 		if crafting.HasDurability(item.Value) {
 			item.Meta = 0
 		}
-		pl.Inventory.AddItem(item.Value, item.Meta, byte(amountInt))
+		give(item.Value, item.Meta)
 		return
 	}
 }

@@ -31,7 +31,7 @@ var commandHelp = []struct {
 	Name  string
 	Usage string
 }{
-	{"/give", "/give <item>"},
+	{"/give", "/give <item> [amount]"},
 	{"/save", "/save"},
 	{"/destroy", "/destroy <x> <y> <z>"},
 	{"/place", "/place <block> <x> <y> <z> | /place fill <block> <x1> <z1> <x2> <z2> <y>"},
@@ -149,8 +149,12 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 					return false
 				}
 				x, y, z := pl2.GetPosition()
+				if pl1.Dimension != pl2.Dimension {
+					transferPlayer(world, pl1, pl2.Dimension, x, y, z)
+					return false
+				}
 				pl1.SetPosition(x, y, z)
-				pl.Immune = 200
+				pl1.Immune = 200
 				BroadcastTeleportPlayer(world, pl1, x, y, z, byte(pl1.Yaw))
 				return false
 
