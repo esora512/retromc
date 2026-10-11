@@ -538,21 +538,72 @@ func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.W
 	//furnace.Print()
 }
 
-func clickMatchesServer(pl *player.Player, p packets.ClickSlotPacket) bool {
-	if p.WindowId != 0 || p.Slot < 1 || int(p.Slot) >= len(pl.Inventory.Items) {
+func windowSlotItem(pl *player.Player, world *level.World, windowId byte, slot int16) (inventory.Item, bool) {
+	if windowId == 0 {
+		if slot < 1 || int(slot) >= len(pl.Inventory.Items) {
+			return inventory.Item{}, false
+		}
+		return pl.Inventory.PeekItem(slot), true
+	}
+	if windowId != 1 || slot < 0 {
+		return inventory.Item{}, false
+	}
+	switch pl.InventoryType {
+	case player.ChestInventory:
+		chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim)
+		if chest == nil {
+			return inventory.Item{}, false
+		}
+		if slot < int16(chest.Size) {
+			return chest.PeekItem(slot), true
+		}
+		return windowSlotItem(pl, world, 0, chest.ShiftSlot(slot))
+	case player.DispenserInventory:
+		dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim)
+		if dispenser == nil {
+			return inventory.Item{}, false
+		}
+		if slot < int16(dispenser.Size) {
+			return dispenser.PeekItem(slot), true
+		}
+		return windowSlotItem(pl, world, 0, slot)
+	case player.FurnaceInventory:
+		furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim)
+		if furnace == nil {
+			return inventory.Item{}, false
+		}
+		if slot < int16(furnace.Size) {
+			return furnace.PeekItem(slot), true
+		}
+		return windowSlotItem(pl, world, 0, furnace.ShiftSlot(slot))
+	case player.WorkbenchInventory:
+		if slot == 0 {
+			return inventory.Item{}, false
+		}
+		if slot <= 9 {
+			return pl.Workbench.PeekItem(slot), true
+		}
+		return windowSlotItem(pl, world, 0, slot-1)
+	}
+	return inventory.Item{}, false
+}
+
+func clickMatchesServer(pl *player.Player, world *level.World, p packets.ClickSlotPacket) bool {
+	have, ok := windowSlotItem(pl, world, p.WindowId, p.Slot)
+	if !ok {
 		return true
 	}
-	have := pl.Inventory.PeekItem(p.Slot)
 	if have.TypeId == -1 || p.ItemID == -1 {
 		return have.TypeId == p.ItemID
 	}
 	return have == p.GetItem()
 }
 
-func rejectClick(connection net.Conn, pl *player.Player, p packets.ClickSlotPacket) {
+func rejectClick(connection net.Conn, pl *player.Player, world *level.World, p packets.ClickSlotPacket) {
 	out := packets.ContainerTransactionPacket{WindowId: p.WindowId, ActionNumber: p.ActionNumber, Accepted: false}
 	connection.Write(out.Serialize())
 	pl.InvLocked = true
+	pl.InvLockWindow = p.WindowId
 	pl.InvLockAction = p.ActionNumber
 
 	cursor := inventory.EmptyItem()
@@ -561,10 +612,41 @@ func rejectClick(connection net.Conn, pl *player.Player, p packets.ClickSlotPack
 	}
 	SendSetSlot(connection, 0xFF, -1, cursor)
 	NewFillContainerPacket(connection, pl)
+	if p.WindowId == 1 {
+		sendWindowContents(connection, pl, world)
+	}
 }
 
-func isPlainInventoryClick(p packets.ClickSlotPacket) bool {
-	return p.WindowId == 0 && p.Slot >= 9 && !p.Shift
+func sendWindowContents(connection net.Conn, pl *player.Player, world *level.World) {
+	var container inventory.ItemContainer
+	size := int16(0)
+	switch pl.InventoryType {
+	case player.ChestInventory:
+		if chest := world.GetChest(pl.Chest.X, pl.Chest.Y, pl.Chest.Z, pl.Chest.Dim); chest != nil {
+			container, size = chest, int16(chest.Size)
+		}
+	case player.DispenserInventory:
+		if dispenser := world.GetDispenser(pl.Dispenser.X, pl.Dispenser.Y, pl.Dispenser.Z, pl.Dispenser.Dim); dispenser != nil {
+			container, size = dispenser, int16(dispenser.Size)
+		}
+	case player.FurnaceInventory:
+		if furnace := world.GetFurnace(pl.Furnace.X, pl.Furnace.Y, pl.Furnace.Z, pl.Furnace.Dim); furnace != nil {
+			container, size = furnace, int16(furnace.Size)
+		}
+	case player.WorkbenchInventory:
+		result := crafting.Craft3x3(pl.Workbench.GetGrid())
+		item := inventory.EmptyItem()
+		if result.TypeId != -1 {
+			item = inventory.NewItem(result.TypeId, result.Count, result.Metadata)
+		}
+		SendSetSlot(connection, 1, 0, item)
+		for i := int16(1); i <= 9; i++ {
+			SendSetSlot(connection, 1, i, pl.Workbench.PeekItem(i))
+		}
+	}
+	for i := int16(0); i < size; i++ {
+		SendSetSlot(connection, 1, i, container.PeekItem(i))
+	}
 }
 
 func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {

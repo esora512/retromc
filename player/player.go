@@ -167,6 +167,7 @@ type Player struct {
 	Immune int64
 
 	InvLocked     bool
+	InvLockWindow byte
 	InvLockAction int16
 
 	HurtTime   int
