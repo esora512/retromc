@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -24,7 +25,10 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-const b2FileName = "world.tar.gz"
+const (
+	b2FileName           = "world.tar.gz"
+	b2DefaultKeepBackups = 10
+)
 
 // b2Client talks to Backblaze B2's native (non-S3) API. Credentials come
 // from the KEY_ID, APP_KEY and B2_BUCKET env vars.
@@ -32,6 +36,7 @@ type b2Client struct {
 	keyID  string
 	appKey string
 	bucket string
+	keep   int
 	http   *http.Client
 }
 
@@ -42,7 +47,11 @@ func newB2Client() *b2Client {
 	if keyID == "" || appKey == "" || bucket == "" {
 		return nil
 	}
-	return &b2Client{keyID: keyID, appKey: appKey, bucket: bucket, http: &http.Client{Timeout: 60 * time.Second}}
+	keep, err := strconv.Atoi(os.Getenv("B2_KEEP_BACKUPS"))
+	if err != nil || keep < 1 {
+		keep = b2DefaultKeepBackups
+	}
+	return &b2Client{keyID: keyID, appKey: appKey, bucket: bucket, keep: keep, http: &http.Client{Timeout: 60 * time.Second}}
 }
 
 type b2Session struct {
@@ -238,6 +247,73 @@ func (c *b2Client) upload(fileName string, data io.Reader, size int64, sha1Hex s
 		return fmt.Errorf("b2 upload: %s: %s", uploadResp.Status, respBody)
 	}
 	return nil
+}
+
+func (c *b2Client) call(sess *b2Session, endpoint string, reqBody any, out any) error {
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, sess.apiURL+"/b2api/v2/"+endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", sess.authToken)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s: %s: %s", endpoint, resp.Status, respBody)
+	}
+	if out == nil {
+		return nil
+	}
+	return json.Unmarshal(respBody, out)
+}
+
+func (c *b2Client) pruneVersions(fileName string) (int, error) {
+	sess, err := c.authorize()
+	if err != nil {
+		return 0, err
+	}
+
+	var ids []string
+	req := map[string]any{"bucketId": sess.bucketID, "startFileName": fileName, "prefix": fileName, "maxFileCount": 1000}
+	for {
+		var out struct {
+			Files []struct {
+				FileName string `json:"fileName"`
+				FileID   string `json:"fileId"`
+				Action   string `json:"action"`
+			} `json:"files"`
+			NextFileName *string `json:"nextFileName"`
+			NextFileID   *string `json:"nextFileId"`
+		}
+		if err := c.call(sess, "b2_list_file_versions", req, &out); err != nil {
+			return 0, err
+		}
+		for _, f := range out.Files {
+			if f.FileName == fileName && f.Action == "upload" {
+				ids = append(ids, f.FileID)
+			}
+		}
+		if out.NextFileName == nil || out.NextFileID == nil || *out.NextFileName != fileName {
+			break
+		}
+		req["startFileName"], req["startFileId"] = *out.NextFileName, *out.NextFileID
+	}
+
+	deleted := 0
+	for _, id := range ids[min(c.keep, len(ids)):] {
+		if err := c.call(sess, "b2_delete_file_version", map[string]string{"fileName": fileName, "fileId": id}, nil); err != nil {
+			return deleted, err
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 // archiveDir tars+gzips dir's contents (relative paths, no leading dir
@@ -475,6 +551,11 @@ func backupWorldToB2(b2 *b2Client, world *level.World) {
 		return
 	}
 	log.Printf("B2: backup uploaded (%d bytes)", size)
+	if deleted, err := b2.pruneVersions(b2FileName); err != nil {
+		log.Println("B2: failed to delete old backups:", err)
+	} else if deleted > 0 {
+		log.Printf("B2: deleted %d old backup(s), keeping the newest %d", deleted, b2.keep)
+	}
 }
 
 // startBackupLoop periodically backs up the world while players are online, and does one last backup

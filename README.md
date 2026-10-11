@@ -42,7 +42,7 @@ Then just clone the repo and run `bash build.sh`
 Finally, run the server with `./retromc --host 0.0.0.0`
 
 ### Backblaze B2 backups
-If `KEY_ID`, `APP_KEY` and `B2_BUCKET` are set (on any host, Render or VM), the world is restored from B2 on startup and backed up every 5 minutes, on shutdown, and on `/save`. The restored world replaces the local `saves/` folder (the previous one is kept in `saves.old/`), so you can move between hosts with the same bucket. Never run two servers against the same bucket at once.
+If `KEY_ID`, `APP_KEY` and `B2_BUCKET` are set (on any host, Render or VM), the world is restored from B2 on startup and backed up every hour while players are online, on shutdown, and on `/save`. Only the newest 10 backups are kept in the bucket; set `B2_KEEP_BACKUPS` to change that number. The application key needs the `listFiles` and `deleteFiles` capabilities for old backups to be removed. The restored world replaces the local `saves/` folder (the previous one is kept in `saves.old/`), so you can move between hosts with the same bucket. Never run two servers against the same bucket at once.
 
 ### Render
 When deployed on Render (detected via the `RENDER` env var that Render sets automatically), the server runs as a web service on `$PORT` and tunnels game traffic over a WebSocket at `/ws`. We then use a bridge to let the client connect to it. Run the bridge via:
