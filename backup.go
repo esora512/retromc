@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/leNicDev/retromc/level"
+	"github.com/leNicDev/retromc/player"
 )
 
 const b2FileName = "world.tar.gz"
@@ -476,7 +477,7 @@ func backupWorldToB2(b2 *b2Client, world *level.World) {
 	log.Printf("B2: backup uploaded (%d bytes)", size)
 }
 
-// startBackupLoop periodically backs up the world, and does one last backup
+// startBackupLoop periodically backs up the world while players are online, and does one last backup
 // on SIGTERM/SIGINT so a Render redeploy or restart doesn't lose anything.
 func startBackupLoop(b2 *b2Client, world *level.World) {
 	sigCh := make(chan os.Signal, 1)
@@ -492,7 +493,21 @@ func startBackupLoop(b2 *b2Client, world *level.World) {
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
+		dirty := false
 		for range ticker.C {
+			online := make(chan int, 1)
+			world.Enqueue(func() {
+				n := 0
+				world.ForEachPlayer(func(*player.Player) { n++ })
+				online <- n
+			})
+			if <-online > 0 {
+				dirty = true
+			} else if !dirty {
+				continue
+			} else {
+				dirty = false
+			}
 			backupWorldToB2(b2, world)
 		}
 	}()
