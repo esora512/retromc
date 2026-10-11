@@ -243,14 +243,15 @@ func (c *b2Client) upload(fileName string, data io.Reader, size int64, sha1Hex s
 // component) into a temp file, positioned at its start, and returns its size and SHA-1.
 // The caller must close and remove the file.
 func archiveDir(dir string) (f *os.File, size int64, sha1Hex string, err error) {
-	f, err = os.CreateTemp("", "retromc-backup-*.tar.gz")
+	tmp, err := os.CreateTemp("", "retromc-backup-*.tar.gz")
 	if err != nil {
 		return nil, 0, "", err
 	}
+	f = tmp
 	defer func() {
 		if err != nil {
-			f.Close()
-			os.Remove(f.Name())
+			tmp.Close()
+			os.Remove(tmp.Name())
 		}
 	}()
 
@@ -259,6 +260,9 @@ func archiveDir(dir string) (f *os.File, size int64, sha1Hex string, err error) 
 	tw := tar.NewWriter(gw)
 
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if os.IsNotExist(err) && path != dir {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
@@ -270,23 +274,27 @@ func archiveDir(dir string) (f *os.File, size int64, sha1Hex string, err error) 
 			return nil
 		}
 
+		var f *os.File
+		if !info.IsDir() {
+			if f, err = os.Open(path); os.IsNotExist(err) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			defer f.Close()
+			if info, err = f.Stat(); err != nil {
+				return err
+			}
+		}
+
 		hdr, err := tar.FileInfoHeader(info, "")
 		if err != nil {
 			return err
 		}
 		hdr.Name = filepath.ToSlash(relPath)
-		if err := tw.WriteHeader(hdr); err != nil {
+		if err := tw.WriteHeader(hdr); err != nil || f == nil {
 			return err
 		}
-		if info.IsDir() {
-			return nil
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
 		_, err = io.Copy(tw, f)
 		return err
 	})
