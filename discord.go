@@ -23,8 +23,6 @@ import (
 
 const (
 	discordWebhookName = "retromc"
-	discordLogFlush    = 2 * time.Second
-	discordMaxMsgLen   = 1900
 	mcChatLineLen      = 100
 	mcMaxDiscordLines  = 3
 )
@@ -59,25 +57,11 @@ type discordBridge struct {
 	world        *level.World
 	http         *http.Client
 	chatChannel  string
-	logChannel   string
 	webhookID    string
 	webhookToken string
 	outbox       chan discordMsg
-	logs         chan string
 	dropped      atomic.Int64
 	nextSend     atomic.Int64
-}
-
-type discordLogWriter struct {
-	logs chan string
-}
-
-func (w discordLogWriter) Write(p []byte) (int, error) {
-	select {
-	case w.logs <- string(p):
-	default:
-	}
-	return len(p), nil
 }
 
 func startDiscord(world *level.World, host, port string) {
@@ -104,13 +88,7 @@ func startDiscord(world *level.World, host, port string) {
 		world:       world,
 		http:        &http.Client{Timeout: 10 * time.Second},
 		chatChannel: chatChannel,
-		logChannel:  os.Getenv("DISCORD_LOG_CHANNEL_ID"),
 		outbox:      make(chan discordMsg, 1000),
-		logs:        make(chan string, 1024),
-	}
-
-	if b.logChannel != "" {
-		log.SetOutput(io.MultiWriter(log.Writer(), discordLogWriter{logs: b.logs}))
 	}
 
 	s.AddHandler(b.onMessage)
@@ -263,46 +241,12 @@ func (b *discordBridge) chatReq(m discordMsg) (discordReq, bool) {
 }
 
 func (b *discordBridge) runSender() {
-	ticker := time.NewTicker(discordLogFlush)
-	defer ticker.Stop()
-	var logBuf strings.Builder
-	skippedLogs := 0
-	for {
-		select {
-		case m := <-b.outbox:
-			if req, ok := b.chatReq(m); ok {
-				b.deliver(req)
-			}
-			if n := b.dropped.Swap(0); n > 0 {
-				b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), "", 0xFF5555))
-			}
-		case line := <-b.logs:
-			if b.logChannel == "" {
-				continue
-			}
-			line = truncateRunes(strings.ReplaceAll(line, "```", "'''"), discordMaxMsgLen/4)
-			if !strings.HasSuffix(line, "\n") {
-				line += "\n"
-			}
-			if logBuf.Len()+len(line) > discordMaxMsgLen {
-				skippedLogs++
-				continue
-			}
-			logBuf.WriteString(line)
-		case <-ticker.C:
-			if logBuf.Len() == 0 && skippedLogs == 0 {
-				continue
-			}
-			content := "```\n" + logBuf.String() + "```"
-			if skippedLogs > 0 {
-				content += fmt.Sprintf("(%d log line(s) skipped)", skippedLogs)
-			}
-			b.deliver(discordReq{url: discordgo.EndpointChannelMessages(b.logChannel), bot: true, payload: &discordgo.MessageSend{
-				Content:         content,
-				AllowedMentions: discordNoMentions,
-			}})
-			logBuf.Reset()
-			skippedLogs = 0
+	for m := range b.outbox {
+		if req, ok := b.chatReq(m); ok {
+			b.deliver(req)
+		}
+		if n := b.dropped.Swap(0); n > 0 {
+			b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), "", 0xFF5555))
 		}
 	}
 }
