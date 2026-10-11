@@ -491,7 +491,7 @@ func startBackupLoop(b2 *b2Client, world *level.World) {
 	}()
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(60 * time.Minute)
 		defer ticker.Stop()
 		dirty := false
 		for range ticker.C {
