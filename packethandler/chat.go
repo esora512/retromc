@@ -332,6 +332,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "/kill", "":
 				p.Message = "\u00A7c" + fmt.Sprintf("Server killed %s", pl.Username)
 				world.BroadcastPacket(p.Serialize())
+				world.RelayEvent(pl.Username, "Server killed "+pl.Username)
 				SendSetHealth(pl.Connection, 0)
 				pl.SetHP(0)
 				killPlayer(world, pl)

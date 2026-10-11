@@ -27,6 +27,10 @@ func NewLeftGameMsg(username string) []byte {
 }
 
 func handleDisconnectPacket(p packets.DisconnectPacket, world *level.World, pl *player.Player) {
+	if !pl.LoggedIn {
+		log.Printf("Disconnect before login from %s (username %q, reason %q)", pl.Connection.RemoteAddr(), pl.Username, p.Reason)
+		return
+	}
 	log.Printf("%s left the game (%s)", pl.Username, p.Reason)
 	chatPacket := packets.ChatMessagePacket{
 		Message: "\u00a7e" + pl.Username + " left the game",
@@ -51,6 +55,7 @@ func handleKeepAlivePacket(connection net.Conn, p packets.KeepAlivePacket) {
 
 func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, world *level.World, pl *player.Player, tracker *entities.EntityTracker) {
 	if n := len([]rune(p.Username)); n == 0 || n > 16 {
+		log.Printf("Rejected login from %s: invalid username %q", connection.RemoteAddr(), p.Username)
 		kick := packets.DisconnectPacket{Reason: "Invalid username"}
 		connection.Write(kick.Serialize())
 		connection.Close()

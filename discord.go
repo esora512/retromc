@@ -110,7 +110,7 @@ func startDiscord(world *level.World, host, port string) {
 	}
 
 	if b.logChannel != "" {
-		log.SetOutput(io.MultiWriter(os.Stderr, discordLogWriter{logs: b.logs}))
+		log.SetOutput(io.MultiWriter(log.Writer(), discordLogWriter{logs: b.logs}))
 	}
 
 	s.AddHandler(b.onMessage)

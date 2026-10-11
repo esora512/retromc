@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -50,7 +51,14 @@ func main() {
 	wType := flag.String("wt", "Default", "World type for world generation")
 
 
+	logFile := flag.String("log", "server.log", "File to append the server log to")
+
 	flag.Parse()
+	if f, err := os.OpenFile(*logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, f))
+	} else {
+		log.Println("Failed to open log file:", err)
+	}
 	world := level.NewWorld(GitCommit, 3257840388504953787, level.GetWorldType(*wType))
 	b2 := setupB2(world)
 

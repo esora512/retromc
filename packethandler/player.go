@@ -165,6 +165,7 @@ func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ flo
 				Message: pl.GetName() + " was killed by gravity",
 			}
 			world.BroadcastPacket(cMsgPkt.Serialize())
+			world.RelayEvent(pl.GetName(), cMsgPkt.Message)
 
 			p := packets.EntityEventPacket{
 				EntityId: pl.GetEntityId(),
