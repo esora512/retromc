@@ -105,9 +105,18 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.ClickSlot:
 		p := packets.ReadClickSlotPacket(packetReader)
 		world.Enqueue(func() {
+			if pl.InvLocked {
+				return
+			}
+			if !clickMatchesServer(pl, p) {
+				rejectClick(connection, pl, p)
+				return
+			}
 			before := pl.Inventory.PeekItem(pl.HotbarSlot)
 			handleClickSlotPacket(connection, p, world, pl)
-			NewFillContainerPacket(connection, pl)
+			if !isPlainInventoryClick(p) {
+				NewFillContainerPacket(connection, pl)
+			}
 			after := pl.Inventory.PeekItem(pl.HotbarSlot)
 			if before != after {
 				sendEquipmentChangeForHotbarSlot(world, pl)
@@ -157,6 +166,12 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		if p.WindowId == 0 && p.ActionNumber < 0 {
 			world.Enqueue(func() {
 				acknowledgeChunks(pl, p.ActionNumber)
+			})
+		} else {
+			world.Enqueue(func() {
+				if pl.InvLocked && p.WindowId == 0 && p.ActionNumber == pl.InvLockAction {
+					pl.InvLocked = false
+				}
 			})
 		}
 	default:

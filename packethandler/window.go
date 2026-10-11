@@ -538,6 +538,35 @@ func furnaceClick(pl *player.Player, slot int16, rightClick bool, world *level.W
 	//furnace.Print()
 }
 
+func clickMatchesServer(pl *player.Player, p packets.ClickSlotPacket) bool {
+	if p.WindowId != 0 || p.Slot < 1 || int(p.Slot) >= len(pl.Inventory.Items) {
+		return true
+	}
+	have := pl.Inventory.PeekItem(p.Slot)
+	if have.TypeId == -1 || p.ItemID == -1 {
+		return have.TypeId == p.ItemID
+	}
+	return have == p.GetItem()
+}
+
+func rejectClick(connection net.Conn, pl *player.Player, p packets.ClickSlotPacket) {
+	out := packets.ContainerTransactionPacket{WindowId: p.WindowId, ActionNumber: p.ActionNumber, Accepted: false}
+	connection.Write(out.Serialize())
+	pl.InvLocked = true
+	pl.InvLockAction = p.ActionNumber
+
+	cursor := inventory.EmptyItem()
+	if pl.SelectedItem.Selected {
+		cursor = pl.SelectedItem.Item
+	}
+	SendSetSlot(connection, 0xFF, -1, cursor)
+	NewFillContainerPacket(connection, pl)
+}
+
+func isPlainInventoryClick(p packets.ClickSlotPacket) bool {
+	return p.WindowId == 0 && p.Slot >= 9 && !p.Shift
+}
+
 func acceptTransaction(connection net.Conn, p packets.ClickSlotPacket) {
 	out := packets.ContainerTransactionPacket{
 		WindowId:     0,
@@ -554,6 +583,7 @@ func ForceCloseContainer(world *level.World, pl *player.Player) {
 }
 
 func handleCloseContainerPacket(connection net.Conn, p packets.CloseContainerPacket, pl *player.Player, world *level.World) {
+	pl.InvLocked = false
 	// like vanilla, drop the cursor and crafting grid contents instead of voiding them
 	dropStack := func(it inventory.Item) {
 		if it.TypeId != -1 && it.Count > 0 {

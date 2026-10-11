@@ -166,6 +166,9 @@ type Player struct {
 	HP     int16
 	Immune int64
 
+	InvLocked     bool
+	InvLockAction int16
+
 	HurtTime   int
 	LastDamage int16
 	DmgCarry   int
