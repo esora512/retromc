@@ -208,9 +208,34 @@ func (b *discordBridge) statusReq(text, detail string, color int) discordReq {
 	}}
 }
 
-func (b *discordBridge) chatReq(m discordMsg) discordReq {
+func validMCText(s string) bool {
+	for _, r := range s {
+		if !strings.ContainsRune(mcAllowedChars, r) {
+			return false
+		}
+	}
+	return true
+}
+
+func validMCName(s string) bool {
+	if s == "" || len(s) > 16 {
+		return false
+	}
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+func (b *discordBridge) chatReq(m discordMsg) (discordReq, bool) {
+	if (m.name != "" && !validMCName(m.name)) || !validMCText(m.text) {
+		log.Printf("Not relaying invalid Discord message (name %q, text %q)", m.name, m.text)
+		return discordReq{}, false
+	}
 	if m.name == "" {
-		return b.statusReq(m.text, m.detail, 0x55FF55)
+		return b.statusReq(m.text, m.detail, 0x55FF55), true
 	}
 	avatar := "https://mc-heads.net/avatar/" + url.PathEscape(m.name) + "/64"
 	switch {
@@ -221,19 +246,19 @@ func (b *discordBridge) chatReq(m discordMsg) discordReq {
 				Color:  0xFFFF55,
 			}},
 			AllowedMentions: discordNoMentions,
-		}}
+		}}, true
 	case b.webhookID != "":
 		return discordReq{url: discordgo.EndpointWebhookToken(b.webhookID, b.webhookToken), payload: &discordgo.WebhookParams{
 			Content:         discordMarkdownEsc.Replace(m.text),
 			Username:        m.name,
 			AvatarURL:       avatar,
 			AllowedMentions: discordNoMentions,
-		}}
+		}}, true
 	default:
 		return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
 			Content:         fmt.Sprintf("**%s**: %s", discordMarkdownEsc.Replace(m.name), discordMarkdownEsc.Replace(m.text)),
 			AllowedMentions: discordNoMentions,
-		}}
+		}}, true
 	}
 }
 
@@ -245,7 +270,9 @@ func (b *discordBridge) runSender() {
 	for {
 		select {
 		case m := <-b.outbox:
-			b.deliver(b.chatReq(m))
+			if req, ok := b.chatReq(m); ok {
+				b.deliver(req)
+			}
 			if n := b.dropped.Swap(0); n > 0 {
 				b.deliver(b.statusReq(fmt.Sprintf("%d message(s) could not be relayed to Discord", n), "", 0xFF5555))
 			}
