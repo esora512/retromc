@@ -45,6 +45,7 @@ type discordMsg struct {
 	detail string
 	event  bool
 	at     time.Time
+	online int
 }
 
 type discordReq struct {
@@ -150,9 +151,9 @@ func (b *discordBridge) setupWebhook() {
 	b.webhookID, b.webhookToken = h.ID, h.Token
 }
 
-func (b *discordBridge) relay(name, text string, event bool) {
+func (b *discordBridge) relay(name, text string, event bool, online int) {
 	select {
-	case b.outbox <- discordMsg{name: name, text: text, event: event, at: time.Now()}:
+	case b.outbox <- discordMsg{name: name, text: text, event: event, at: time.Now(), online: online}:
 	default:
 		b.dropped.Add(1)
 	}
@@ -219,12 +220,16 @@ func (b *discordBridge) chatReq(m discordMsg) (discordReq, bool) {
 	avatar := "https://mc-heads.net/avatar/" + url.PathEscape(m.name) + "/64"
 	switch {
 	case m.event:
+		embed := &discordgo.MessageEmbed{
+			Author:    &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
+			Color:     0xFFFF55,
+			Timestamp: m.at.UTC().Format(time.RFC3339),
+		}
+		if m.online >= 0 {
+			embed.Footer = &discordgo.MessageEmbedFooter{Text: fmt.Sprintf("%d online", m.online)}
+		}
 		return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
-			Embeds: []*discordgo.MessageEmbed{{
-				Author:    &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
-				Color:     0xFFFF55,
-				Timestamp: m.at.UTC().Format(time.RFC3339),
-			}},
+			Embeds:          []*discordgo.MessageEmbed{embed},
 			AllowedMentions: discordNoMentions,
 		}}, true
 	case b.webhookID != "":

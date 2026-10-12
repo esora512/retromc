@@ -165,24 +165,30 @@ type World struct {
 
 	triggerManualBackup func()
 
-	chatRelay func(name, msg string, event bool)
+	chatRelay func(name, msg string, event bool, online int)
 
 	closeContainer func(w *World, pl *player.Player)
 }
 
-func (w *World) SetChatRelay(f func(name, msg string, event bool)) {
+func (w *World) SetChatRelay(f func(name, msg string, event bool, online int)) {
 	w.chatRelay = f
 }
 
 func (w *World) RelayChat(name, msg string) {
 	if w.chatRelay != nil {
-		w.chatRelay(name, msg, false)
+		w.chatRelay(name, msg, false, -1)
 	}
 }
 
 func (w *World) RelayEvent(name, msg string) {
 	if w.chatRelay != nil {
-		w.chatRelay(name, msg, true)
+		w.chatRelay(name, msg, true, -1)
+	}
+}
+
+func (w *World) RelayPresence(name, msg string, online int) {
+	if w.chatRelay != nil {
+		w.chatRelay(name, msg, true, online)
 	}
 }
 
