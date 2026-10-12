@@ -372,11 +372,9 @@ func (b *WBlock) GetDirections() BlockDirections {
 		byte(Furnace.Value),
 		byte(FurnaceLit.Value),
 		byte(Dispenser.Value),
-		byte(Chest.Value):
+		byte(Chest.Value),
+		byte(SignWall.Value):
 		return BlockDirections{North: 2, South: 3, East: 5, West: 4}
-
-	case byte(SignGround.Value):
-		return BlockDirections{North: 4, South: 12, East: 8, West: 0}
 
 	case byte(WoodenStairs.Value), byte(CobblestoneStairs.Value):
 		return BlockDirections{North: 3, South: 2, East: 0, West: 1}

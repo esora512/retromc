@@ -1721,7 +1721,15 @@ func configureDirectionalBlock(world *level.World, pl *player.Player, block *con
 	}
 
 	if heldItem.TypeId == constants.Sign.Value {
-		block.TypeId = byte(constants.SignGround.Value)
+		switch p.Face {
+		case 0:
+			return false
+		case 1:
+			block.TypeId = byte(constants.SignGround.Value)
+			block.Metadata = byte(int(math.Floor(float64(pl.Yaw+180)*16/360+0.5)) & 15)
+			return true
+		}
+		block.TypeId = byte(constants.SignWall.Value)
 	}
 
 	directions := block.GetDirections()
