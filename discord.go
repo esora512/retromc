@@ -44,6 +44,7 @@ type discordMsg struct {
 	text   string
 	detail string
 	event  bool
+	at     time.Time
 }
 
 type discordReq struct {
@@ -151,7 +152,7 @@ func (b *discordBridge) setupWebhook() {
 
 func (b *discordBridge) relay(name, text string, event bool) {
 	select {
-	case b.outbox <- discordMsg{name: name, text: text, event: event}:
+	case b.outbox <- discordMsg{name: name, text: text, event: event, at: time.Now()}:
 	default:
 		b.dropped.Add(1)
 	}
@@ -222,6 +223,7 @@ func (b *discordBridge) chatReq(m discordMsg) (discordReq, bool) {
 			Embeds: []*discordgo.MessageEmbed{{
 				Author: &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
 				Color:  0xFFFF55,
+				Timestamp: m.at.UTC().Format(time.RFC3339),
 			}},
 			AllowedMentions: discordNoMentions,
 		}}, true
