@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -171,7 +172,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 						if pl.LoggedIn {
 							p := packethandler.NewLeftGameMsg(pl.Username)
 							world.BroadcastPacket(p)
-							world.RelayEvent(pl.Username, pl.Username+" left the game")
+							world.RelayEvent(pl.Username, fmt.Sprintf("%s left the game (%d online)", pl.Username, world.OnlineCount()-1))
 							world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 						}
 						world.RemovePlayer(pl)

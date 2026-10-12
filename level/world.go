@@ -714,6 +714,12 @@ func (w *World) ForEachPlayer(fn func(*player.Player)) {
 	}
 }
 
+func (w *World) OnlineCount() int {
+	n := 0
+	w.ForEachPlayer(func(*player.Player) { n++ })
+	return n
+}
+
 type QueueBlock struct {
 	X        int32
 	Y        byte

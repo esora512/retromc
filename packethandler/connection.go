@@ -38,7 +38,7 @@ func handleDisconnectPacket(p packets.DisconnectPacket, world *level.World, pl *
 
 	world.SavePlayer(pl)
 	world.BroadcastPacket(chatPacket.Serialize())
-	world.RelayEvent(pl.Username, pl.Username+" left the game")
+	world.RelayEvent(pl.Username, fmt.Sprintf("%s left the game (%d online)", pl.Username, world.OnlineCount()-1))
 	world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 	pl.LoggedIn = false
 }
@@ -101,8 +101,8 @@ func finishLogin(connection net.Conn, world *level.World, pl *player.Player) {
 		Message: "\u00a7e" + pl.Username + " joined the game",
 	}
 	world.BroadcastPacket(chatPacket.Serialize())
-	world.RelayEvent(pl.Username, pl.Username+" joined the game")
 	pl.LoggedIn = true
+	world.RelayEvent(pl.Username, fmt.Sprintf("%s joined the game (%d online)", pl.Username, world.OnlineCount()))
 	// TODO: Figure out a better way to op players
 	pl.IsOp = true
 	SendSetHealth(connection, uint16(pl.HP))
