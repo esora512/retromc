@@ -114,6 +114,9 @@ func handleHelpCommand(pl *player.Player, message string) {
 }
 
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) bool {
+	if !pl.LoggedIn {
+		return false
+	}
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
 		// Determine the base command token (e.g. "/tp" from "/tp 1 2 3")
