@@ -898,6 +898,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 	logPlacementDebug(pl, oldExisting, p)
 
+	if !isUse && pl.FillSelect && pl.Inventory.Items[pl.HotbarSlot].TypeId == -1 {
+		selectFillCorner(pl, p.X, int32(p.Y), p.Z)
+		return
+	}
+
 	if openBlockEntityUI(connection, world, pl, p, oldExisting) {
 		return
 	}

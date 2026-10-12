@@ -35,7 +35,7 @@ var commandHelp = []struct {
 	{"/give", "/give <item> [amount]"},
 	{"/save", "/save"},
 	{"/destroy", "/destroy <x> <y> <z>"},
-	{"/place", "/place <block> <x> <y> <z> | /place fill <block> <x1> <z1> <x2> <z2> <y>"},
+	{"/fill", "/fill | /fill <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
 	{"/time", "/time <set | tickspeed> <value>"},
@@ -54,7 +54,7 @@ var opOnlyCommands = map[string]bool{
 	"/give":     true,
 	"/save":     true,
 	"/destroy":  true,
-	"/place":    true,
+	"/fill":     true,
 	"/gamemode": true,
 	"/kill":     true,
 	"/time":     true,
@@ -178,40 +178,8 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 		}
 
-		if strings.HasPrefix(message, "/place") {
-			args := strings.Fields(strings.TrimPrefix(message, "/place"))
-			if len(args) == 0 {
-				sendUsage(pl, "/place")
-				return false
-			}
-
-			if args[0] == "fill" {
-				handlePlaceFillCommand(pl, world, args[1:])
-				return false
-			}
-			// Expected format: /place <block> <x> <y> <z>
-			if len(args) != 4 {
-				sendUsage(pl, "/place")
-				return false
-			}
-
-			blockName := args[0]
-			var x, y, z int32
-			_, err := fmt.Sscanf(strings.Join(args[1:], " "), "%d %d %d", &x, &y, &z)
-			if err != nil {
-				sendUsage(pl, "/place")
-				return false
-			}
-
-			b := constants.GetBlockByName(blockName)
-			if b.Value == -1 {
-				sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
-				return false
-			}
-			block := constants.NewBlockById(b.Value, byte(b.Meta))
-
-			world.SetBlockInQueue(x, y, z, block, pl.Dimension)
-			sendDebugMessage(pl, fmt.Sprintf("Placed %s at x=%d, y=%d, z=%d", blockName, x, y, z))
+		if cmdName == "/fill" {
+			handleFillCommand(pl, world, strings.Fields(message)[1:])
 			return false
 		}
 
@@ -562,103 +530,4 @@ func printGiveHelp(pl *player.Player, pattern string) {
 	}
 
 	sendDebugMessage(pl, lines...)
-}
-
-type chunkChanges struct {
-	coords []uint16
-	types  []byte
-	meta   []byte
-}
-
-func formatMultiBlock(localX, y, localZ int32) uint16 {
-	return uint16((localX&0xF)<<12 |
-		(localZ&0xF)<<8 |
-		(y & 0xFF))
-}
-
-func handlePlaceFillCommand(pl *player.Player, world *level.World, args []string) {
-	if len(args) != 6 {
-		sendUsage(pl, "/place")
-		return
-	}
-
-	blockName := args[0]
-	b := constants.GetBlockByName(blockName)
-	if b.Value == -1 {
-		sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
-		return
-	}
-
-	var x1, z1, x2, z2, y int32
-	_, err := fmt.Sscanf(
-		strings.Join(args[1:], " "),
-		"%d %d %d %d %d",
-		&x1, &z1, &x2, &z2, &y,
-	)
-	if err != nil {
-		sendUsage(pl, "/place")
-		return
-	}
-
-	minX, maxX := x1, x2
-	if minX > maxX {
-		minX, maxX = maxX, minX
-	}
-
-	minZ, maxZ := z1, z2
-	if minZ > maxZ {
-		minZ, maxZ = maxZ, minZ
-	}
-
-	block := constants.NewBlockById(b.Value, byte(b.Meta))
-
-	changes := make(map[[2]int32]*chunkChanges)
-
-	placed := 0
-
-	for x := minX; x <= maxX; x++ {
-		for z := minZ; z <= maxZ; z++ {
-
-			world.SetBlock(x, byte(y), z, block, pl.Dimension)
-
-			chunkX := level.WorldToChunkCoord(x)
-			chunkZ := level.WorldToChunkCoord(z)
-			key := [2]int32{chunkX, chunkZ}
-
-			change, ok := changes[key]
-			if !ok {
-				change = &chunkChanges{}
-				changes[key] = change
-			}
-
-			change.coords = append(change.coords,
-				formatMultiBlock(x&0xF, y, z&0xF))
-
-			change.types = append(change.types, byte(block.TypeId))
-			change.meta = append(change.meta, block.Metadata)
-
-			placed++
-		}
-	}
-
-	for key, change := range changes {
-		p := packets.SetMultipleBlocksPacket{
-			ChunkX:      key[0],
-			ChunkZ:      key[1],
-			NumOfBlocks: uint16(len(change.coords)),
-			BlockCoords: change.coords,
-			BlockTypes:  change.types,
-			Metadata:    change.meta,
-		}
-		world.BroadcastPacket(p.Serialize())
-	}
-	sendDebugMessage(
-		pl,
-		fmt.Sprintf(
-			"Placed %d %s block(s) in filled area at y=%d",
-			placed,
-			blockName,
-			y,
-		),
-	)
 }

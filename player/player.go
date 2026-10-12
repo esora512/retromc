@@ -151,6 +151,9 @@ type Player struct {
 	BelowZeroHeightCount int
 	IsCreative           bool
 	DebugBlock           bool
+	FillSelect           bool
+	FillCorners          [][3]int32
+	FillDim              int32
 
 	SentChunks           ChunkSet
 	RequestedChunks      ChunkSet
