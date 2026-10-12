@@ -182,7 +182,7 @@ func (b *discordBridge) statusReq(text, detail string, color int) discordReq {
 		desc += "\n" + detail
 	}
 	return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
-		Embeds:          []*discordgo.MessageEmbed{{Description: desc, Color: color}},
+		Embeds:          []*discordgo.MessageEmbed{{Description: desc, Color: color, Timestamp: time.Now().UTC().Format(time.RFC3339)}},
 		AllowedMentions: discordNoMentions,
 	}}
 }
@@ -221,8 +221,8 @@ func (b *discordBridge) chatReq(m discordMsg) (discordReq, bool) {
 	case m.event:
 		return discordReq{url: discordgo.EndpointChannelMessages(b.chatChannel), bot: true, payload: &discordgo.MessageSend{
 			Embeds: []*discordgo.MessageEmbed{{
-				Author: &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
-				Color:  0xFFFF55,
+				Author:    &discordgo.MessageEmbedAuthor{Name: m.text, IconURL: avatar},
+				Color:     0xFFFF55,
 				Timestamp: m.at.UTC().Format(time.RFC3339),
 			}},
 			AllowedMentions: discordNoMentions,
