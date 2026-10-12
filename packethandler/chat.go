@@ -1,6 +1,7 @@
 package packethandler
 
 import (
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -46,6 +47,7 @@ var commandHelp = []struct {
 	{"/stats", "/stats"},
 	{"/summon", "/summon [zombie|skeleton|spider|creeper|pig|sheep] [x y z]"},
 	{"/chainmine", "/chainmine"},
+	{"/skywalk", "/skywalk"},
 }
 
 var opOnlyCommands = map[string]bool{
@@ -59,6 +61,7 @@ var opOnlyCommands = map[string]bool{
 	"/summon":   true,
 	"/tp":       true,
 	"/dim":      true,
+	"/skywalk":  true,
 }
 
 var debugSubcommandRequiresOp = map[string]bool{
@@ -318,8 +321,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				world.BroadcastPacket(p.Serialize())
 			case 1:
 				pl.IsCreative = true
+				pl.Skywalk = true 
 				p.Message = fmt.Sprintf("%s switched to Creative mode", pl.Username)
 				world.BroadcastPacket(p.Serialize())
+				sendDebugMessage(pl, "Skywalk enabled")
 			default:
 				p.Message = "\u00A7c" + fmt.Sprintf("Unknown gamemode: %d", mode)
 				pl.Connection.Write(p.Serialize())
@@ -383,6 +388,18 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			world.SpawnMobType(t, x, y, z, pl.Dimension, -1)
 			sendDebugMessage(pl, fmt.Sprintf("Spawned %s at x=%d, y=%d, z=%d", mobType, x, y, z))
+		}
+
+		if strings.HasPrefix(message, "/skywalk") {
+			pl.Skywalk = !pl.Skywalk
+			pl.SkywalkFalling = !pl.Skywalk
+			pl.SkywalkY, pl.SkywalkDim = int32(math.Floor(pl.Y))-1, pl.Dimension
+			updateSkywalk(world, pl)
+			state := "disabled"
+			if pl.Skywalk {
+				state = "enabled"
+			}
+			sendDebugMessage(pl, fmt.Sprintf("Skywalk %s", state))
 		}
 
 		if strings.HasPrefix(message, "/chainmine") {

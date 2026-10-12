@@ -320,6 +320,9 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 	if p.ActionId == 1 {
 		pl.MovementState.SneakChanged = true
 		pl.IsSneaking = true
+		if pl.Skywalk {
+			updateSkywalk(world, pl)
+		}
 	}
 	if p.ActionId == 2 {
 		pl.MovementState.SneakChanged = true

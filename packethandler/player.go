@@ -124,8 +124,9 @@ func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, wor
 
 
 func applyFallDamage(world *level.World, pl *player.Player, newX, newY, newZ float64, clientOnGround bool) {
-	if pl.Immune >= 0 || pl.IsRiding != -1 || pl.IsCreative {
+	if pl.Immune >= 0 || pl.IsRiding != -1 || pl.IsCreative || pl.Skywalk || pl.SkywalkFalling {
 		pl.FallDistance = 0
+		pl.SkywalkFalling = pl.SkywalkFalling && !clientOnGround
 		return
 	}
 
@@ -233,6 +234,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Yaw = p.Yaw
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
+	updateSkywalk(world, pl)
 	if checkDimensionTransfer(world, pl) {
 		return
 	}
@@ -293,6 +295,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
+	updateSkywalk(world, pl)
 	if checkDimensionTransfer(world, pl) {
 		return
 	}

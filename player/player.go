@@ -197,6 +197,14 @@ type Player struct {
 
 	Transferring        bool
 	AwaitingTeleportAck bool
+
+	Skywalk               bool
+	SkywalkFalling        bool
+	SkywalkWaitForLanding bool
+	SkywalkPrev           [3]float64
+	SkywalkY              int32
+	SkywalkDim            int32
+	SkywalkCarpet         map[[4]int32]bool
 }
 
 func (pl *Player) GoToBed(x int32, y byte, z int32) {

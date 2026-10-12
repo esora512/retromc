@@ -174,6 +174,7 @@ func handleConnection(connection net.Conn, world *level.World, tracker *entities
 							world.RelayPresence(pl.Username, pl.Username+" left the game", world.OnlineCount()-1)
 							world.BroadcastPacket(packets.NewEntityDespawnPacket(pl.GetEntityId()))
 						}
+						packethandler.ClearSkywalk(world, pl)
 						world.RemovePlayer(pl)
 						tracker.ResetEntity(pl.GetEntityId())
 					}
