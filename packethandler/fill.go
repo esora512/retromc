@@ -57,7 +57,10 @@ func selectFillCorner(pl *player.Player, x, y, z int32) {
 }
 
 func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int32) {
-	b := constants.GetBlockByName(blockName)
+	b := constants.Air
+	if blockName != "air" {
+		b = constants.GetBlockByName(blockName)
+	}
 	if b.Value == -1 {
 		sendDebugMessage(pl, fmt.Sprintf("Unknown block: %s", blockName))
 		return
