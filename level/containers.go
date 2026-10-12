@@ -13,6 +13,7 @@ type Containers struct {
 	Chests     map[BlockKey]*inventory.Chest
 	Dispensers map[BlockKey]*inventory.Dispenser
 	Furnaces   map[BlockKey]*inventory.Furnace
+	Signs      map[BlockKey][4]string
 }
 
 const CHEST_SIZE = 27
@@ -189,6 +190,10 @@ func (w *World) loadChest(x, y, z, dim int32, items []inventory.Item) {
 // BreakContainer removes the container behind a destroyed block, closes it for anyone
 // viewing it and scatters its contents like vanilla.
 func (w *World) BreakContainer(x, y, z int32, oldType byte, dim int32) {
+	if isSignBlock(oldType) {
+		delete(w.Containers.Signs, containerKey(x, y, z, dim))
+		return
+	}
 	var items []inventory.Item
 
 	switch oldType {
@@ -309,4 +314,30 @@ func (w *World) GetAllDispensers() []*inventory.Dispenser {
 		dispensers = append(dispensers, dispenser)
 	}
 	return dispensers
+}
+
+func isSignBlock(typeId byte) bool {
+	return typeId == byte(constants.SignGround.Value) || typeId == byte(constants.SignWall.Value)
+}
+
+func (w *World) SetSign(x, y, z, dim int32, lines [4]string) bool {
+	if !isSignBlock(w.GetBlock(x, byte(y), z, dim).TypeId) {
+		return false
+	}
+	w.Containers.Signs[containerKey(x, y, z, dim)] = lines
+	w.GetOrCreateChunk(WorldToChunkCoord(x), WorldToChunkCoord(z), dim).HasChanged = true
+	return true
+}
+
+func (w *World) SignsInChunk(cx, cz, dim int32) map[BlockKey][4]string {
+	var signs map[BlockKey][4]string
+	for key, lines := range w.Containers.Signs {
+		if key.Dim == dim && WorldToChunkCoord(key.X) == cx && WorldToChunkCoord(key.Z) == cz {
+			if signs == nil {
+				signs = make(map[BlockKey][4]string)
+			}
+			signs[key] = lines
+		}
+	}
+	return signs
 }

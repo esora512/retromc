@@ -203,9 +203,17 @@ func sendChunkToPlayer(world *level.World, pl *player.Player, coord level.ChunkC
 	data := packets.NewChunkBlockRegionPacket(chunk, light)
 	player.WriteOwned(pl.Connection, data)
 	light.Release()
+	sent := len(pre) + len(data)
+
+	for key, lines := range world.SignsInChunk(coord.X, coord.Z, dim) {
+		sign := packets.UpdateSignPacket{X: key.X, Y: int16(key.Y), Z: key.Z, Text1: lines[0], Text2: lines[1], Text3: lines[2], Text4: lines[3]}
+		b := sign.Serialize()
+		pl.Connection.Write(b)
+		sent += len(b)
+	}
 
 	pl.SentChunks.Set(coord.X, coord.Z)
-	return len(pre) + len(data)
+	return sent
 }
 
 func WorldToLocalCoord(world int32) int {

@@ -89,6 +89,19 @@ func buildDispenserNBT(x, y, z int32, dispenser *inventory.Dispenser) *mcregion.
 	return comp
 }
 
+func buildSignNBT(x, y, z int32, lines [4]string) *mcregion.Compound {
+	comp := mcregion.NewCompound()
+	comp.String("id", "Sign")
+	comp.Int("x", x)
+	comp.Int("y", y)
+	comp.Int("z", z)
+	comp.String("Text1", lines[0])
+	comp.String("Text2", lines[1])
+	comp.String("Text3", lines[2])
+	comp.String("Text4", lines[3])
+	return comp
+}
+
 // buildChunkNBT serializes a chunk; it reads neighbouring chunks and containers, so it must run on the game loop.
 func (w *World) buildChunkNBT(ch *Chunk, cx, cz, dim int32, ents []*mcregion.Compound, tick int64) *mcregion.Compound {
 	// Chunk.Data already uses the MCRegion index order and nibble packing.
@@ -146,6 +159,11 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz, dim int32, ents []*mcregion.Com
 	for pos, inv := range w.Containers.Dispensers {
 		if inChunk(pos) {
 			tileEntities = append(tileEntities, buildDispenserNBT(pos.X, int32(pos.Y), pos.Z, inv))
+		}
+	}
+	for pos, lines := range w.Containers.Signs {
+		if inChunk(pos) {
+			tileEntities = append(tileEntities, buildSignNBT(pos.X, int32(pos.Y), pos.Z, lines))
 		}
 	}
 	if len(tileEntities) > 0 {
@@ -413,6 +431,16 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 				dispenser := inventory.NewDispenser()
 				loadItemSlots(te, dispenser.Items[:])
 				w.Containers.Dispensers[key] = dispenser
+			case "Sign":
+				if _, ok := w.Containers.Signs[key]; !ok {
+					var lines [4]string
+					for i, name := range []string{"Text1", "Text2", "Text3", "Text4"} {
+						if t := te.Get(name); t != nil {
+							lines[i] = t.StrVal
+						}
+					}
+					w.Containers.Signs[key] = lines
+				}
 			}
 			teCount++
 		}

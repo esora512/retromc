@@ -501,6 +501,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 			Chests:     make(map[BlockKey]*inventory.Chest),
 			Dispensers: make(map[BlockKey]*inventory.Dispenser),
 			Furnaces:   make(map[BlockKey]*inventory.Furnace),
+			Signs:      make(map[BlockKey][4]string),
 		},
 		Scheduler:   NewBlockUpdateScheduler(),
 		blockQueue:  make(map[[4]int32]QueueBlock),

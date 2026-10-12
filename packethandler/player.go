@@ -39,6 +39,9 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 			*line = string(r[:15])
 		}
 	}
+	if !world.SetSign(p.X, int32(p.Y), p.Z, pl.Dimension, [4]string{p.Text1, p.Text2, p.Text3, p.Text4}) {
+		return
+	}
 	world.BroadcastPacketInDim(pl.Dimension, p.Serialize())
 }
 
