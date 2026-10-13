@@ -80,9 +80,13 @@ func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int
 		return
 	}
 
+	guardClaims := !world.PermissionsOf(pl.Username).CanClaim
 	for x := minX; x <= maxX; x++ {
 		for y := minY; y <= maxY; y++ {
 			for z := minZ; z <= maxZ; z++ {
+				if guardClaims && world.TouchesClaim(x, y, z, pl.Dimension) {
+					continue
+				}
 				world.BreakContainer(x, y, z, world.GetBlock(x, byte(y), z, pl.Dimension).TypeId, pl.Dimension)
 				world.SetBlockInQueue(x, y, z, block, pl.Dimension)
 			}

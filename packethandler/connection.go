@@ -11,9 +11,13 @@ import (
 	"github.com/leNicDev/retromc/player"
 )
 
-func handlePreLoginPacket(connection net.Conn, p packets.PreLoginPacket) {
+func handlePreLoginPacket(connection net.Conn, p packets.PreLoginPacket, world *level.World, pl *player.Player) {
+	pl.ServerId = "-"
+	if world.OnlineMode {
+		pl.ServerId = newServerId()
+	}
 	pkt := packets.PreLoginPacket{
-		ConnectionHash: "-",
+		ConnectionHash: pl.ServerId,
 	}
 	outData := pkt.Serialize()
 	connection.Write(outData)
@@ -103,13 +107,8 @@ func finishLogin(connection net.Conn, world *level.World, pl *player.Player) {
 	world.BroadcastPacket(chatPacket.Serialize())
 	pl.LoggedIn = true
 	world.RelayPresence(pl.Username, pl.Username+" joined the game", world.OnlineCount())
-	// TODO: Figure out a better way to op players
-	pl.IsOp = true
+	world.RegisterAccount(pl.Username)
 	SendSetHealth(connection, uint16(pl.HP))
-
-	// if world.OppedUsernames[pl.Username] {
-	// 	pl.IsOp = true
-	// }
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {

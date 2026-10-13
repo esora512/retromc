@@ -1231,7 +1231,7 @@ func explosionBlocks(w WorldShared, dim int32, cx, cy, cz float64, size float32)
 							key := [3]int32{bx, by, bz}
 							if !seen[key] {
 								seen[key] = true
-								if w.GetBlock(bx, byte(by), bz, dim).TypeId != 0 {
+								if w.GetBlock(bx, byte(by), bz, dim).TypeId != 0 && !w.IsClaimed(bx, by, bz, dim) {
 									out = append(out, key)
 								}
 							}

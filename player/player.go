@@ -154,6 +154,8 @@ type Player struct {
 	FillSelect           bool
 	FillCorners          [][3]int32
 	FillDim              int32
+	ClaimMode            bool
+	ServerId             string
 
 	SentChunks           ChunkSet
 	RequestedChunks      ChunkSet
@@ -176,7 +178,6 @@ type Player struct {
 	HurtTime   int
 	LastDamage int16
 	DmgCarry   int
-	IsOp       bool
 
 	DespawnIn     int
 	IsDead        bool
@@ -287,7 +288,6 @@ func NewPlayer(conn net.Conn) *Player {
 		HP:                   20,
 		Dimension:            0,
 		Immune:               200,
-		IsOp:                 false,
 		DespawnIn:            -1,
 		ChainMiningEnabled:   true,
 	}

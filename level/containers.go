@@ -190,6 +190,9 @@ func (w *World) loadChest(x, y, z, dim int32, items []inventory.Item) {
 // BreakContainer removes the container behind a destroyed block, closes it for anyone
 // viewing it and scatters its contents like vanilla.
 func (w *World) BreakContainer(x, y, z int32, oldType byte, dim int32) {
+	if w.IsClaimed(x, y, z, dim) {
+		return
+	}
 	if isSignBlock(oldType) {
 		delete(w.Containers.Signs, containerKey(x, y, z, dim))
 		return
@@ -327,6 +330,11 @@ func (w *World) SetSign(x, y, z, dim int32, lines [4]string) bool {
 	w.Containers.Signs[containerKey(x, y, z, dim)] = lines
 	w.GetOrCreateChunk(WorldToChunkCoord(x), WorldToChunkCoord(z), dim).HasChanged = true
 	return true
+}
+
+func (w *World) SignLines(x, y, z, dim int32) ([4]string, bool) {
+	lines, ok := w.Containers.Signs[containerKey(x, y, z, dim)]
+	return lines, ok
 }
 
 func (w *World) SignsInChunk(cx, cz, dim int32) map[BlockKey][4]string {

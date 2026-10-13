@@ -48,24 +48,7 @@ var commandHelp = []struct {
 	{"/summon", "/summon [zombie|skeleton|spider|creeper|pig|sheep] [x y z]"},
 	{"/chainmine", "/chainmine"},
 	{"/skywalk", "/skywalk"},
-}
-
-var opOnlyCommands = map[string]bool{
-	"/give":     true,
-	"/save":     true,
-	"/destroy":  true,
-	"/fill":     true,
-	"/gamemode": true,
-	"/kill":     true,
-	"/time":     true,
-	"/summon":   true,
-	"/tp":       true,
-	"/dim":      true,
-	"/skywalk":  true,
-}
-
-var debugSubcommandRequiresOp = map[string]bool{
-	"entities": true,
+	{"/claim", "/claim"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -116,16 +99,33 @@ func handleHelpCommand(pl *player.Player, message string) {
 	sendDebugMessage(pl, fmt.Sprintf("Unknown command: %s", arg))
 }
 
+func permitted(perms level.Permissions, pl *player.Player, message string) bool {
+	switch {
+	case strings.HasPrefix(message, "/claim"):
+		return perms.CanClaim
+	case strings.HasPrefix(message, "/time"):
+		return perms.CanTime
+	case strings.HasPrefix(message, "/save"):
+		return perms.CanSave
+	case strings.HasPrefix(message, "/summon"):
+		return perms.CanSummon
+	case strings.HasPrefix(message, "/kill"):
+		return perms.CanKill || strings.TrimPrefix(message, "/kill ") != "entities"
+	case strings.HasPrefix(message, "/tp"):
+		args := strings.Fields(strings.TrimPrefix(message, "/tp"))
+		return perms.CanTpOthers || len(args) != 2 || args[0] == pl.Username
+	}
+	return true
+}
+
 func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, world *level.World, tracker *entities.EntityTracker) bool {
 	if !pl.LoggedIn {
 		return false
 	}
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
-		// Determine the base command token (e.g. "/tp" from "/tp 1 2 3")
-		// and reject it up-front if it's op-only and the player isn't an op.
 		cmdName := strings.Fields(message)[0]
-		if opOnlyCommands[cmdName] && !pl.IsOp {
+		if !permitted(world.PermissionsOf(pl.Username), pl, message) {
 			sendNoPermission(pl, cmdName)
 			return false
 		}
@@ -358,6 +358,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			sendDebugMessage(pl, fmt.Sprintf("Spawned %s at x=%d, y=%d, z=%d", mobType, x, y, z))
 		}
 
+		if cmdName == "/claim" {
+			handleClaimCommand(pl)
+			return false
+		}
+
 		if strings.HasPrefix(message, "/skywalk") {
 			pl.Skywalk = !pl.Skywalk
 			pl.SkywalkFalling = !pl.Skywalk
@@ -402,18 +407,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if strings.HasPrefix(message, "/debug") {
 			command := strings.TrimPrefix(message, "/debug ")
-			// Extract the subcommand token (ignore any trailing args) so we
-			// can check permissions even if a subcommand ever takes args.
-			subcommand := strings.Fields(command)
-			sub := ""
-			if len(subcommand) > 0 {
-				sub = subcommand[0]
-			}
-			if debugSubcommandRequiresOp[sub] && !pl.IsOp {
-				sendNoPermission(pl, "/debug "+sub)
-				return false
-			}
-
 			switch command {
 			case "players":
 				entities := world.SnapshotEntities()

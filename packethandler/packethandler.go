@@ -46,9 +46,15 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		handleKeepAlivePacket(connection, packet)
 	case packet.PreLogin:
 		packet := packets.ReadPreLoginPacket(packetReader)
-		handlePreLoginPacket(connection, packet)
+		handlePreLoginPacket(connection, packet, world, pl)
 	case packet.Login:
 		packet := packets.ReadLoginPacket(packetReader)
+		if world.OnlineMode && !verifyUsername(packet.Username, pl.ServerId) {
+			log.Printf("Rejected login from %s: failed to verify username %q", connection.RemoteAddr(), packet.Username)
+			kick := packets.DisconnectPacket{Reason: "Failed to verify username!"}
+			connection.Write(kick.Serialize())
+			return fmt.Errorf("failed to verify username %q", packet.Username)
+		}
 		world.Enqueue(func() {
 			handleLoginRequestInPacket(connection, packet, world, pl, tracker)
 		})

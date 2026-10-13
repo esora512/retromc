@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/leNicDev/retromc/entities"
@@ -26,32 +25,15 @@ var (
 	BuildTime = "unknown"
 )
 
-type opUsernamesFlag map[string]bool
-
-func (o opUsernamesFlag) String() string {
-	names := make([]string, 0, len(o))
-	for name := range o {
-		names = append(names, name)
-	}
-	return strings.Join(names, ", ")
-}
-
-func (o opUsernamesFlag) Set(value string) error {
-	o[strings.ToLower(value)] = true
-	return nil
-}
-
 func main() {
 	host := flag.String("host", "localhost", "Address to bind the server to")
 	port := flag.String("port", "25565", "Port to bind the server to")
-
-	ops := make(opUsernamesFlag)
-	flag.Var(&ops, "op", "Username of a player to grant operator permissions to (repeatable, e.g. --op esora512 --op PixelBrush)")
 
 	wType := flag.String("wt", "Default", "World type for world generation")
 
 
 	logFile := flag.String("log", "server.log", "File to append the server log to")
+	offline := flag.Bool("offline", false, "Skip username verification through the Betacraft auth proxy")
 
 	flag.Parse()
 	if f, err := os.OpenFile(*logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
@@ -61,6 +43,13 @@ func main() {
 	}
 	world := level.NewWorld(GitCommit, 3257840388504953787, level.GetWorldType(*wType))
 	b2 := setupB2(world)
+	if err := world.LoadAccounts(); err != nil {
+		log.Fatalln("Failed to load players.json:", err)
+	}
+	world.OnlineMode = !*offline
+	if !world.OnlineMode {
+		log.Println("WARNING: online mode is off, anyone can join with any username")
+	}
 
 	// Give world access to packethandler functions due to forbidden import cycles
 	world.SetNewEntityEventPacket(packethandler.NewEntityEventPacket)
@@ -87,8 +76,6 @@ func main() {
 	world.SetAttackEntity(packethandler.AttackEntity)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 	world.SetCloseContainer(packethandler.ForceCloseContainer)
-
-	world.SetOppedUsernames(ops)
 
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)

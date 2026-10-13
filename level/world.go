@@ -113,7 +113,9 @@ type World struct {
 	Scheduler   BlockUpdateScheduler
 	fluidFed    map[[4]int32]bool
 
-	OppedUsernames map[string]bool
+	OnlineMode bool
+	accounts   map[string]*Account
+	claims     map[BlockKey]string
 
 	TickSpeed  int64
 	Containers Containers
@@ -452,10 +454,6 @@ func (w *World) AttackEntity(victim, attacker constants.Entity, dmg int16) bool 
 	return w.attackEntity(w, victim, attacker, dmg)
 }
 
-func (w *World) SetOppedUsernames(names map[string]bool) {
-	w.OppedUsernames = names
-}
-
 // Schedule world state changes
 func (w *World) Enqueue(fn func()) {
 	w.Commands <- fn
@@ -613,7 +611,7 @@ func printCallStack() {
 
 // SetBlock updates a single block in the world using world-space coordinates.
 func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constants.WBlock, dim int32) {
-	if int(worldY) >= CHUNK_SIZE_Y {
+	if int(worldY) >= CHUNK_SIZE_Y || w.IsClaimed(worldX, int32(worldY), worldZ, dim) {
 		return
 	}
 	cx := WorldToChunkCoord(worldX)
@@ -737,6 +735,9 @@ type QueueBlock struct {
 }
 
 func (w *World) SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32) {
+	if w.IsClaimed(x, y, z, dim) {
+		block = w.GetBlock(x, byte(y), z, dim)
+	}
 	w.SetBlock(x, byte(y), z, block, dim)
 
 	if w.blockQueue == nil {

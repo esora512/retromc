@@ -15,6 +15,7 @@ type WorldShared interface {
 	GetBlock(x int32, y byte, z int32, dim int32) constants.WBlock
 	SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32)
 	NotifyBlockRemoved(x, y, z int32, oldType byte, dim int32)
+	IsClaimed(x, y, z, dim int32) bool
 	GetEntity(entityId int32) (constants.Entity, bool)
 	SendHealth(entityId int32, newHp int16)
 	HurtPlayer(pl *player.Player, attacker constants.Entity, dmg int16) int16

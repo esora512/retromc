@@ -378,6 +378,12 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		return
 	}
 
+	if owner, ok := world.ClaimOwner(p.X, int32(p.Y), p.Z, pl.Dimension); ok {
+		sendBlockToPlayer(world, pl, p.X, p.Y, p.Z, oldBlock)
+		sendDebugMessage(pl, "\u00A7cThis block is claimed by "+owner)
+		return
+	}
+
 	pkt := packets.WorldEventPacket{EffectId: 2001, X: p.X, Y: p.Y, Z: p.Z, Data: int32(oldBlock.TypeId)}
 	world.SendNearby(pl, pkt.Serialize())
 
@@ -898,6 +904,11 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	}
 	logPlacementDebug(pl, oldExisting, p)
 
+	if !isUse && pl.ClaimMode && pl.Inventory.Items[pl.HotbarSlot].TypeId == -1 {
+		toggleClaim(world, pl, p.X, int32(p.Y), p.Z)
+		return
+	}
+
 	if !isUse && pl.FillSelect && pl.Inventory.Items[pl.HotbarSlot].TypeId == -1 {
 		selectFillCorner(pl, p.X, int32(p.Y), p.Z)
 		return
@@ -974,6 +985,12 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	if heldItem.TypeId >= 0 && heldItem.TypeId < 256 &&
 		placementCollidesWithPlayer(pl, constants.NewBlockById(heldItem.TypeId, byte(heldItem.Metadata)), newX, int32(newY), newZ) {
 		resyncPlacement(world, pl, [3]int32{newX, int32(newY), newZ})
+		return
+	}
+
+	if world.TouchesClaim(newX, int32(newY), newZ, pl.Dimension) && !world.PermissionsOf(pl.Username).CanClaim {
+		resyncPlacement(world, pl, [3]int32{newX, int32(newY), newZ})
+		sendDebugMessage(pl, "\u00A7cYou can't place blocks next to a claimed block")
 		return
 	}
 
