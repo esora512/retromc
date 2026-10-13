@@ -92,6 +92,7 @@ func main() {
 	entityTracker := entities.NewEntityTracker()
 	server := Server{World: world, Tracker: entityTracker}
 	startDiscord(world, *host, *port)
+	startBetacraftHeartbeat(world)
 	runOnRender(&server, b2)
 	server.Run()
 	startPersistence(world, b2)
