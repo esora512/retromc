@@ -46,6 +46,9 @@ func main() {
 	if err := world.LoadAccounts(); err != nil {
 		log.Fatalln("Failed to load players.json:", err)
 	}
+	if err := world.LoadBans(); err != nil {
+		log.Fatalln("Failed to load bans.json:", err)
+	}
 	world.OnlineMode = !*offline
 	if !world.OnlineMode {
 		log.Println("WARNING: online mode is off, anyone can join with any username")

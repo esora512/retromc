@@ -21,6 +21,7 @@ type Permissions struct {
 	CanKill     bool `json:"canKill"`
 	CanTpOthers bool `json:"canTpOthers"`
 	CanSummon   bool `json:"canSummon"`
+	CanBan      bool `json:"canBan"`
 }
 
 type Account struct {

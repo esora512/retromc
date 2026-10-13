@@ -113,9 +113,11 @@ type World struct {
 	Scheduler   BlockUpdateScheduler
 	fluidFed    map[[4]int32]bool
 
-	OnlineMode bool
-	accounts   map[string]*Account
-	claims     map[BlockKey]string
+	OnlineMode    bool
+	accounts      map[string]*Account
+	claims        map[BlockKey]string
+	bannedPlayers map[string]bool
+	bannedIPs     map[string]bool
 
 	TickSpeed  int64
 	Containers Containers

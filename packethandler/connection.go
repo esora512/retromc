@@ -65,6 +65,11 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 		connection.Close()
 		return
 	}
+	if world.IsBanned(p.Username, remoteIP(connection)) {
+		log.Printf("Rejected login from %s: %s is banned", connection.RemoteAddr(), p.Username)
+		kickConnection(connection, "You are banned from this server")
+		return
+	}
 	pl.Username = p.Username
 
 	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {

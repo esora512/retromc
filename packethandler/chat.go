@@ -49,6 +49,7 @@ var commandHelp = []struct {
 	{"/chainmine", "/chainmine"},
 	{"/skywalk", "/skywalk"},
 	{"/claim", "/claim"},
+	{"/ban", "/ban <player>"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -111,6 +112,8 @@ func permitted(perms level.Permissions, pl *player.Player, message string) bool 
 		return perms.CanSummon
 	case strings.HasPrefix(message, "/kill"):
 		return perms.CanKill || strings.TrimPrefix(message, "/kill ") != "entities"
+	case strings.HasPrefix(message, "/ban"):
+		return perms.CanBan
 	case strings.HasPrefix(message, "/tp"):
 		args := strings.Fields(strings.TrimPrefix(message, "/tp"))
 		return perms.CanTpOthers || len(args) != 2 || args[0] == pl.Username
@@ -360,6 +363,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if cmdName == "/claim" {
 			handleClaimCommand(pl)
+			return false
+		}
+
+		if cmdName == "/ban" {
+			handleBanCommand(pl, world, strings.Fields(message)[1:])
 			return false
 		}
 
