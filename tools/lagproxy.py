@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Delaying TCP proxy: lagproxy.py LISTEN_PORT TARGET_PORT ONE_WAY_DELAY_MS [JITTER_MS]
+"""Delaying TCP proxy: lagproxy.py [LISTEN_PORT [TARGET_PORT [ONE_WAY_DELAY_MS [JITTER_MS]]]]
+Defaults to 25570 -> 25565, 120ms each way, 0-30ms jitter.
 Round-trip latency is about 2x the one-way delay. Byte order is preserved."""
 import asyncio, random, socket, sys, time
 
-listen_port, target_port = int(sys.argv[1]), int(sys.argv[2])
-delay = int(sys.argv[3]) / 1000
-jitter = (int(sys.argv[4]) if len(sys.argv) > 4 else 0) / 1000
+args = [int(a) for a in sys.argv[1:]] + [25570, 25565, 120, 30][len(sys.argv) - 1:]
+listen_port, target_port = args[0], args[1]
+delay = args[2] / 1000
+jitter = args[3] / 1000
 
 
 async def pump(reader, writer):
