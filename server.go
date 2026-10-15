@@ -72,6 +72,7 @@ func main() {
 	world.SetBroadcastContainerData(packethandler.BroadcastContainerData)
 	world.SetBroadcastBlockChange(packets.BroadcastBlockChange)
 	world.SetBroadcastMultiBlockChange(packets.BroadcastMultiBlockChange)
+	world.SetSendLightRegion(packets.BroadcastChunkRegion)
 	world.SetBroadcastTime(packethandler.BroadcastTime)
 	world.SetBroadcastWorldMsg(packethandler.BroadcastWorldMsg)
 	world.SetSendSetHealth(packethandler.SendSetHealth)
@@ -213,6 +214,7 @@ func (s *Server) Run() {
 				}
 				s.Tracker.Manage(s.World)
 				s.World.FlushBlockQueue()
+				s.World.FlushLight()
 				packethandler.FlushPendingChunks(s.World)
 			})
 		}

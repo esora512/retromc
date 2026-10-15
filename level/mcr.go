@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/mcregion"
 	"github.com/leNicDev/retromc/player"
@@ -102,28 +101,11 @@ func buildSignNBT(x, y, z int32, lines [4]string) *mcregion.Compound {
 	return comp
 }
 
-// buildChunkNBT serializes a chunk; it reads neighbouring chunks and containers, so it must run on the game loop.
+// buildChunkNBT serializes a chunk; it reads its light and the containers, so it must run on the game loop.
 func (w *World) buildChunkNBT(ch *Chunk, cx, cz, dim int32, ents []*mcregion.Compound, tick int64) *mcregion.Compound {
 	// Chunk.Data already uses the MCRegion index order and nibble packing.
 	blocks := ch.Data[:chunkBlocksAmount]
 	data := ch.Data[chunkMetaOffset : chunkMetaOffset+chunkNibbleCount]
-	light := w.ComputeLight(cx, cz, dim, ch)
-	defer light.Release()
-
-	heightMap := make([]byte, 256)
-	for lx := 0; lx < 16; lx++ {
-		for lz := 0; lz < 16; lz++ {
-			base := lx*CHUNK_HEIGHT*16 + lz*CHUNK_HEIGHT
-			top := 0
-			for y := CHUNK_HEIGHT - 1; y >= 0; y-- {
-				if constants.LightOpacity[blocks[base+y]] != 0 {
-					top = y + 1
-					break
-				}
-			}
-			heightMap[lz*16+lx] = byte(top)
-		}
-	}
 
 	level := mcregion.NewCompound()
 	level.Grow(chunkBlocksAmount + 4*chunkNibbleCount + 512)
@@ -133,9 +115,13 @@ func (w *World) buildChunkNBT(ch *Chunk, cx, cz, dim int32, ents []*mcregion.Com
 	level.Byte("TerrainPopulated", 1)
 	level.ByteArray("Blocks", blocks)
 	level.ByteArray("Data", data)
-	level.ByteArray("SkyLight", light.SkyLight())
-	level.ByteArray("BlockLight", light.BlockLight())
-	level.ByteArray("HeightMap", heightMap)
+	light := lightBufPool.Get().(*[chunkNibbleCount]byte)
+	ch.skyLight.region(light[:], 0, 0, 0, CHUNK_SIZE_X-1, CHUNK_SIZE_Y-1, CHUNK_SIZE_Z-1)
+	level.ByteArray("SkyLight", light[:])
+	ch.blockLight.region(light[:], 0, 0, 0, CHUNK_SIZE_X-1, CHUNK_SIZE_Y-1, CHUNK_SIZE_Z-1)
+	level.ByteArray("BlockLight", light[:])
+	lightBufPool.Put(light)
+	level.ByteArray("HeightMap", ch.Height[:])
 	if len(ents) > 0 {
 		level.CompoundList("Entities", ents)
 	} else {
@@ -190,6 +176,7 @@ type ChunkSave struct {
 // PrepareSave serializes every chunk that changed or has entities to store, and resets
 // HasChanged so later saves skip chunks that stayed untouched. Must run on the game loop.
 func (w *World) PrepareSave(chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, dim int32) *ChunkSave {
+	w.ApplyLight()
 	dir := w.WorldDir
 	if dim == -1 {
 		dir = filepath.Join(w.WorldDir, "DIM-1")
@@ -378,7 +365,6 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 		return nil, fmt.Errorf("chunk (%d,%d): unexpected Data length %d", cx, cz, len(data))
 	}
 
-	// Stored light is ignored: it is recomputed from the blocks whenever the chunk is sent or saved.
 	c := &Chunk{
 		X:     cx * CHUNK_SIZE_X,
 		Z:     cz * CHUNK_SIZE_Z,
@@ -387,6 +373,14 @@ func (w *World) readChunkFromNBT(lvl *mcregion.Tag, cx, cz, dim int32) (*Chunk, 
 		SizeZ: CHUNK_SIZE_Z - 1,
 	}
 	c.setData(blocks, data)
+	c.computeHeight()
+	sky, blk := lvl.Get("SkyLight"), lvl.Get("BlockLight")
+	if sky != nil && blk != nil && len(sky.ByteArr) == chunkNibbleCount && len(blk.ByteArr) == chunkNibbleCount {
+		c.skyLight.load(sky.ByteArr)
+		c.blockLight.load(blk.ByteArr)
+	} else {
+		c.needsLight = true
+	}
 
 	if el := lvl.Get("Entities"); el != nil && len(el.List) > 0 {
 		c.PendingEntities = el.List

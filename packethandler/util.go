@@ -193,16 +193,14 @@ func initialUpdateChunks(world *level.World, x, z float64, pl *player.Player, on
 	}
 }
 
-// sendChunkToPlayer must run on the game loop, since lighting reads the neighbouring chunks.
 func sendChunkToPlayer(world *level.World, pl *player.Player, coord level.ChunkCoord, dim int32, chunk *level.Chunk) int {
 	visibility := packets.SetChunkVisibilityPacket{X: coord.X, Z: coord.Z, Mode: true}
 	pre := visibility.Serialize()
 	pl.Connection.Write(pre)
 
-	light := world.ComputeLight(coord.X, coord.Z, dim, chunk)
-	data := packets.NewChunkBlockRegionPacket(chunk, light)
+	world.ApplyLight()
+	data := packets.NewChunkBlockRegionPacket(chunk)
 	player.WriteOwned(pl.Connection, data)
-	light.Release()
 	sent := len(pre) + len(data)
 
 	for key, lines := range world.SignsInChunk(coord.X, coord.Z, dim) {

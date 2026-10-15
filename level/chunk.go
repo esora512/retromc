@@ -32,21 +32,42 @@ type Chunk struct {
 	Data       []byte
 	HasChanged bool
 
+	Height     [CHUNK_SIZE_X * CHUNK_SIZE_Z]byte
+	blockLight lightLayer
+	skyLight   lightLayer
+	lightDirty lightBox
+	needsLight bool
+
 	PendingEntities []*mcregion.Tag
 	HadEntities     bool
 }
 
 func (c *Chunk) Size() int64 {
 	structOverhead := int64(unsafe.Sizeof(*c))
-	dataBytes := int64(len(c.Data))
+	dataBytes := int64(len(c.Data)) + c.blockLight.size() + c.skyLight.size()
 	return structOverhead + dataBytes
 }
 
-func (c *Chunk) WriteCompressed(buf *bytes.Buffer, light *ChunkLight) {
+func (c *Chunk) WriteRegionCompressed(buf *bytes.Buffer, x0, y0, z0, x1, y1, z1 int) {
 	zw := zlibWriterPool.Get().(*zlib.Writer)
 	zw.Reset(buf)
-	zw.Write(c.Data)
-	zw.Write(light.buf[:])
+	for x := x0; x <= x1; x++ {
+		for z := z0; z <= z1; z++ {
+			zw.Write(c.Data[blockIndex(x, y0, z) : blockIndex(x, y1, z)+1])
+		}
+	}
+	for x := x0; x <= x1; x++ {
+		for z := z0; z <= z1; z++ {
+			i := chunkMetaOffset + blockIndex(x, y0, z)/2
+			zw.Write(c.Data[i : i+(y1-y0+1)/2])
+		}
+	}
+	light := lightBufPool.Get().(*[chunkNibbleCount]byte)
+	n := c.blockLight.region(light[:], x0, y0, z0, x1, y1, z1)
+	zw.Write(light[:n])
+	n = c.skyLight.region(light[:], x0, y0, z0, x1, y1, z1)
+	zw.Write(light[:n])
+	lightBufPool.Put(light)
 	zw.Close()
 	zlibWriterPool.Put(zw)
 }
@@ -200,6 +221,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chu
 		chunk.GenerateBareironBiomes(uint32(w.Seed), cx, cz)
 	}
 	chunk.HasChanged = false
+	chunk.needsLight = true
 	return chunk
 }
 
@@ -343,6 +365,7 @@ func (w *World) GetNearbyChunks(dim int32) []*Chunk {
 }
 
 func (w *World) PopUnusedChunks(dim int32) map[ChunkCoord]*Chunk {
+	w.ApplyLight()
 	wanted := w.wantedChunks(dim, VIEW_DISTANCE)
 
 	src := w.chunksFor(dim)
@@ -437,6 +460,9 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 
 	c := w.loadOrGenerateChunkFromDiskOrGen(cx, cz, dim)
 	chunks[key] = c
+	if c.needsLight {
+		w.initChunkLight(cx, cz, dim, c)
+	}
 	w.spawnPendingEntities(c, dim)
 	return c
 }
@@ -455,6 +481,9 @@ func (w *World) InsertChunk(cx, cz, dim int32, c *Chunk) *Chunk {
 		return existing
 	}
 	chunks[key] = c
+	if c.needsLight {
+		w.initChunkLight(cx, cz, dim, c)
+	}
 	w.spawnPendingEntities(c, dim)
 	return c
 }

@@ -172,6 +172,10 @@ type World struct {
 	chatRelay func(name, msg string, event bool, online int)
 
 	closeContainer func(w *World, pl *player.Player)
+
+	lightSeeds      map[int32]*lightSeeds
+	dirtyLight      []dirtyLight
+	sendLightRegion func(w *World, c *Chunk, dim int32, x0, y0, z0, x1, y1, z1 int)
 }
 
 func (w *World) SetChatRelay(f func(name, msg string, event bool, online int)) {
@@ -508,6 +512,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		sleepers:    make(map[int32]int),
 		Rand:        rand.New(rand.NewSource(time.Now().UnixNano())),
 		chunkGenSem: make(chan struct{}, maxConcurrentChunkGen),
+		lightSeeds:  make(map[int32]*lightSeeds),
 	}
 }
 
@@ -622,8 +627,9 @@ func (w *World) SetBlock(worldX int32, worldY byte, worldZ int32, block constant
 	chunk.HasChanged = true
 	lx := WorldToLocalCoord(worldX)
 	lz := WorldToLocalCoord(worldZ)
+	old := chunk.GetBlock(lx, int(worldY), lz)
 	chunk.SetBlock(lx, int(worldY), lz, block)
-	//chunk.RelightColumn(lx, lz)
+	w.queueLight(chunk, worldX, int(worldY), worldZ, dim, old.TypeId, block.TypeId)
 }
 
 func (w *World) GetBlock(worldX int32, worldY byte, worldZ int32, dim int32) constants.WBlock {
