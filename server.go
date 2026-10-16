@@ -47,7 +47,7 @@ func main() {
 		log.Fatalln("Failed to load players.json:", err)
 	}
 	if err := world.LoadBans(); err != nil {
-		log.Fatalln("Failed to load bans.json:", err)
+		log.Fatalln("Failed to load bans:", err)
 	}
 	world.OnlineMode = !*offline
 	if !world.OnlineMode {
