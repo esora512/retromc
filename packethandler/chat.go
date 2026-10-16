@@ -14,6 +14,7 @@ import (
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	entPack "github.com/leNicDev/retromc/entities"
+	"github.com/leNicDev/retromc/inventory"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
@@ -50,6 +51,7 @@ var commandHelp = []struct {
 	{"/skywalk", "/skywalk"},
 	{"/claim", "/claim"},
 	{"/ban", "/ban <player>"},
+	{"/clear", "/clear"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -363,6 +365,14 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if cmdName == "/claim" {
 			handleClaimCommand(pl)
+			return false
+		}
+
+		if cmdName == "/clear" {
+			pl.Inventory = inventory.NewInventory(player.PLAYER_INVENTORY_SIZE)
+			sendInventory(pl.Connection, pl, world)
+			sendEquipmentChangeForHotbarSlot(world, pl)
+			sendDebugMessage(pl, "Inventory cleared")
 			return false
 		}
 
