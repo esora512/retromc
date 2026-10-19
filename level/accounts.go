@@ -15,13 +15,38 @@ type ClaimPos struct {
 }
 
 type Permissions struct {
-	CanClaim    bool `json:"canClaim"`
-	CanTime     bool `json:"canTime"`
-	CanSave     bool `json:"canSave"`
-	CanKill     bool `json:"canKill"`
-	CanTpOthers bool `json:"canTpOthers"`
-	CanSummon   bool `json:"canSummon"`
-	CanBan      bool `json:"canBan"`
+	CanClaim     bool `json:"canClaim"`
+	CanTime      bool `json:"canTime"`
+	CanSave      bool `json:"canSave"`
+	CanKill      bool `json:"canKill"`
+	CanTpOthers  bool `json:"canTpOthers"`
+	CanSummon    bool `json:"canSummon"`
+	CanBan       bool `json:"canBan"`
+	CanTp        bool `json:"canTp"`
+	CanGive      bool `json:"canGive"`
+	CanDestroy   bool `json:"canDestroy"`
+	CanFill      bool `json:"canFill"`
+	CanGamemode  bool `json:"canGamemode"`
+	CanDim       bool `json:"canDim"`
+	CanSize      bool `json:"canSize"`
+	CanDebug     bool `json:"canDebug"`
+	CanSkywalk   bool `json:"canSkywalk"`
+	CanChainmine bool `json:"canChainmine"`
+}
+
+func (w *World) PublicCommands() []string {
+	cfg := struct {
+		Public []string `json:"public"`
+	}{Public: []string{"stats"}}
+	raw, err := os.ReadFile(filepath.Join(w.WorldDir, "commands.json"))
+	if err != nil {
+		return cfg.Public
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		log.Println("Failed to read commands.json, using defaults:", err)
+		return []string{"stats"}
+	}
+	return cfg.Public
 }
 
 type Account struct {

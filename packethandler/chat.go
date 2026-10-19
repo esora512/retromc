@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"runtime"
+	"slices"
 
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
@@ -102,7 +103,11 @@ func handleHelpCommand(pl *player.Player, message string) {
 	sendDebugMessage(pl, fmt.Sprintf("Unknown command: %s", arg))
 }
 
-func permitted(perms level.Permissions, pl *player.Player, message string) bool {
+func permitted(world *level.World, pl *player.Player, message string) bool {
+	if cmd := strings.TrimPrefix(strings.Fields(message)[0], "/"); slices.Contains(world.PublicCommands(), cmd) {
+		return true
+	}
+	perms := world.PermissionsOf(pl.Username)
 	switch {
 	case strings.HasPrefix(message, "/claim"):
 		return perms.CanClaim
@@ -118,7 +123,28 @@ func permitted(perms level.Permissions, pl *player.Player, message string) bool 
 		return perms.CanBan
 	case strings.HasPrefix(message, "/tp"):
 		args := strings.Fields(strings.TrimPrefix(message, "/tp"))
-		return perms.CanTpOthers || len(args) != 2 || args[0] == pl.Username
+		if len(args) == 2 && args[0] != pl.Username {
+			return perms.CanTpOthers
+		}
+		return perms.CanTp
+	case strings.HasPrefix(message, "/give"):
+		return perms.CanGive
+	case strings.HasPrefix(message, "/destroy"):
+		return perms.CanDestroy
+	case strings.HasPrefix(message, "/fill"):
+		return perms.CanFill
+	case strings.HasPrefix(message, "/gamemode"):
+		return perms.CanGamemode
+	case strings.HasPrefix(message, "/dim"):
+		return perms.CanDim
+	case strings.HasPrefix(message, "/size"):
+		return perms.CanSize
+	case strings.HasPrefix(message, "/debug"):
+		return perms.CanDebug
+	case strings.HasPrefix(message, "/skywalk"):
+		return perms.CanSkywalk
+	case strings.HasPrefix(message, "/chainmine"):
+		return perms.CanChainmine
 	}
 	return true
 }
@@ -130,7 +156,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 	message := p.Message
 	if strings.HasPrefix(message, "/") {
 		cmdName := strings.Fields(message)[0]
-		if !permitted(world.PermissionsOf(pl.Username), pl, message) {
+		if !permitted(world, pl, message) {
 			sendNoPermission(pl, cmdName)
 			return false
 		}
@@ -204,9 +230,17 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			var m runtime.MemStats
 			runtime.ReadMemStats(&m)
 			mb := func(b uint64) float64 { return float64(b) / 1024 / 1024 }
+			mobs := 0
+			for _, e := range world.SnapshotEntities() {
+				if e.GetEntityType() != constants.Player {
+					mobs++
+				}
+			}
 			sendDebugMessage(pl,
 				fmt.Sprintf("Memory used: %.1f MB (heap %.1f MB)", mb(m.Sys-m.HeapReleased), mb(m.HeapAlloc)),
 				fmt.Sprintf("Reserved from OS: %.1f MB", mb(m.Sys)),
+				fmt.Sprintf("Players: %d", world.OnlineCount()),
+				fmt.Sprintf("Entities: %d", mobs),
 			)
 		}
 
