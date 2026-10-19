@@ -121,8 +121,8 @@ func rubberBand(connection net.Conn, pl *player.Player) {
 // }
 
 func handlePlayerInputPacket(p packets.PlayerInputPacket, pl *player.Player, world *level.World) {
-	log.Printf("Received PlayerInput packet: Strafe=%.2f Forward=%.2f Jump=%t Sneaking=%t",
-		p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
+	// log.Printf("Received PlayerInput packet: Strafe=%.2f Forward=%.2f Jump=%t Sneaking=%t",
+	// p.StrafeDirection, p.ForwardDirection, p.Jumping, p.Sneaking)
 }
 
 
@@ -1204,16 +1204,16 @@ const (
 func facingFromFace(face int32) Facing {
 	switch face {
 	case 3:
-		log.Println("West")
+		// log.Println("West")
 		return FacingWest
 	case 2:
-		log.Println("East")
+		// log.Println("East")
 		return FacingEast
 	case 4:
-		log.Println("North")
+		// log.Println("North")
 		return FacingNorth
 	case 5:
-		log.Println("South")
+		// log.Println("South")
 		return FacingSouth
 	default:
 		return FacingSouth

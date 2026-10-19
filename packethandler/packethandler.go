@@ -159,7 +159,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 			handleUpdateSignPacket(p, world, pl)
 		})
 	case packet.PlayerInput:
-		log.Println("Received PlayerInput packet")
+		// log.Println("Received PlayerInput packet")
 		p := packets.ReadPlayerInputPacket(packetReader)
 		world.Enqueue(func() {
 			handlePlayerInputPacket(p, pl, world)

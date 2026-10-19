@@ -1,7 +1,7 @@
 package packethandler
 
 import (
-	"log"
+	// "log"
 	"math"
 	"math/rand"
 
@@ -266,7 +266,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			}
 
 			if other.GetEntityType() == constants.Ridable {
-				log.Println("Killing Ridable")
+				// log.Println("Killing Ridable")
 				ridable, _ := other.(*entities.RideableEntity)
 				if ridable.ObjectType == constants.ObjectBoat {
 					ridable.ShouldDespawn = true
@@ -300,7 +300,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.NewAddPassengerPacket(pl.GetEntityId(), -1))
 			ridable.PassengerEntityId = -1
 			pl.Immune = 75
-			log.Printf("%s got off", pl.Username)
+			// log.Printf("%s got off", pl.Username)
 		} else {
 			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.PlayerEntityMetadataPacketRiding(pl, true))
 			tracker.SendToViewersAndSelf(world, pl.GetEntityId(), packets.NewAddPassengerPacket(pl.GetEntityId(), other.GetEntityId()))
@@ -310,7 +310,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			pl.Ly = pl.Y
 			pl.Lz = pl.Z
 			pl.OnGround = false
-			log.Printf("%s got on", pl.Username)
+			// log.Printf("%s got on", pl.Username)
 
 		}
 	}
@@ -329,7 +329,7 @@ func handlePlayerActionPacket(p packets.PlayerActionPacket, pl *player.Player, w
 		pl.IsSneaking = false
 	}
 	if p.ActionId == 3 {
-		log.Println("Clicked Leave Bed Button")
+		// log.Println("Clicked Leave Bed Button")
 		world.RemoveSleeper(pl)
 		p := packets.AnimationPacket{PlayerId: pl.GetEntityId(), Animation: 3}
 		pl.Connection.Write(p.Serialize())

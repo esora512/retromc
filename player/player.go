@@ -51,10 +51,10 @@ type SelectedItem struct {
 
 func (si *SelectedItem) Print() {
 	if !si.Selected {
-		log.Println("No item selected")
+		// log.Println("No item selected")
 		return
 	}
-	log.Printf("Item selected: %+v", si.Item)
+	// log.Printf("Item selected: %+v", si.Item)
 }
 
 func (si *SelectedItem) Clear() {
@@ -326,7 +326,7 @@ func (pl *Player) Despawn() bool {
 func (pl *Player) GivePlayer(input string) {
 	args := strings.Split(input, " ")
 	var amountInt int
-	log.Printf("GivePlayer: %+v", args)
+	log.Printf("GIVE: %s /give %s", pl.Username, input)
 	if len(args) < 1 {
 		return
 	}

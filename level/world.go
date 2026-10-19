@@ -613,7 +613,7 @@ func printCallStack() {
 		}
 	}
 
-	log.Printf("%s", strings.Join(callers, " <-- "))
+	// log.Printf("%s", strings.Join(callers, " <-- "))
 }
 
 // SetBlock updates a single block in the world using world-space coordinates.

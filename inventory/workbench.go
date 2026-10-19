@@ -13,7 +13,7 @@ func (wb *Workbench) IsCraftingSlot(slot int16) bool {
 
 func (wb *Workbench) AddCount(slot int16, amount byte) {
 	if slot < 1 || int(slot) > len(wb.Grid) {
-		log.Printf("ChangeAmount: slot %d out of range", slot)
+		// log.Printf("ChangeAmount: slot %d out of range", slot)
 		return
 	}
 	wb.Grid[slot-1].Count += amount
@@ -21,7 +21,7 @@ func (wb *Workbench) AddCount(slot int16, amount byte) {
 
 func (wb *Workbench) SetEmpty(slot int16) {
 	if slot < 1 || int(slot) > len(wb.Grid) {
-		log.Printf("SetEmpty: slot %d out of range", slot)
+		// log.Printf("SetEmpty: slot %d out of range", slot)
 		return
 	}
 	wb.Grid[slot-1] = EmptyItem()
@@ -47,7 +47,7 @@ func EmptyItem() Item {
 
 func (w *Workbench) SetItem(slot int16, typeId int16, count byte, metadata uint16) {
 	if slot < 1 || int(slot) > len(w.Grid) {
-		log.Printf("SetItem: slot %d out of range", slot)
+		// log.Printf("SetItem: slot %d out of range", slot)
 		return
 	}
 	item := NewItem(typeId, count, metadata)

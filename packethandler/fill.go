@@ -2,6 +2,7 @@ package packethandler
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/leNicDev/retromc/constants"
@@ -92,5 +93,6 @@ func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int
 			}
 		}
 	}
+	log.Printf("FILL: %s filled %d %s block(s) from (%d,%d,%d) to (%d,%d,%d) dim %d", pl.Username, size, blockName, minX, minY, minZ, maxX, maxY, maxZ, pl.Dimension)
 	sendDebugMessage(pl, fmt.Sprintf("Filled %d %s block(s)", size, blockName))
 }
