@@ -34,14 +34,12 @@ func growWheat(w *World, x int32, y byte, z int32, block constants.WBlock, dim i
 		return
 	}
 	crop := constants.NewBlockById(constants.Wheat.Value, block.Metadata+1)
-	w.SetBlock(x, y, z, crop, dim)
-	w.BroadcastBlockChange(x, int32(y), z, crop.TypeId, crop.Metadata, dim)
+	w.SetBlockInQueue(x, int32(y), z, crop, dim)
 }
 
 func BuildWheat(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
 	crop := constants.NewBlockById(constants.Wheat.Value, CROP_MAX_STATE)
-	w.SetBlock(x, y, z, crop, dim)
-	w.BroadcastBlockChange(x, int32(y), z, crop.TypeId, crop.Metadata, dim)
+	w.SetBlockInQueue(x, int32(y), z, crop, dim)
 }
 
 func growSapling(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
@@ -68,8 +66,7 @@ func growSugarcane(w *World, x int32, y byte, z int32, block constants.WBlock, d
 	}
 
 	cane := constants.NewBlockById(constants.Sugarcane.Value, 0)
-	w.SetBlock(x, y+1, z, cane, dim)
-	w.BroadcastBlockChange(x, int32(y)+1, z, cane.TypeId, cane.Metadata, dim)
+	w.SetBlockInQueue(x, int32(y+1), z, cane, dim)
 }
 
 func growCactus(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
@@ -89,8 +86,7 @@ func growCactus(w *World, x int32, y byte, z int32, block constants.WBlock, dim 
 	}
 
 	cactus := constants.NewBlockById(constants.Cactus.Value, 0)
-	w.SetBlock(x, y+1, z, cactus, dim)
-	w.BroadcastBlockChange(x, int32(y)+1, z, cactus.TypeId, cactus.Metadata, dim)
+	w.SetBlockInQueue(x, int32(y+1), z, cactus, dim)
 }
 
 func growDirtToGrass(w *World, x int32, y byte, z int32, block constants.WBlock, dim int32) {
@@ -100,8 +96,7 @@ func growDirtToGrass(w *World, x int32, y byte, z int32, block constants.WBlock,
 	for _, d := range [][2]int32{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
 		if w.GetBlock(x+d[0], y, z+d[1], dim).TypeId == byte(constants.Grass.Value) {
 			grass := constants.NewBlockById(constants.Grass.Value, 0)
-			w.SetBlock(x, y, z, grass, dim)
-			w.BroadcastBlockChange(x, int32(y), z, grass.TypeId, grass.Metadata, dim)
+			w.SetBlockInQueue(x, int32(y), z, grass, dim)
 			return
 		}
 	}
@@ -111,8 +106,7 @@ func BuildTree(w *World, x int32, y byte, z int32, woodType byte, dim int32) {
 	log := constants.NewBlockById(constants.Log.Value, woodType)
 	trunkHeight := 5
 	for i := 0; i < trunkHeight; i++ {
-		w.SetBlock(x, y+byte(i), z, log, dim)
-		w.BroadcastBlockChange(x, int32(y)+int32(i), z, log.TypeId, log.Metadata, dim)
+		w.SetBlockInQueue(x, int32(y+byte(i)), z, log, dim)
 	}
 
 	leaves := constants.NewBlockById(constants.Leaves.Value, woodType)
@@ -153,8 +147,7 @@ func BuildTree(w *World, x int32, y byte, z int32, woodType byte, dim int32) {
 	for dy, offsets := range leafLayers {
 		for _, off := range offsets {
 			dx, dz := off[0], off[1]
-			w.SetBlock(x+int32(dx), topY+byte(dy), z+int32(dz), leaves, dim)
-			w.BroadcastBlockChange(x+int32(dx), int32(topY)+int32(dy), z+int32(dz), leaves.TypeId, leaves.Metadata, dim)
+			w.SetBlockInQueue(x+int32(dx), int32(topY+byte(dy)), z+int32(dz), leaves, dim)
 		}
 	}
 }

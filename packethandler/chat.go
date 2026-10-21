@@ -40,7 +40,7 @@ var commandHelp = []struct {
 	{"/fill", "/fill | /fill <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
-	{"/time", "/time <set | speed> <value>"},
+	{"/time", "/time <set | speed> <value> | /time freeze"},
 	{"/debug", "/debug <water | entities | time | block | furnaces>"},
 	{"/help", "/help [command]"},
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
@@ -52,7 +52,6 @@ var commandHelp = []struct {
 	{"/skywalk", "/skywalk"},
 	{"/hollow", "/hollow | /hollow <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/claim", "/claim | /claim <add | remove> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
-	{"/freeze", "/freeze"},
 	{"/ban", "/ban <player>"},
 	{"/clear", "/clear"},
 }
@@ -135,8 +134,6 @@ func permitted(world *level.World, pl *player.Player, message string) bool {
 		return perms.CanDestroy
 	case strings.HasPrefix(message, "/fill"), strings.HasPrefix(message, "/hollow"):
 		return perms.CanFill
-	case strings.HasPrefix(message, "/freeze"):
-		return perms.CanFreeze
 	case strings.HasPrefix(message, "/gamemode"):
 		return perms.CanGamemode
 	case strings.HasPrefix(message, "/dim"):
@@ -215,16 +212,6 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if cmdName == "/fill" || cmdName == "/hollow" {
 			handleFillCommand(pl, world, cmdName, strings.Fields(message)[1:])
-			return false
-		}
-
-		if cmdName == "/freeze" {
-			world.Frozen = !world.Frozen
-			if world.Frozen {
-				BroadcastWorldMsg(world, pl.Username+" froze time")
-			} else {
-				BroadcastWorldMsg(world, pl.Username+" unfroze time")
-			}
 			return false
 		}
 
@@ -448,6 +435,16 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 				state = "enabled"
 			}
 			sendDebugMessage(pl, fmt.Sprintf("Chain mining %s", state))
+		}
+
+		if message == "/time freeze" {
+			world.Frozen = !world.Frozen
+			if world.Frozen {
+				BroadcastWorldMsg(world, pl.Username+" froze time")
+			} else {
+				BroadcastWorldMsg(world, pl.Username+" unfroze time")
+			}
+			return false
 		}
 
 		if strings.HasPrefix(message, "/time") {

@@ -743,8 +743,8 @@ type QueueBlock struct {
 }
 
 func (w *World) SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32) {
-	if w.IsClaimed(x, y, z, dim) {
-		block = w.GetBlock(x, byte(y), z, dim)
+	if y < 0 || y >= CHUNK_SIZE_Y {
+		return
 	}
 	w.SetBlock(x, byte(y), z, block, dim)
 
@@ -765,6 +765,11 @@ func (w *World) SetBlockInQueue(x, y, z int32, block constants.WBlock, dim int32
 func (w *World) FlushBlockQueue() {
 	blocks := w.blockQueue
 	w.blockQueue = nil
+	for k, b := range blocks {
+		cur := w.GetBlock(b.X, b.Y, b.Z, b.Dim)
+		b.TypeID, b.Metadata = cur.TypeId, cur.Metadata
+		blocks[k] = b
+	}
 	if len(blocks) <= 10 {
 		for _, b := range blocks {
 			w.BroadcastBlockChange(b.X, int32(b.Y), b.Z, b.TypeID, b.Metadata, b.Dim)

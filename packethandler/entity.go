@@ -262,7 +262,6 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 				world.RelayEvent(other.GetName(), cMsgPkt.Message)
 
 				killPlayer(world, world.Players[other.GetEntityId()])
-				tracker.ResetViewer(world, other.GetEntityId())
 			}
 
 			if other.GetEntityType() == constants.Ridable {

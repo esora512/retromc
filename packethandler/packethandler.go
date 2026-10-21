@@ -128,7 +128,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 	case packet.Respawn:
 		p := packets.ReadRespawnPacket(packetReader)
 		world.Enqueue(func() {
-			handleRespawnInPacket(connection, p, world, pl)
+			handleRespawnInPacket(connection, p, world, pl, tracker)
 		})
 	case packet.CloseContainer:
 		p := packets.ReadCloseContainerPacket(packetReader, pl)

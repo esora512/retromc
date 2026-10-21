@@ -45,7 +45,14 @@ func handleUpdateSignPacket(p packets.UpdateSignPacket, world *level.World, pl *
 	world.BroadcastPacketInDim(pl.Dimension, p.Serialize())
 }
 
-func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player) {
+func handleRespawnInPacket(connection net.Conn, p packets.RespawnPacket, world *level.World, pl *player.Player, tracker *entities.EntityTracker) {
+	if pl.HP > 0 {
+		return
+	}
+	tracker.ResetViewer(world, pl.GetEntityId())
+	tracker.SendToViewers(world, pl.GetEntityId(), world.DespawnEntity(pl.GetEntityId()))
+	tracker.ResetEntity(pl.GetEntityId())
+	pl.DespawnIn = -1
 	pl.MovementState.IsDead = false
 	pl.HurtTime = 0
 	pl.SetHP(20)
@@ -363,6 +370,13 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		dropHeldItemStack(connection, world, pl)
 		return
 	}
+	if p.Status == 0 || p.Status == 2 {
+		defer func() {
+			if b := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension); !b.IsAir() {
+				sendBlockToPlayer(world, pl, p.X, p.Y, p.Z, b)
+			}
+		}()
+	}
 	if pl.IsRiding != -1 || !inReach(pl, p.X, int32(p.Y), p.Z, 6) {
 		return
 	}
@@ -379,7 +393,6 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 	}
 
 	if owner, ok := world.ClaimOwner(p.X, int32(p.Y), p.Z, pl.Dimension); ok {
-		sendBlockToPlayer(world, pl, p.X, p.Y, p.Z, oldBlock)
 		sendDebugMessage(pl, "\u00A7cThis block is claimed by "+owner)
 		return
 	}
@@ -885,6 +898,29 @@ func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, wor
 	if !pl.LoggedIn {
 		return
 	}
+	placeBlock(connection, p, world, pl)
+	if p.X == -1 && p.Y == 255 && p.Z == -1 {
+		return
+	}
+	x, y, z := placementTargetCoords(p, world, pl.Dimension)
+	cells := [][3]int32{{p.X, int32(p.Y), p.Z}, {x, int32(y), z}}
+	switch p.ItemId {
+	case constants.WoodenDoorItem.Value, constants.IronDoorItem.Value:
+		cells = append(cells, [3]int32{x, int32(y) + 1, z})
+	case constants.BedItem.Value:
+		cells = append(cells, [3]int32{x + 1, int32(y), z}, [3]int32{x - 1, int32(y), z}, [3]int32{x, int32(y), z + 1}, [3]int32{x, int32(y), z - 1})
+	}
+	for _, c := range cells {
+		if c[1] >= 0 && c[1] < level.CHUNK_SIZE_Y {
+			sendBlockToPlayer(world, pl, c[0], byte(c[1]), c[2], world.GetBlock(c[0], byte(c[1]), c[2], pl.Dimension))
+		}
+	}
+	if held := pl.Inventory.Items[pl.HotbarSlot]; held.TypeId != p.ItemId || held.TypeId != -1 && (held.Count != p.Amount || int16(held.Metadata) != p.Damage) {
+		SendSetSlot(connection, 0, pl.HotbarSlot, held)
+	}
+}
+
+func placeBlock(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
 	isUse := p.X == -1 && p.Y == 255 && p.Z == -1
 	if !isUse && !inReach(pl, p.X, int32(p.Y), p.Z, 8) {
 		return
