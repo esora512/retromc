@@ -197,7 +197,7 @@ func (w *World) generateChunk(cx, cz int32, worldType WorldType, dim int32) *Chu
 
 	switch worldType {
 	case Noodle:
-		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz, dim == -1)
+		chunk.GenerateNoodleWorld(uint32(w.Seed), cx, cz, dim)
 	case SkyGrid:
 		chunk.GenerateSkyGrid()
 	case Template:
@@ -308,8 +308,11 @@ func GetWorldType(wType string) WorldType {
 }
 
 func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
-	if dim == -1 {
+	switch dim {
+	case -1:
 		return w.nChunks
+	case SkyDim:
+		return w.sChunks
 	}
 	return w.oChunks
 }
@@ -394,17 +397,12 @@ func (w *World) IsLoaded(x, z, dim int32) bool {
 
 func (w *World) Size() int64 {
 	var total int64
-	for _, c := range w.oChunks {
-		if c == nil {
-			continue
+	for _, dim := range Dims {
+		for _, c := range w.chunksFor(dim) {
+			if c != nil {
+				total += c.Size()
+			}
 		}
-		total += c.Size()
-	}
-	for _, c := range w.nChunks {
-		if c == nil {
-			continue
-		}
-		total += c.Size()
 	}
 	return total
 }
@@ -527,10 +525,7 @@ func (w *World) forgetRegionFile(path string) {
 
 func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 	if w.WorldDir != "" {
-		dir := w.WorldDir
-		if dim == -1 {
-			dir = filepath.Join(w.WorldDir, "DIM-1")
-		}
+		dir := dimDir(w.WorldDir, dim)
 		rx, rz := cx>>5, cz>>5
 		lx, lz := cx&31, cz&31
 		regionPath := filepath.Join(dir, "region", mcregion.RegionFileName(rx*32, rz*32))
@@ -554,7 +549,7 @@ func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
 	}
 
 	worldType := w.WorldType
-	if dim == -1 {
+	if dim != 0 {
 		worldType = Noodle
 	}
 	c := w.generateChunk(cx, cz, worldType, dim)
