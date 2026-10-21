@@ -40,7 +40,7 @@ var commandHelp = []struct {
 	{"/fill", "/fill | /fill <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/gamemode", "/gamemode <0|1>"},
 	{"/kill", "/kill [entities]"},
-	{"/time", "/time <set | tickspeed> <value>"},
+	{"/time", "/time <set | speed> <value>"},
 	{"/debug", "/debug <water | entities | time | block | furnaces>"},
 	{"/help", "/help [command]"},
 	{"/tp", "/tp <x> <y> <z> | tp <p1> <p2>"},
@@ -50,7 +50,9 @@ var commandHelp = []struct {
 	{"/summon", "/summon [zombie|skeleton|spider|creeper|pig|sheep] [x y z]"},
 	{"/chainmine", "/chainmine"},
 	{"/skywalk", "/skywalk"},
-	{"/claim", "/claim"},
+	{"/hollow", "/hollow | /hollow <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
+	{"/claim", "/claim | /claim <add | remove> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
+	{"/freeze", "/freeze"},
 	{"/ban", "/ban <player>"},
 	{"/clear", "/clear"},
 }
@@ -131,8 +133,10 @@ func permitted(world *level.World, pl *player.Player, message string) bool {
 		return perms.CanGive
 	case strings.HasPrefix(message, "/destroy"):
 		return perms.CanDestroy
-	case strings.HasPrefix(message, "/fill"):
+	case strings.HasPrefix(message, "/fill"), strings.HasPrefix(message, "/hollow"):
 		return perms.CanFill
+	case strings.HasPrefix(message, "/freeze"):
+		return perms.CanFreeze
 	case strings.HasPrefix(message, "/gamemode"):
 		return perms.CanGamemode
 	case strings.HasPrefix(message, "/dim"):
@@ -209,8 +213,18 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 		}
 
-		if cmdName == "/fill" {
-			handleFillCommand(pl, world, strings.Fields(message)[1:])
+		if cmdName == "/fill" || cmdName == "/hollow" {
+			handleFillCommand(pl, world, cmdName, strings.Fields(message)[1:])
+			return false
+		}
+
+		if cmdName == "/freeze" {
+			world.Frozen = !world.Frozen
+			if world.Frozen {
+				BroadcastWorldMsg(world, pl.Username+" froze time")
+			} else {
+				BroadcastWorldMsg(world, pl.Username+" unfroze time")
+			}
 			return false
 		}
 
@@ -398,7 +412,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		}
 
 		if cmdName == "/claim" {
-			handleClaimCommand(pl)
+			handleClaimCommand(pl, world, strings.Fields(message)[1:])
 			return false
 		}
 
@@ -449,9 +463,13 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			case "set":
 				world.TimeTick = value
 				sendDebugMessage(pl, fmt.Sprintf("Time set to %d", value))
-			case "tickspeed":
-				world.TickSpeed = value
-				sendDebugMessage(pl, fmt.Sprintf("Tickspeed set to %d", value))
+			case "speed":
+				if value < 1 || value > 20 {
+					sendDebugMessage(pl, "Speed must be between 1 (normal) and 20")
+					return false
+				}
+				world.Speed = value
+				sendDebugMessage(pl, fmt.Sprintf("Speed set to %d", value))
 			default:
 				sendUsage(pl, "/time")
 			}

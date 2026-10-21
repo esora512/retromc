@@ -12,39 +12,51 @@ import (
 
 const fillMaxBlocks = 1 << 18
 
-func handleFillCommand(pl *player.Player, world *level.World, args []string) {
+func toggleSelect(pl *player.Player) {
+	pl.FillSelect = !pl.FillSelect
+	if pl.FillSelect {
+		pl.FillCorners = nil
+		sendDebugMessage(pl, "Corner select enabled, r-click two blocks w/ hand")
+	} else {
+		sendDebugMessage(pl, "Corner select disabled")
+	}
+}
+
+func selection(pl *player.Player, cmd string, args []string) (c1, c2 [3]int32, ok bool) {
 	switch len(args) {
 	case 0:
-		pl.FillSelect = !pl.FillSelect
-		if pl.FillSelect {
-			pl.FillCorners = nil
-			sendDebugMessage(pl, "Fill select enabled, r-click two blocks w/ hand")
-		} else {
-			sendDebugMessage(pl, "Fill select disabled")
-		}
-	case 1:
 		if len(pl.FillCorners) != 2 {
-			sendDebugMessage(pl, "Select two corners first with /fill")
-			return
+			sendDebugMessage(pl, "Select two corners first with "+cmd)
+			return c1, c2, false
 		}
 		if pl.FillDim != pl.Dimension {
 			sendDebugMessage(pl, "Selected corners are in another dimension")
-			return
+			return c1, c2, false
 		}
-		fill(pl, world, args[0], pl.FillCorners[0], pl.FillCorners[1])
-	case 7:
+		return pl.FillCorners[0], pl.FillCorners[1], true
+	case 6:
 		var c [6]int32
-		for i, a := range args[1:] {
+		for i, a := range args {
 			v, err := strconv.ParseInt(a, 10, 32)
 			if err != nil {
-				sendUsage(pl, "/fill")
-				return
+				sendUsage(pl, cmd)
+				return c1, c2, false
 			}
 			c[i] = int32(v)
 		}
-		fill(pl, world, args[0], [3]int32{c[0], c[1], c[2]}, [3]int32{c[3], c[4], c[5]})
-	default:
-		sendUsage(pl, "/fill")
+		return [3]int32{c[0], c[1], c[2]}, [3]int32{c[3], c[4], c[5]}, true
+	}
+	sendUsage(pl, cmd)
+	return c1, c2, false
+}
+
+func handleFillCommand(pl *player.Player, world *level.World, cmd string, args []string) {
+	if len(args) == 0 {
+		toggleSelect(pl)
+		return
+	}
+	if c1, c2, ok := selection(pl, cmd, args[1:]); ok {
+		fill(pl, world, args[0], c1, c2, cmd == "/hollow")
 	}
 }
 
@@ -57,7 +69,7 @@ func selectFillCorner(pl *player.Player, x, y, z int32) {
 	sendDebugMessage(pl, fmt.Sprintf("Corner %d set to x=%d, y=%d, z=%d", len(pl.FillCorners), x, y, z))
 }
 
-func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int32) {
+func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int32, hollow bool) {
 	b := constants.Air
 	if blockName != "air" {
 		b = constants.GetBlockByName(blockName)
@@ -82,17 +94,22 @@ func fill(pl *player.Player, world *level.World, blockName string, c1, c2 [3]int
 	}
 
 	guardClaims := !world.PermissionsOf(pl.Username).CanClaim
+	count := 0
 	for x := minX; x <= maxX; x++ {
 		for y := minY; y <= maxY; y++ {
 			for z := minZ; z <= maxZ; z++ {
-				if guardClaims && world.TouchesClaim(x, y, z, pl.Dimension) {
+				if hollow && x > minX && x < maxX && y > minY && y < maxY && z > minZ && z < maxZ {
 					continue
 				}
+				if world.IsClaimed(x, y, z, pl.Dimension) || guardClaims && world.TouchesClaim(x, y, z, pl.Dimension) {
+					continue
+				}
+				count++
 				world.BreakContainer(x, y, z, world.GetBlock(x, byte(y), z, pl.Dimension).TypeId, pl.Dimension)
 				world.SetBlockInQueue(x, y, z, block, pl.Dimension)
 			}
 		}
 	}
-	log.Printf("FILL: %s filled %d %s block(s) from (%d,%d,%d) to (%d,%d,%d) dim %d", pl.Username, size, blockName, minX, minY, minZ, maxX, maxY, maxZ, pl.Dimension)
-	sendDebugMessage(pl, fmt.Sprintf("Filled %d %s block(s)", size, blockName))
+	log.Printf("FILL: %s hollow=%t filled %d %s block(s) from (%d,%d,%d) to (%d,%d,%d) dim %d", pl.Username, hollow, count, blockName, minX, minY, minZ, maxX, maxY, maxZ, pl.Dimension)
+	sendDebugMessage(pl, fmt.Sprintf("Filled %d %s block(s)", count, blockName))
 }

@@ -115,11 +115,11 @@ type World struct {
 
 	OnlineMode    bool
 	accounts      map[string]*Account
-	claims        map[BlockKey]string
 	bannedPlayers map[string]bool
 	bannedIPs     map[string]bool
 
-	TickSpeed  int64
+	Speed      int64
+	Frozen     bool
 	Containers Containers
 	WorldDir   string
 	CommitHash string
@@ -500,7 +500,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
 		Entities:    make(map[int32]constants.Entity),
-		TickSpeed:   1,
+		Speed:       1,
 		Containers: Containers{
 			Chests:     make(map[BlockKey]*inventory.Chest),
 			Dispensers: make(map[BlockKey]*inventory.Dispenser),

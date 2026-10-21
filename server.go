@@ -191,12 +191,19 @@ func (s *Server) Run() {
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)
 		defer ticker.Stop()
+		var ticks int64
 		for range ticker.C {
 			s.World.Enqueue(func() {
-				// For fast time, set it to TickSpeed to 20
-				nextTick := (s.World.Tick + s.World.TickSpeed) % 24000
-				s.World.AdvanceTick(nextTick, s.Tracker)
-				if s.World.Tick%120 == 0 {
+				ticks++
+				if s.World.Frozen {
+					s.World.BroadcastTime(s.World.TimeTick)
+					s.World.TickPlayers()
+				} else {
+					for range s.World.Speed {
+						s.World.AdvanceTick(s.World.Tick+1, s.Tracker)
+					}
+				}
+				if ticks%120 == 0 {
 					tick := s.World.Tick
 					for _, dim := range []int32{0, -1} {
 						removed := s.World.PopUnusedChunks(dim)

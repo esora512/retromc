@@ -154,7 +154,6 @@ type Player struct {
 	FillSelect           bool
 	FillCorners          [][3]int32
 	FillDim              int32
-	ClaimMode            bool
 	ServerId             string
 
 	SentChunks           ChunkSet

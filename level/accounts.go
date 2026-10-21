@@ -5,13 +5,36 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
-type ClaimPos struct {
-	X   int32 `json:"x"`
-	Y   int32 `json:"y"`
-	Z   int32 `json:"z"`
-	Dim int32 `json:"dim,omitempty"`
+type ClaimBox struct {
+	Min [3]int32 `json:"min"`
+	Max [3]int32 `json:"max"`
+	Dim int32    `json:"dim,omitempty"`
+}
+
+func (c *ClaimBox) UnmarshalJSON(raw []byte) error {
+	var v struct {
+		Min, Max     *[3]int32
+		X, Y, Z, Dim int32
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return err
+	}
+	if v.Min == nil || v.Max == nil {
+		v.Min, v.Max = &[3]int32{v.X, v.Y, v.Z}, &[3]int32{v.X, v.Y, v.Z}
+	}
+	*c = ClaimBox{Min: *v.Min, Max: *v.Max, Dim: v.Dim}
+	return nil
+}
+
+func (c ClaimBox) contains(x, y, z, dim int32) bool {
+	return c.Dim == dim && x >= c.Min[0] && x <= c.Max[0] && y >= c.Min[1] && y <= c.Max[1] && z >= c.Min[2] && z <= c.Max[2]
+}
+
+func (c ClaimBox) intersects(o ClaimBox) bool {
+	return c.Dim == o.Dim && c.Min[0] <= o.Max[0] && o.Min[0] <= c.Max[0] && c.Min[1] <= o.Max[1] && o.Min[1] <= c.Max[1] && c.Min[2] <= o.Max[2] && o.Min[2] <= c.Max[2]
 }
 
 type Permissions struct {
@@ -32,6 +55,7 @@ type Permissions struct {
 	CanDebug     bool `json:"canDebug"`
 	CanSkywalk   bool `json:"canSkywalk"`
 	CanChainmine bool `json:"canChainmine"`
+	CanFreeze    bool `json:"canFreeze"`
 }
 
 func (w *World) PublicCommands() []string {
@@ -51,7 +75,7 @@ func (w *World) PublicCommands() []string {
 
 type Account struct {
 	Permissions
-	Claims []ClaimPos `json:"claims"`
+	Claims []ClaimBox `json:"claims"`
 }
 
 func (w *World) accountsPath() string {
@@ -76,12 +100,6 @@ func (w *World) LoadAccounts() error {
 		return err
 	}
 	w.accounts = accounts
-	w.claims = make(map[BlockKey]string)
-	for name, acc := range accounts {
-		for _, c := range acc.Claims {
-			w.claims[claimKey(c.X, c.Y, c.Z, c.Dim)] = name
-		}
-	}
 	return nil
 }
 
@@ -99,7 +117,7 @@ func (w *World) refreshPermissions() bool {
 	}
 	for name, d := range disk {
 		if _, ok := w.accounts[name]; !ok {
-			w.accounts[name] = &Account{Permissions: d.Permissions, Claims: []ClaimPos{}}
+			w.accounts[name] = &Account{Permissions: d.Permissions, Claims: []ClaimBox{}}
 		}
 	}
 	return true
@@ -128,7 +146,7 @@ func (w *World) RegisterAccount(name string) {
 	if _, ok := w.accounts[name]; ok {
 		return
 	}
-	w.accounts[name] = &Account{Claims: []ClaimPos{}}
+	w.accounts[name] = &Account{Claims: []ClaimBox{}}
 	w.saveAccounts()
 }
 
@@ -140,16 +158,15 @@ func (w *World) PermissionsOf(name string) Permissions {
 	return Permissions{}
 }
 
-func claimKey(x, y, z, dim int32) BlockKey {
-	return BlockKey{X: x, Y: byte(y), Z: z, Dim: dim}
-}
-
 func (w *World) ClaimOwner(x, y, z, dim int32) (string, bool) {
-	if y < 0 || y >= CHUNK_SIZE_Y {
-		return "", false
+	for name, acc := range w.accounts {
+		for _, c := range acc.Claims {
+			if c.contains(x, y, z, dim) {
+				return name, true
+			}
+		}
 	}
-	owner, ok := w.claims[claimKey(x, y, z, dim)]
-	return owner, ok
+	return "", false
 }
 
 func (w *World) IsClaimed(x, y, z, dim int32) bool {
@@ -158,30 +175,32 @@ func (w *World) IsClaimed(x, y, z, dim int32) bool {
 }
 
 func (w *World) TouchesClaim(x, y, z, dim int32) bool {
-	for _, n := range neighbours {
-		if w.IsClaimed(x+n.Dx, y+n.Dy, z+n.Dz, dim) {
-			return true
+	area := ClaimBox{Min: [3]int32{x - 1, y - 1, z - 1}, Max: [3]int32{x + 1, y + 1, z + 1}, Dim: dim}
+	for _, acc := range w.accounts {
+		for _, c := range acc.Claims {
+			if c.intersects(area) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func (w *World) Claim(name string, x, y, z, dim int32) {
+func (w *World) Claim(name string, box ClaimBox) {
 	acc := w.accounts[name]
-	acc.Claims = append(acc.Claims, ClaimPos{X: x, Y: y, Z: z, Dim: dim})
-	w.claims[claimKey(x, y, z, dim)] = name
+	acc.Claims = append(acc.Claims, box)
 	w.saveAccounts()
 }
 
-func (w *World) Unclaim(x, y, z, dim int32) {
-	owner := w.claims[claimKey(x, y, z, dim)]
-	delete(w.claims, claimKey(x, y, z, dim))
-	acc := w.accounts[owner]
-	for i, c := range acc.Claims {
-		if c == (ClaimPos{X: x, Y: y, Z: z, Dim: dim}) {
-			acc.Claims = append(acc.Claims[:i], acc.Claims[i+1:]...)
-			break
-		}
+func (w *World) Unclaim(area ClaimBox) int {
+	removed := 0
+	for _, acc := range w.accounts {
+		n := len(acc.Claims)
+		acc.Claims = slices.DeleteFunc(acc.Claims, area.intersects)
+		removed += n - len(acc.Claims)
 	}
-	w.saveAccounts()
+	if removed > 0 {
+		w.saveAccounts()
+	}
+	return removed
 }
