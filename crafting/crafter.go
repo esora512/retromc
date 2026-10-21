@@ -490,6 +490,11 @@ func Craft3x3(grid [9]int16) Result {
 		}
 
 	case 4:
+		if hoe := getToolForType(itemId, "hoe"); hoe != -1 && firstRow == 0 && firstColumn != 2 && grid[location+1] == itemId &&
+			(grid[location+4] == constants.Stick.Value && grid[location+7] == constants.Stick.Value ||
+				grid[location+3] == constants.Stick.Value && grid[location+6] == constants.Stick.Value) {
+			return Result{hoe, 0, 1}
+		}
 		switch itemId {
 		case constants.Planks.Value, constants.Snowball.Value, constants.ClayItem.Value, constants.Brick.Value, constants.String.Value, constants.GlowstoneDust.Value:
 			if firstColumn != 2 && firstRow != 2 && same {
@@ -580,7 +585,7 @@ func Craft3x3(grid [9]int16) Result {
 	case 6:
 		switch itemId {
 		case constants.Planks.Value, constants.Cobblestone.Value, constants.Stick.Value, constants.Iron.Value:
-			if same && grid[1] == -1 && grid[2] == -1 && grid[5] == -1 && (itemId == constants.Planks.Value || itemId == constants.Cobblestone.Value) {
+			if same && (grid[1] == -1 && grid[2] == -1 && grid[5] == -1 || grid[0] == -1 && grid[1] == -1 && grid[3] == -1) && (itemId == constants.Planks.Value || itemId == constants.Cobblestone.Value) {
 				return Result{getStairsForType(itemId), 0, 4}
 			}
 			if same && firstColumn == 0 && grid[location+1] == itemId && grid[location+2] == itemId && grid[location+4] == itemId && grid[location+5] == itemId {
