@@ -303,15 +303,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			}
 			air := constants.NewAirBlock()
 			world.BreakContainer(x, y, z, world.GetBlock(x, byte(y), z, pl.Dimension).TypeId, pl.Dimension)
-			world.SetBlock(x, byte(y), z, air, pl.Dimension)
-			blockChange := packets.SetBlockPacket{
-				X:         x,
-				Y:         byte(y),
-				Z:         z,
-				BlockType: air.TypeId,
-				BlockMeta: air.Metadata,
-			}
-			world.BroadcastPacket(blockChange.Serialize())
+			world.SetBlockInQueue(x, y, z, air, pl.Dimension)
 			sendDebugMessage(pl, fmt.Sprintf("Destroyed block at x=%d, y=%d, z=%d", x, y, z))
 		}
 

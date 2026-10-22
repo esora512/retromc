@@ -60,7 +60,7 @@ const (
 
 // GenerateNoodleWorld fills the chunk based on the two-field intersection
 // test described above, then caps any solid block with air above it in grass.
-func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, nether bool) {
+func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, dim int32) {
 	blocksAmount := CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z
 	nibbleCount := blocksAmount / 2
 
@@ -116,7 +116,11 @@ func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, nether bool) {
 				if y > 0 {
 					below = blockTypes[i-1]
 				}
-				if !nether {
+				if dim == SkyDim {
+					blockTypes[i] = skyNoodleBlock(blockTypes, i, y, worldX+x, worldZ+z, seed)
+					continue
+				}
+				if dim != -1 {
 					if above == idAir {
 						blockTypes[i] = idGrass
 					}
@@ -139,5 +143,37 @@ func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, nether bool) {
 		}
 	}
 
+	if dim == SkyDim {
+		carveSkyVaults(blockTypes, worldX, worldZ, seed)
+	}
 	c.setData(blockTypes, blockMetadata)
+}
+
+var skyOres = []struct {
+	id     byte
+	chance float64
+}{
+	{idCoalOre, 0.06}, {idIronOre, 0.04}, {idRedstoneOr, 0.015}, {idGoldOre, 0.012}, {idLapisOre, 0.008}, {idDiamondOre, 0.006},
+}
+
+func skyNoodleBlock(blocks []byte, i, y, wx, wz int, seed uint32) byte {
+	for d := 1; d <= 3 && y+d < CHUNK_SIZE_Y; d++ {
+		if blocks[i+d] == idAir {
+			if d == 1 {
+				return idGrass
+			}
+			return idDirt
+		}
+	}
+	if y > 0 && blocks[i-1] == idAir && hash3(int64(wx), int64(y), int64(wz), seed+4) > 0.9 {
+		return idGlowstone
+	}
+	r := (hash3(int64(wx>>1), int64(y>>1), int64(wz>>1), seed+3) + 1) / 2
+	for _, o := range skyOres {
+		if r < o.chance {
+			return o.id
+		}
+		r -= o.chance
+	}
+	return idStone
 }

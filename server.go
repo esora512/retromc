@@ -205,7 +205,7 @@ func (s *Server) Run() {
 				}
 				if ticks%120 == 0 {
 					tick := s.World.Tick
-					for _, dim := range []int32{0, -1} {
+					for _, dim := range level.Dims {
 						removed := s.World.PopUnusedChunks(dim)
 						if len(removed) == 0 {
 							continue

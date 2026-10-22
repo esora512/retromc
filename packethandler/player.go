@@ -237,6 +237,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.MovementState.UntrackPositionAndRotationIn = 10
 	applyFallDamage(world, pl, x, y, z, p.OnGround)
 
+	prevY := pl.Y
 	pl.X = x
 	pl.Y = y
 	pl.Z = z
@@ -245,7 +246,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
 	updateSkywalk(world, pl)
-	if checkDimensionTransfer(world, pl) {
+	if checkDimensionTransfer(world, pl, prevY) {
 		return
 	}
 	updateChunks(world, x, z, pl)
@@ -300,13 +301,14 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.MovementState.UntrackPositionIn = 10
 	applyFallDamage(world, pl, x, y, z, p.OnGround)
 
+	prevY := pl.Y
 	pl.X = x
 	pl.Y = y
 	pl.Z = z
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
 	updateSkywalk(world, pl)
-	if checkDimensionTransfer(world, pl) {
+	if checkDimensionTransfer(world, pl, prevY) {
 		return
 	}
 	updateChunks(world, x, z, pl)

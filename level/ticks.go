@@ -448,7 +448,7 @@ func (w *World) spawnMobsAroundPlayers(spawn func(x, y, z, dim int32)) {
 
 		px, py, pz := pl.GetPosition()
 		dim := pl.GetDim()
-		if dim == -1 {
+		if dim != 0 {
 			continue
 		}
 

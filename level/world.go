@@ -104,6 +104,7 @@ type World struct {
 	blockQueue  map[[4]int32]QueueBlock
 	oChunks     map[ChunkCoord]*Chunk
 	nChunks     map[ChunkCoord]*Chunk
+	sChunks     map[ChunkCoord]*Chunk
 	Tick        int64
 	TimeTick    int64
 	Players     map[int32]*player.Player
@@ -497,6 +498,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		WorldType:   worldType,
 		oChunks:     make(map[ChunkCoord]*Chunk),
 		nChunks:     make(map[ChunkCoord]*Chunk),
+		sChunks:     make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
 		Entities:    make(map[int32]constants.Entity),

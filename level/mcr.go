@@ -177,10 +177,7 @@ type ChunkSave struct {
 // HasChanged so later saves skip chunks that stayed untouched. Must run on the game loop.
 func (w *World) PrepareSave(chunks map[ChunkCoord]*Chunk, ents map[ChunkCoord][]*mcregion.Compound, dim int32) *ChunkSave {
 	w.ApplyLight()
-	dir := w.WorldDir
-	if dim == -1 {
-		dir = filepath.Join(w.WorldDir, "DIM-1")
-	}
+	dir := dimDir(w.WorldDir, dim)
 	save := &ChunkSave{dir: dir, byRegion: make(map[[2]int32]map[[2]int32]*mcregion.Compound)}
 	for coord, ch := range chunks {
 		if ch == nil {
@@ -272,12 +269,11 @@ func SaveMcRegionSync(w *World, worldDir string) error {
 }
 
 func prepareFullSave(w *World) []*ChunkSave {
-	oEnts := w.CaptureEntities(w.oChunks, 0, nil)
-	nEnts := w.CaptureEntities(w.nChunks, -1, nil)
-	return []*ChunkSave{
-		w.PrepareSave(w.oChunks, oEnts, 0),
-		w.PrepareSave(w.nChunks, nEnts, -1),
+	var saves []*ChunkSave
+	for _, dim := range Dims {
+		saves = append(saves, w.PrepareSave(w.chunksFor(dim), w.CaptureEntities(w.chunksFor(dim), dim, nil), dim))
 	}
+	return saves
 }
 
 func writeFullSave(w *World, worldDir string, saves []*ChunkSave, tick int64) error {

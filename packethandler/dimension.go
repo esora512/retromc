@@ -11,9 +11,11 @@ import (
 const (
 	netherEntryY = 6.0
 	netherExitY  = 120.0
+	skyEntryY    = 120.0
+	skyExitY     = 4.0
 )
 
-func checkDimensionTransfer(world *level.World, pl *player.Player) bool {
+func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64) bool {
 	if pl.Transferring || pl.IsRiding != -1 {
 		return false
 	}
@@ -22,6 +24,10 @@ func checkDimensionTransfer(world *level.World, pl *player.Player) bool {
 		transferToNether(world, pl)
 	case pl.Dimension == -1 && pl.Y > netherExitY:
 		transferToOverworld(world, pl)
+	case pl.Dimension == 0 && pl.Y > skyEntryY && prevY <= skyEntryY:
+		transferToSky(world, pl)
+	case pl.Dimension == level.SkyDim && pl.Y < skyExitY:
+		transferFromSky(world, pl)
 	default:
 		return false
 	}
@@ -31,6 +37,18 @@ func checkDimensionTransfer(world *level.World, pl *player.Player) bool {
 func transferToNether(world *level.World, pl *player.Player) {
 	world.BuildNetherLandingPad()
 	transferPlayer(world, pl, -1, level.NetherSpawnX+0.5, level.NetherSpawnY, level.NetherSpawnZ+0.5)
+}
+
+func transferToSky(world *level.World, pl *player.Player) {
+	x, z := math.Floor(pl.X), math.Floor(pl.Z)
+	world.BuildSkyLandingPad(int32(x), int32(z))
+	transferPlayer(world, pl, level.SkyDim, x+0.5, level.SkyEntryY, z+0.5)
+}
+
+func transferFromSky(world *level.World, pl *player.Player) {
+	x, z := math.Floor(pl.X), math.Floor(pl.Z)
+	y := world.SurfaceY(int32(x), int32(z), 0)
+	transferPlayer(world, pl, 0, x+0.5, float64(y), z+0.5)
 }
 
 func transferToOverworld(world *level.World, pl *player.Player) {

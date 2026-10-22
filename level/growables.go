@@ -181,7 +181,7 @@ const (
 )
 
 func (w *World) RandomTickPhysics() {
-	for _, dim := range []int32{0, -1} {
+	for _, dim := range Dims {
 		w.randomScan(dim)
 	}
 }
