@@ -117,7 +117,7 @@ func handleAuthCommand(pl *player.Player, world *level.World, message string) {
 		go func() {
 			hash := level.HashPassword(args[1])
 			world.Enqueue(func() {
-				if !current() || !world.AllowsOffline(pl.Username) || world.PasswordOf(pl.Username) != "" {
+				if !current() || world.PasswordOf(pl.Username) != "" {
 					return
 				}
 				world.RegisterOffline(pl.Username, hash)

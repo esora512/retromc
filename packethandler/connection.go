@@ -73,18 +73,9 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 	old, occupied := world.GetPlayerByUsername(p.Username)
 	if pl.Offline {
-		reason := ""
-		switch {
-		case !offlineName.MatchString(p.Username):
-			reason = "Invalid username"
-		case !world.AllowsOffline(p.Username):
-			reason = "Account taken by Online Player"
-		case occupied:
-			reason = "Account occupied"
-		}
-		if reason != "" {
-			log.Printf("Rejected offline login from %s as %q: %s", connection.RemoteAddr(), p.Username, reason)
-			kickConnection(connection, reason)
+		if occupied {
+			log.Printf("Rejected offline login from %s as %q: account occupied", connection.RemoteAddr(), p.Username)
+			kickConnection(connection, "Account occupied")
 			return
 		}
 		pl.AuthPending = true
@@ -95,12 +86,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 		world.BroadcastPacket(packets.NewEntityDespawnPacket(old.GetEntityId()))
 		world.RemovePlayer(old)
 		tracker.ResetEntity(old.GetEntityId())
-		if old.Offline {
-			old.AuthPending, old.LoggedIn = true, false
-			kickConnection(old.Connection, "Account taken by Online Player")
-		} else {
-			old.Connection.Close()
-		}
+		old.Connection.Close()
 	}
 	if !pl.Offline {
 		world.RegisterAccount(pl.Username)
