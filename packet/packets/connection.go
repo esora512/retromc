@@ -30,7 +30,7 @@ type PreLoginPacket struct {
 func ReadPreLoginPacket(reader *packet.PacketReader) PreLoginPacket {
 	packet := PreLoginPacket{}
 	packet.PacketId = reader.GetPacketId()
-	packet.Username = reader.ReadString16()
+	packet.Username = reader.ReadString16AndDecodeUTF16()
 	return packet
 }
 

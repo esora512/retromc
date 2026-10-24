@@ -12,8 +12,9 @@ import (
 )
 
 func handlePreLoginPacket(connection net.Conn, p packets.PreLoginPacket, world *level.World, pl *player.Player) {
+	pl.HandshakeName = p.Username
 	pl.ServerId = "-"
-	if world.OnlineMode {
+	if requiresAuth(world, p.Username) {
 		pl.ServerId = newServerId()
 	}
 	pkt := packets.PreLoginPacket{
@@ -70,13 +71,39 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 		kickConnection(connection, "You are banned from this server")
 		return
 	}
+	old, occupied := world.GetPlayerByUsername(p.Username)
+	if pl.Offline {
+		reason := ""
+		switch {
+		case !offlineName.MatchString(p.Username):
+			reason = "Invalid username"
+		case !world.AllowsOffline(p.Username):
+			reason = "Account taken by Online Player"
+		case occupied:
+			reason = "Account occupied"
+		}
+		if reason != "" {
+			log.Printf("Rejected offline login from %s as %q: %s", connection.RemoteAddr(), p.Username, reason)
+			kickConnection(connection, reason)
+			return
+		}
+		pl.AuthPending = true
+	}
 	pl.Username = p.Username
 
-	if old, ok := world.GetPlayerByUsername(pl.Username); ok && old != pl {
+	if occupied && old != pl {
 		world.BroadcastPacket(packets.NewEntityDespawnPacket(old.GetEntityId()))
 		world.RemovePlayer(old)
 		tracker.ResetEntity(old.GetEntityId())
-		old.Connection.Close()
+		if old.Offline {
+			old.AuthPending, old.LoggedIn = true, false
+			kickConnection(old.Connection, "Account taken by Online Player")
+		} else {
+			old.Connection.Close()
+		}
+	}
+	if !pl.Offline {
+		world.RegisterAccount(pl.Username)
 	}
 
 	data, err := level.LoadPlayerData(world.WorldDir, pl.Username)
@@ -112,8 +139,11 @@ func finishLogin(connection net.Conn, world *level.World, pl *player.Player) {
 	world.BroadcastPacket(chatPacket.Serialize())
 	pl.LoggedIn = true
 	world.RelayPresence(pl.Username, pl.Username+" joined the game", world.OnlineCount())
-	world.RegisterAccount(pl.Username)
 	SendSetHealth(connection, uint16(pl.HP))
+	if pl.AuthPending {
+		sendAuthPrompt(world, pl)
+		startAuthTimeout(world, pl)
+	}
 }
 
 func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {

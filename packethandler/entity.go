@@ -207,7 +207,7 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 		if oldHP <= 0 {
 			return
 		}
-		if victim, ok := world.Players[other.GetEntityId()]; ok && victim.IsCreative {
+		if victim, ok := world.Players[other.GetEntityId()]; ok && (victim.IsCreative || victim.AuthPending) {
 			return
 		}
 		item := pl.Inventory.Items[pl.HotbarSlot]
@@ -347,7 +347,7 @@ func HurtPlayer(world *level.World, pl *player.Player, attacker constants.Entity
 }
 
 func damagePlayer(world *level.World, pl *player.Player, attacker constants.Entity, dmg int16, cause string) int16 {
-	if pl.HP <= 0 || pl.IsCreative || dmg <= 0 {
+	if pl.HP <= 0 || pl.IsCreative || pl.AuthPending || dmg <= 0 {
 		return pl.HP
 	}
 	fresh := true

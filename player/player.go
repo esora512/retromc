@@ -155,6 +155,9 @@ type Player struct {
 	FillCorners          [][3]int32
 	FillDim              int32
 	ServerId             string
+	HandshakeName        string
+	Offline              bool
+	AuthPending          bool
 
 	SentChunks           ChunkSet
 	RequestedChunks      ChunkSet

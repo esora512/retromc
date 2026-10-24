@@ -155,6 +155,10 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		return false
 	}
 	message := p.Message
+	if pl.AuthPending {
+		handleAuthCommand(pl, world, message)
+		return false
+	}
 	if strings.HasPrefix(message, "/") {
 		cmdName := strings.Fields(message)[0]
 		if !permitted(world, pl, message) {

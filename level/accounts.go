@@ -1,11 +1,17 @@
 package level
 
 import (
+	"crypto/pbkdf2"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 type ClaimBox struct {
@@ -74,7 +80,9 @@ func (w *World) PublicCommands() []string {
 
 type Account struct {
 	Permissions
-	Claims []ClaimBox `json:"claims"`
+	Claims   []ClaimBox `json:"claims"`
+	Offline  bool       `json:"offline,omitempty"`
+	Password string     `json:"password,omitempty"`
 }
 
 func (w *World) accountsPath() string {
@@ -142,11 +150,52 @@ func (w *World) saveAccounts() {
 }
 
 func (w *World) RegisterAccount(name string) {
-	if _, ok := w.accounts[name]; ok {
+	acc, ok := w.accounts[name]
+	if ok && !acc.Offline {
 		return
+	}
+	if ok {
+		unlock := w.LockSession(name)
+		os.Remove(playerFilePath(w.WorldDir, name))
+		unlock()
 	}
 	w.accounts[name] = &Account{Claims: []ClaimBox{}}
 	w.saveAccounts()
+}
+
+func (w *World) AllowsOffline(name string) bool {
+	acc, ok := w.accounts[name]
+	return !ok || acc.Offline
+}
+
+func (w *World) PasswordOf(name string) string {
+	if acc, ok := w.accounts[name]; ok {
+		return acc.Password
+	}
+	return ""
+}
+
+func (w *World) RegisterOffline(name, hash string) {
+	w.accounts[name] = &Account{Claims: []ClaimBox{}, Offline: true, Password: hash}
+	w.saveAccounts()
+}
+
+func HashPassword(password string) string {
+	salt := make([]byte, 16)
+	rand.Read(salt)
+	key, _ := pbkdf2.Key(sha256.New, password, salt, 600000, 32)
+	return hex.EncodeToString(salt) + "$" + hex.EncodeToString(key)
+}
+
+func VerifyPassword(hash, password string) bool {
+	saltHex, keyHex, _ := strings.Cut(hash, "$")
+	salt, err1 := hex.DecodeString(saltHex)
+	want, err2 := hex.DecodeString(keyHex)
+	if err1 != nil || err2 != nil || len(want) == 0 {
+		return false
+	}
+	key, err := pbkdf2.Key(sha256.New, password, salt, 600000, len(want))
+	return err == nil && subtle.ConstantTimeCompare(key, want) == 1
 }
 
 func (w *World) PermissionsOf(name string) Permissions {

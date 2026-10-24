@@ -33,7 +33,7 @@ func main() {
 
 
 	logFile := flag.String("log", "server.log", "File to append the server log to")
-	offline := flag.Bool("offline", false, "Skip username verification through the Betacraft auth proxy")
+	offline := flag.Bool("offline", false, "Let non-premium players join with /register and /login; premium names still require auth")
 
 	flag.Parse()
 	if f, err := os.OpenFile(*logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
@@ -51,7 +51,7 @@ func main() {
 	}
 	world.OnlineMode = !*offline
 	if !world.OnlineMode {
-		log.Println("WARNING: online mode is off, anyone can join with any username")
+		log.Println("Offline mode: non-premium players join with /register and /login")
 	}
 
 	// Give world access to packethandler functions due to forbidden import cycles
@@ -223,6 +223,7 @@ func (s *Server) Run() {
 				s.World.FlushBlockQueue()
 				s.World.FlushLight()
 				packethandler.FlushPendingChunks(s.World)
+				packethandler.HoldPendingAuth(s.World)
 			})
 		}
 	}()
