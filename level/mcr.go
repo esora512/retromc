@@ -480,6 +480,7 @@ type PlayerData struct {
 	AttackTime                int16
 	HasSpawn                  bool
 	SpawnX, SpawnY, SpawnZ    int32
+	GameType                  int32
 	Inventory                 []PlayerInventorySlot
 }
 
@@ -534,6 +535,7 @@ func buildPlayerNBT(data *PlayerData) *mcregion.Compound {
 		root.Int("SpawnY", data.SpawnY)
 		root.Int("SpawnZ", data.SpawnZ)
 	}
+	root.Int("playerGameType", data.GameType)
 
 	var items []*mcregion.Compound
 	for _, slot := range data.Inventory {
@@ -648,6 +650,9 @@ func playerDataFromNBT(root *mcregion.Tag) (*PlayerData, error) {
 		data.HasSpawn = true
 		data.SpawnX, data.SpawnY, data.SpawnZ = sx.IntVal, sy.IntVal, sz.IntVal
 	}
+	if t := root.Get("playerGameType"); t != nil {
+		data.GameType = t.IntVal
+	}
 	if inv := root.Get("Inventory"); inv != nil {
 		for _, item := range inv.List {
 			slot := PlayerInventorySlot{}
@@ -700,6 +705,9 @@ func ToPlayerData(p *player.Player) *PlayerData {
 	data.Dimension = p.Dimension
 	data.HasSpawn = p.HasBedSpawn
 	data.SpawnX, data.SpawnY, data.SpawnZ = p.BedSpawnX, int32(p.BedSpawnY), p.BedSpawnZ
+	if p.IsCreative {
+		data.GameType = 1
+	}
 	return data
 }
 
@@ -757,4 +765,5 @@ func ApplyPlayerData(p *player.Player, data *PlayerData) {
 	p.Dimension = data.Dimension
 	p.HasBedSpawn = data.HasSpawn
 	p.BedSpawnX, p.BedSpawnY, p.BedSpawnZ = data.SpawnX, byte(data.SpawnY), data.SpawnZ
+	p.IsCreative = data.GameType == 1
 }
