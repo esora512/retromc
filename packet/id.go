@@ -41,6 +41,8 @@ const (
 	SetMultipleBlocks         byte = 0x34
 	SetBlock                  byte = 0x35
 	WorldEvent                byte = 0x3D
+	NewState                  byte = 0x46
+	Thunderbolt               byte = 0x47
 	OpenContainer             byte = 0x64
 	CloseContainer            byte = 0x65
 	ClickSlot                 byte = 0x66

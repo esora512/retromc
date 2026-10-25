@@ -61,6 +61,7 @@ type Permissions struct {
 	CanDebug     bool `json:"canDebug"`
 	CanSkywalk   bool `json:"canSkywalk"`
 	CanChainmine bool `json:"canChainmine"`
+	CanHaunt     bool `json:"canHaunt"`
 }
 
 func (w *World) PublicCommands() []string {

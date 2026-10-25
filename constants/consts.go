@@ -7,4 +7,6 @@ const (
 	Zombie   = 54
 	Pig      = 90
 	Sheep    = 91
+
+	Herobrine = 200
 )

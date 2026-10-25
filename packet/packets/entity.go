@@ -552,6 +552,9 @@ func NewSpawnMob(mobType, meta byte, x, y, z int32, yaw, pitch byte, dim int32, 
 }
 
 func SpawnMob(m *entities.Mob) []byte {
+	if m.IsHerobrine() {
+		return spawnHerobrine(m)
+	}
 	p := SpawnMobPacket{
 		EntityId: m.EntityId,
 		MobType:  m.MobType,

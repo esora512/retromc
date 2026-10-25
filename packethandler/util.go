@@ -659,6 +659,14 @@ func (p *SetTimePacket) Serialize() []byte {
 
 func BroadcastTime(w *level.World, tick int64) {
 	p := SetTimePacket{Time: tick}
-	w.BroadcastPacket(p.Serialize())
+	data := p.Serialize()
+	w.ForEachPlayer(func(pl *player.Player) {
+		if t, ok := hauntedTime(w, pl); ok {
+			haunted := SetTimePacket{Time: t}
+			pl.Connection.Write(haunted.Serialize())
+			return
+		}
+		pl.Connection.Write(data)
+	})
 }
 

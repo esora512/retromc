@@ -165,6 +165,24 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 	return p.Serialize()
 }
 
+// Herobrine is a mob server side but a player to the client
+func spawnHerobrine(m *entities.Mob) []byte {
+	p := SpawnPlayerPacket{
+		EntityId: m.EntityId,
+		Username: entities.HerobrineName,
+		X:        int32(math.Floor(m.X * 32)),
+		Y:        int32(math.Floor(m.Y * 32)),
+		Z:        int32(math.Floor(m.Z * 32)),
+		Yaw:      m.Yaw,
+		Pitch:    m.Pitch,
+	}
+	if ms := m.MovementState; ms.EncInit {
+		p.X, p.Y, p.Z = ms.EncX, ms.EncY, ms.EncZ
+		p.Yaw, p.Pitch = byte(ms.EncYaw), byte(ms.EncPitch)
+	}
+	return p.Serialize()
+}
+
 const objectArrow byte = 60
 
 func objectVelocity(v float64) int16 {

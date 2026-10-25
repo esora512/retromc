@@ -41,6 +41,7 @@ type Mob struct {
 
 	ShouldDespawn bool
 	DespawnIn     int
+	Vanished      bool
 
 	MovementState c.MovementState
 
@@ -72,6 +73,7 @@ type Mob struct {
 	fuse         int32
 	creeperState int8
 	metaDirty    bool
+	gaze         int32
 }
 
 func NewMob(id int32, mobType byte, x, y, z float64, dim int32) *Mob {
@@ -201,6 +203,8 @@ func (m *Mob) GetName() string {
 		return "Pig"
 	case c.Sheep:
 		return "Sheep"
+	case c.Herobrine:
+		return HerobrineName
 	}
 	return "Mob"
 }
@@ -264,6 +268,10 @@ func (m *Mob) bounds() aabb {
 }
 
 func (m *Mob) Hurt(w WorldShared, dmg int16) (int16, bool) {
+	if m.IsHerobrine() {
+		m.Vanished = true
+		return 0, false
+	}
 	if m.HP <= 0 || dmg <= 0 {
 		return 0, false
 	}
@@ -355,7 +363,9 @@ func (m *Mob) Move(w WorldShared, tracker *EntityTracker) {
 		m.AttackCooldown--
 	}
 
-	if m.IsPassive() {
+	if m.IsHerobrine() {
+		m.herobrineAI(w)
+	} else if m.IsPassive() {
 		m.animalAI(w)
 	} else {
 		m.hostileAI(w, tracker)

@@ -229,7 +229,9 @@ func handleInteractWithEntityPacket(p packets.InteractWithEntityPacket, pl *play
 			if _, fresh := mob.Hurt(world, dmg); fresh {
 				applyKnockback(world, pl, mob)
 			}
-			mob.SetTargetForced(pl.GetEntityId())
+			if !mob.IsHerobrine() {
+				mob.SetTargetForced(pl.GetEntityId())
+			}
 			return
 		}
 
