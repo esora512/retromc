@@ -54,6 +54,7 @@ var commandHelp = []struct {
 	{"/claim", "/claim | /claim <add | remove> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/ban", "/ban <player>"},
 	{"/clear", "/clear"},
+	{"/haunt", "/haunt <on | off | events> | /haunt <player> [event]"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {
@@ -146,6 +147,8 @@ func permitted(world *level.World, pl *player.Player, message string) bool {
 		return perms.CanSkywalk
 	case strings.HasPrefix(message, "/chainmine"):
 		return perms.CanChainmine
+	case strings.HasPrefix(message, "/haunt"):
+		return perms.CanHaunt
 	}
 	return true
 }
@@ -405,6 +408,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if cmdName == "/ban" {
 			handleBanCommand(pl, world, strings.Fields(message)[1:])
+			return false
+		}
+
+		if cmdName == "/haunt" {
+			handleHauntCommand(pl, world, strings.Fields(message)[1:])
 			return false
 		}
 

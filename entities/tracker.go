@@ -144,6 +144,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 			if viewerID == targetID {
 				continue
 			}
+			if mob, ok := target.(*Mob); ok && !mob.VisibleTo(viewerID) {
+				continue
+			}
 
 			// viewerHP := viewer.GetHP()
 			// if viewerHP <= 0 {

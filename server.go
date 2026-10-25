@@ -219,6 +219,7 @@ func (s *Server) Run() {
 						}()
 					}
 				}
+				packethandler.TickHaunting(s.World, s.Tracker)
 				s.Tracker.Manage(s.World)
 				s.World.FlushBlockQueue()
 				s.World.FlushLight()
