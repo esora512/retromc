@@ -42,6 +42,8 @@ type Mob struct {
 	ShouldDespawn bool
 	DespawnIn     int
 	Vanished      bool
+	HerobrineMode HerobrineMode
+	DiedPossessed bool
 
 	MovementState c.MovementState
 
@@ -74,6 +76,9 @@ type Mob struct {
 	creeperState int8
 	metaDirty    bool
 	gaze         int32
+
+	possessedBy    int32
+	possessedTicks int32
 }
 
 func NewMob(id int32, mobType byte, x, y, z float64, dim int32) *Mob {
@@ -86,6 +91,7 @@ func NewMob(id int32, mobType byte, x, y, z float64, dim int32) *Mob {
 		MobType:      mobType,
 		TargetId:     -1,
 		lookTarget:   -1,
+		possessedBy:  -1,
 		HP:           MaxHealth(mobType),
 		OnGround:     true,
 		DespawnIn:    -1,
@@ -303,6 +309,10 @@ func (m *Mob) Die(w WorldShared) {
 	if m.HP > 0 {
 		m.HP = 0
 	}
+	if m.IsPossessed() {
+		m.DiedPossessed = true
+		m.possessedBy, m.possessedTicks = -1, 0
+	}
 	m.DespawnIn = 21
 	m.Vx, m.Vz = 0, 0
 	m.forward, m.strafe = 0, 0
@@ -364,7 +374,9 @@ func (m *Mob) Move(w WorldShared, tracker *EntityTracker) {
 	}
 
 	if m.IsHerobrine() {
-		m.herobrineAI(w)
+		m.herobrineAI(w, tracker)
+	} else if m.IsPossessed() {
+		m.possessedAI(w)
 	} else if m.IsPassive() {
 		m.animalAI(w)
 	} else {

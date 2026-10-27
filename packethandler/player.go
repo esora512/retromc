@@ -379,6 +379,9 @@ func handleMineBlockPacket(connection net.Conn, p packets.MineBlockPacket, world
 		dropHeldItemStack(connection, world, pl)
 		return
 	}
+	if (p.Status == 0 || p.Status == 2) && touchGhost(world, pl, p.X, int32(p.Y), p.Z) {
+		return
+	}
 	if p.Status == 0 || p.Status == 2 {
 		defer func() {
 			if b := world.GetBlock(p.X, p.Y, p.Z, pl.Dimension); !b.IsAir() {
@@ -840,6 +843,9 @@ func interactWithBed(oldExisting *constants.WBlock, world *level.World, pl *play
 			}
 		}
 
+		if world.IsNight() && hauntDeniesSleep(world, pl) {
+			return true
+		}
 		if world.IsNight() {
 			pl.GoToBed(hX, p.Y, hZ)
 			p := packets.NewInteractWithBlockPacket(pl.GetEntityId(), 0, hX, p.Y, hZ)
@@ -905,6 +911,12 @@ func placementCollidesWithPlayer(pl *player.Player, b constants.WBlock, x, y, z 
 
 func handlePlaceBlockPacket(connection net.Conn, p packets.PlaceBlockPacket, world *level.World, pl *player.Player) {
 	if !pl.LoggedIn {
+		return
+	}
+	if !(p.X == -1 && p.Y == 255 && p.Z == -1) && touchGhost(world, pl, p.X, int32(p.Y), p.Z) {
+		if x, y, z := placementTargetCoords(p, world, pl.Dimension); y >= 0 && y < level.CHUNK_SIZE_Y {
+			resyncPlacement(world, pl, [3]int32{x, int32(y), z})
+		}
 		return
 	}
 	placeBlock(connection, p, world, pl)
@@ -1557,6 +1569,7 @@ func handleFlintAndSteelPlacement(world *level.World, p packets.PlaceBlockPacket
 	}
 	fire := constants.NewFireBlock()
 	world.SetBlockInQueue(fx, int32(fy), fz, fire, pl.Dimension)
+	lightShrine(world, pl, fx, int32(fy)-1, fz)
 	if !crafting.HasDurability(heldItem.TypeId) {
 		return
 	}
