@@ -173,6 +173,7 @@ type World struct {
 	chatRelay func(name, msg string, event bool, online int)
 
 	closeContainer func(w *World, pl *player.Player)
+	onWake         func(w *World, pl *player.Player)
 
 	lightSeeds      map[int32]*lightSeeds
 	dirtyLight      []dirtyLight
@@ -518,6 +519,10 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 	}
 }
 
+func (w *World) SetOnWake(f func(w *World, pl *player.Player)) {
+	w.onWake = f
+}
+
 func (w *World) AddSleeper(pl *player.Player) {
 	w.sleepers[pl.GetEntityId()] = 0
 }
@@ -545,6 +550,9 @@ func (w *World) SleepThroughNight() {
 			}
 			pl.MovementState.GotUp = true
 			pl.Connection.Write(w.NewAnimationPacket(pl, 3))
+			if w.onWake != nil {
+				w.onWake(w, pl)
+			}
 			wokeUp = true
 			w.BroadcastWorldMsg("Sleeping through the night...")
 			break

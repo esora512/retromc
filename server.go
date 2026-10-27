@@ -80,6 +80,7 @@ func main() {
 	world.SetAttackEntity(packethandler.AttackEntity)
 	world.SetDropItemFromMinedBlock(packethandler.DropItemFromMinedBlock)
 	world.SetCloseContainer(packethandler.ForceCloseContainer)
+	world.SetOnWake(packethandler.OnWake)
 
 	world.SetSpawnPlayer(packets.NewSpawnPlayerPacket)
 	world.SetSpawnObject(packets.NewSpawnObjectPacket)

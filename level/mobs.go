@@ -86,26 +86,46 @@ func (w *World) Herobrine(target int32) (*e.Mob, bool) {
 	return nil, false
 }
 
-// SpawnHerobrine places him at a distance, out of the player's view but with a clear line of sight
-func (w *World) SpawnHerobrine(pl *player.Player) (int32, bool) {
+// SpawnHerobrine places him around the player, out of their view but with a clear line of sight
+func (w *World) SpawnHerobrine(pl *player.Player, radius float64, mode e.HerobrineMode) (*e.Mob, bool) {
 	if _, ok := w.Herobrine(pl.GetEntityId()); ok {
-		return 0, false
+		return nil, false
 	}
 	for range 24 {
-		sx, sz := randomPointOnRing(pl.X, pl.Z, 26)
+		sx, sz := randomPointOnRing(pl.X, pl.Z, radius)
 		x, z := int32(math.Floor(sx)), int32(math.Floor(sz))
 		y, ok := w.findGroundY(x, z, int32(pl.Y), pl.Dimension)
 		if !ok {
 			continue
 		}
-		m := e.NewHerobrine(w.NextEntityId(), pl.GetEntityId(), float64(x)+0.5, float64(y), float64(z)+0.5, pl.Dimension)
+		m := e.NewHerobrine(w.NextEntityId(), pl.GetEntityId(), float64(x)+0.5, float64(y), float64(z)+0.5, pl.Dimension, mode)
 		if m.InSightOf(w, pl, 0.5) || !m.InSightOf(w, pl, -1) {
 			continue
 		}
+		m.FaceTowardsPlayer(pl)
 		w.Entities[m.EntityId] = m
-		return m.EntityId, true
+		return m, true
 	}
-	return 0, false
+	return nil, false
+}
+
+// SpawnHerobrineAt places him on the given block, provided he fits there
+func (w *World) SpawnHerobrineAt(pl *player.Player, x, y, z int32, mode e.HerobrineMode) (*e.Mob, bool) {
+	if _, ok := w.Herobrine(pl.GetEntityId()); ok {
+		return nil, false
+	}
+	if y < 1 || y+1 >= WorldMaxY || !w.IsLoaded(x, z, pl.Dimension) {
+		return nil, false
+	}
+	for dy := int32(0); dy < 2; dy++ {
+		if b := w.GetBlock(x, byte(y+dy), z, pl.Dimension); b.IsSolid() || b.IsLiquid() {
+			return nil, false
+		}
+	}
+	m := e.NewHerobrine(w.NextEntityId(), pl.GetEntityId(), float64(x)+0.5, float64(y), float64(z)+0.5, pl.Dimension, mode)
+	m.FaceTowardsPlayer(pl)
+	w.Entities[m.EntityId] = m
+	return m, true
 }
 
 func (w *World) GroundY(x, z, startY, dim int32) (int32, bool) {

@@ -198,6 +198,8 @@ type Player struct {
 	BedSpawnX, BedSpawnZ int32
 	BedSpawnY            byte
 
+	HauntTicks int64
+
 	Transferring        bool
 	AwaitingTeleportAck bool
 

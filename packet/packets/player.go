@@ -169,7 +169,7 @@ func NewSpawnPlayerPacket(pl *player.Player) []byte {
 func spawnHerobrine(m *entities.Mob) []byte {
 	p := SpawnPlayerPacket{
 		EntityId: m.EntityId,
-		Username: entities.HerobrineName,
+		Username: entities.HerobrineSkin,
 		X:        int32(math.Floor(m.X * 32)),
 		Y:        int32(math.Floor(m.Y * 32)),
 		Z:        int32(math.Floor(m.Z * 32)),
