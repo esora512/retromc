@@ -220,7 +220,14 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	if y < 0 {
 		pl.BelowZeroHeightCount++
 		if pl.BelowZeroHeightCount > 10 {
-			SendSetHealth(connection, 0)
+			if pl.HP > 0 {
+				pl.SetHP(0)
+				SendSetHealth(connection, 0)
+				msg := packets.ChatMessagePacket{Message: pl.Username + " fell out of the world"}
+				world.BroadcastPacket(msg.Serialize())
+				world.RelayEvent(pl.Username, msg.Message)
+				killPlayer(world, pl)
+			}
 			return
 		}
 	}

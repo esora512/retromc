@@ -73,7 +73,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 	old, occupied := world.GetPlayerByUsername(p.Username)
 	if pl.Offline {
-		if occupied {
+		if occupied && old.LoggedIn {
 			log.Printf("Rejected offline login from %s as %q: account occupied", connection.RemoteAddr(), p.Username)
 			kickConnection(connection, "Account occupied")
 			return
@@ -106,7 +106,9 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 
 	initialUpdateChunks(world, pl.X, pl.Z, pl, func() {
-		finishLogin(connection, world, pl)
+		if world.HasPlayer(pl) {
+			finishLogin(connection, world, pl)
+		}
 	})
 }
 

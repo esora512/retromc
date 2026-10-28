@@ -153,6 +153,7 @@ func HandlePacket(connection net.Conn, reader *bufio.Reader, world *level.World,
 		world.Enqueue(func() {
 			handleDisconnectPacket(p, world, pl)
 		})
+		return fmt.Errorf("client disconnected")
 	case packet.ChatMessage:
 		p := packets.ReadChatMessagePacket(packetReader)
 		world.Enqueue(func() {
