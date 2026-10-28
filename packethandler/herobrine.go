@@ -157,53 +157,49 @@ func hauntEventList() []string {
 }
 
 func handleHauntCommand(pl *player.Player, world *level.World, args []string) {
+	sendDebugMessage(pl, HauntCommand(world, args)...)
+}
+
+// HauntCommand runs /haunt with the given arguments and returns the reply lines
+func HauntCommand(world *level.World, args []string) []string {
 	if len(args) == 0 {
-		sendUsage(pl, "/haunt")
-		return
+		return []string{"Usage: " + commandUsage("/haunt")}
 	}
 	switch args[0] {
 	case "on", "off":
 		HauntingEnabled = args[0] == "on"
-		sendDebugMessage(pl, fmt.Sprintf("Random haunting %s", map[bool]string{true: "enabled", false: "disabled"}[HauntingEnabled]))
-		return
+		return []string{fmt.Sprintf("Random haunting %s", map[bool]string{true: "enabled", false: "disabled"}[HauntingEnabled])}
 	case "list", "events":
-		sendDebugMessage(pl, hauntEventList()...)
-		return
+		return hauntEventList()
 	}
 
 	target := world.GetFirstPlayerByName(args[0])
 	if target == nil || !target.LoggedIn {
-		sendDebugMessage(pl, fmt.Sprintf("Player not found: %s", args[0]))
-		return
+		return []string{fmt.Sprintf("Player not found: %s", args[0])}
 	}
 	if len(args) == 1 {
 		randomHaunt(world, target, max(hauntStage(target), 1))
-		sendDebugMessage(pl, fmt.Sprintf("Haunting %s", target.Username))
-		return
+		return []string{fmt.Sprintf("Haunting %s", target.Username)}
 	}
 	if args[1] == "stage" {
 		if len(args) > 2 {
 			st, err := strconv.Atoi(args[2])
 			if err != nil || st < 0 || st >= len(stageStart) {
-				sendDebugMessage(pl, fmt.Sprintf("Stage must be 0-%d", len(stageStart)-1))
-				return
+				return []string{fmt.Sprintf("Stage must be 0-%d", len(stageStart)-1)}
 			}
 			target.HauntTicks = stageStart[st]
 		}
-		sendDebugMessage(pl, fmt.Sprintf("%s is at haunting stage %d", target.Username, hauntStage(target)))
-		return
+		return []string{fmt.Sprintf("%s is at haunting stage %d", target.Username, hauntStage(target))}
 	}
 	for _, e := range hauntEvents {
 		if e.name == args[1] {
 			if e.run(world, target) {
-				sendDebugMessage(pl, fmt.Sprintf("Haunting %s: %s", target.Username, e.name))
-			} else {
-				sendDebugMessage(pl, fmt.Sprintf("Could not run %s for %s right now", e.name, target.Username))
+				return []string{fmt.Sprintf("Haunting %s: %s", target.Username, e.name)}
 			}
-			return
+			return []string{fmt.Sprintf("Could not run %s for %s right now", e.name, target.Username)}
 		}
 	}
-	sendDebugMessage(pl, append([]string{"Unknown event: " + args[1]}, hauntEventList()...)...)
+	return append([]string{"Unknown event: " + args[1]}, hauntEventList()...)
 }
 
 // hauntedTime is the time of day a haunted player's client is shown instead of the real one

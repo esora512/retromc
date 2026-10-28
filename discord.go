@@ -19,6 +19,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/packet/packets"
+	"github.com/leNicDev/retromc/packethandler"
 )
 
 const (
@@ -94,6 +95,7 @@ func startDiscord(world *level.World, host, port string) {
 	}
 
 	s.AddHandler(b.onMessage)
+	s.AddHandler(b.onInteraction)
 
 	go func() {
 		backoff := time.Minute
@@ -107,6 +109,7 @@ func startDiscord(world *level.World, host, port string) {
 			backoff = min(backoff*2, 30*time.Minute)
 		}
 		b.setupWebhook()
+		b.registerCommands()
 		world.Enqueue(func() { world.SetChatRelay(b.relay) })
 		activeDiscord.Store(b)
 		b.outbox <- discordMsg{text: "Server is online", detail: "Address: `" + b.serverAddress(host, port) + "`\nCommit: `" + world.CommitHash + "`", event: true}
@@ -371,6 +374,78 @@ func (b *discordBridge) onMessage(s *discordgo.Session, m *discordgo.MessageCrea
 			b.world.BroadcastPacket(p.Serialize())
 		}
 	})
+}
+
+// registerCommands adds /execute to the chat channel's guild; only administrators may use it
+// unless the guild grants it to other roles under Server Settings > Integrations
+func (b *discordBridge) registerCommands() {
+	ch, err := b.session.Channel(b.chatChannel)
+	if err != nil {
+		discordStderr.Println("failed to look up chat channel, /execute not registered:", err)
+		return
+	}
+	admin := int64(discordgo.PermissionAdministrator)
+	_, err = b.session.ApplicationCommandCreate(b.session.State.User.ID, ch.GuildID, &discordgo.ApplicationCommand{
+		Name:                     "execute",
+		Description:              "Run a server command (currently only haunt)",
+		DefaultMemberPermissions: &admin,
+		Options: []*discordgo.ApplicationCommandOption{{
+			Type:        discordgo.ApplicationCommandOptionString,
+			Name:        "command",
+			Description: "e.g. haunt list, haunt Steve appear",
+			Required:    true,
+		}},
+	})
+	if err != nil {
+		discordStderr.Println("failed to register /execute:", err)
+	}
+}
+
+func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionApplicationCommand {
+		return
+	}
+	data := i.ApplicationCommandData()
+	if data.Name != "execute" || len(data.Options) == 0 {
+		return
+	}
+	args := strings.Fields(strings.TrimPrefix(strings.TrimSpace(data.Options[0].StringValue()), "/"))
+	if len(args) == 0 || args[0] != "haunt" {
+		b.replyEphemeral(i, []string{"Only haunt commands can be executed from Discord"})
+		return
+	}
+	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Flags: discordgo.MessageFlagsEphemeral},
+	})
+	if err != nil {
+		discordStderr.Println("failed to acknowledge /execute:", err)
+		return
+	}
+	b.world.Enqueue(func() {
+		lines := packethandler.HauntCommand(b.world, args[1:])
+		go func() {
+			content := executeReply(lines)
+			if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content, AllowedMentions: discordNoMentions}); err != nil {
+				discordStderr.Println("failed to answer /execute:", err)
+			}
+		}()
+	})
+}
+
+func (b *discordBridge) replyEphemeral(i *discordgo.InteractionCreate, lines []string) {
+	err := b.session.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{Content: executeReply(lines), Flags: discordgo.MessageFlagsEphemeral, AllowedMentions: discordNoMentions},
+	})
+	if err != nil {
+		discordStderr.Println("failed to answer /execute:", err)
+	}
+}
+
+func executeReply(lines []string) string {
+	text := strings.ReplaceAll(strings.Join(lines, "\n"), "`", "'")
+	return "```\n" + truncateRunes(text, 1900) + "\n```"
 }
 
 func sanitizeForMC(s string) string {

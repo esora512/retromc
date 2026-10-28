@@ -74,12 +74,18 @@ func BroadcastWorldMsg(w *level.World, msg string) {
 }
 
 func sendUsage(pl *player.Player, name string) {
+	if usage := commandUsage(name); usage != "" {
+		sendDebugMessage(pl, fmt.Sprintf("Usage: %s", usage))
+	}
+}
+
+func commandUsage(name string) string {
 	for _, c := range commandHelp {
 		if c.Name == name {
-			sendDebugMessage(pl, fmt.Sprintf("Usage: %s", c.Usage))
-			return
+			return c.Usage
 		}
 	}
+	return ""
 }
 
 func handleHelpCommand(pl *player.Player, message string) {
