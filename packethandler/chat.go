@@ -54,7 +54,7 @@ var commandHelp = []struct {
 	{"/claim", "/claim | /claim <add | remove> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/ban", "/ban <player>"},
 	{"/clear", "/clear"},
-	{"/haunt", "/haunt <on | off | list> | /haunt <player> [event | stage [0-3]]"},
+	{"/haunt", "/haunt <on | off | list> | /haunt <player> [event | stage [1-3]]"},
 }
 
 func sendDebugMessage(pl *player.Player, lines ...string) {

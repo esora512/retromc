@@ -24,8 +24,8 @@ const (
 	hauntDelay = 3 * day
 )
 
-// a player's haunting stage is reached after this much play time; stage 0 is left alone
-var stageStart = [...]int64{0, hauntDelay, hauntDelay + 2*day, hauntDelay + 5*day}
+// a player's haunting stage is reached after this much play time; everyone starts at stage 1
+var stageStart = [...]int64{0, 0, hauntDelay + 2*day, hauntDelay + 5*day}
 
 // average ticks between two random haunts of the same player, per stage
 var hauntEvery = [...]int{0, 20 * 60 * 25, 20 * 60 * 15, 20 * 60 * 10}
@@ -185,8 +185,8 @@ func HauntCommand(world *level.World, args []string) []string {
 	if args[1] == "stage" {
 		if len(args) > 2 {
 			st, err := strconv.Atoi(args[2])
-			if err != nil || st < 0 || st >= len(stageStart) {
-				return []string{fmt.Sprintf("Stage must be 0-%d", len(stageStart)-1)}
+			if err != nil || st < 1 || st >= len(stageStart) {
+				return []string{fmt.Sprintf("Stage must be 1-%d", len(stageStart)-1)}
 			}
 			target.HauntTicks = stageStart[st]
 		}
