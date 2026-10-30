@@ -21,6 +21,8 @@ func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64
 		return false
 	}
 	switch {
+	case pl.Dimension == 0 && pl.Y < netherEntryY && fellThroughWorld(world, pl):
+		rescueToSurface(world, pl)
 	case pl.Dimension == 0 && pl.Y < netherEntryY:
 		transferToNether(world, pl)
 	case pl.Dimension == -1 && pl.Y > netherExitY:
@@ -38,6 +40,7 @@ func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64
 type landing struct {
 	minY, maxY, padY int32
 	surface          bool
+	covered          bool
 	floor            constants.WBlock
 }
 
@@ -102,8 +105,15 @@ func landingSpots(world *level.World, dim, x, z int32, l landing) []int32 {
 		}
 		return nil
 	}
+	ceiling := int32(level.CHUNK_SIZE_Y)
+	if l.covered {
+		ceiling = int32(level.CHUNK_SIZE_Y - 1)
+		for ceiling > 0 && !entities.IsNormalCube(block(ceiling)) {
+			ceiling--
+		}
+	}
 	var spots []int32
-	for y := l.minY; y <= l.maxY; y++ {
+	for y := l.minY; y <= l.maxY && y+2 <= ceiling; y++ {
 		if entities.IsNormalCube(block(y-1)) && passable(block(y)) && passable(block(y+1)) {
 			spots = append(spots, y)
 		}
@@ -154,6 +164,7 @@ func transferPlayer(world *level.World, pl *player.Player, dim int32, x, y, z fl
 }
 
 func moveToDim(world *level.World, pl *player.Player, dim int32, x, y, z float64, locate func() (float64, float64, float64)) {
+	delete(voidGlitches, pl)
 	pl.Transferring = true
 	pl.AwaitingTeleportAck = false
 	pl.Dimension = dim

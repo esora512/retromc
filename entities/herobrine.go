@@ -152,6 +152,25 @@ func (m *Mob) Possess(p *player.Player) {
 	m.possessedBy = p.GetEntityId()
 	m.possessedTicks = possessedLifetime
 	m.hasGoal = false
+	m.publicYaw, m.publicPitch = m.RotYaw, 0
+	m.stareSent = false
+}
+
+func (m *Mob) trackedRotation() (float32, float32) {
+	if m.IsPossessed() {
+		return m.publicYaw, m.publicPitch
+	}
+	return m.RotYaw, m.RotPitch
+}
+
+func (m *Mob) stareLook(w WorldShared) (int32, []byte, bool) {
+	if !m.IsPossessed() {
+		return -1, nil, false
+	}
+	enc := [2]int32{quantizeAngle(m.RotYaw), quantizeAngle(m.RotPitch)}
+	changed := !m.stareSent || enc != m.stareEnc
+	m.stareEnc, m.stareSent = enc, true
+	return m.possessedBy, w.NewRotationPacket(m, c.MovementState{Yaw: m.RotYaw, Pitch: m.RotPitch}), changed
 }
 
 func (m *Mob) possessedAI(w WorldShared) {
@@ -160,6 +179,7 @@ func (m *Mob) possessedAI(w WorldShared) {
 	p := validTarget(w, m.possessedBy, m.Dimension)
 	if p == nil || m.possessedTicks <= 0 {
 		m.possessedBy, m.possessedTicks = -1, 0
+		m.MovementState.EncInit = false
 		return
 	}
 	m.faceTowards(p.X, p.Y, p.Z, playerEyeHeight, 360, 90)
@@ -168,6 +188,7 @@ func (m *Mob) possessedAI(w WorldShared) {
 		return
 	}
 	m.forward = m.speed()
+	m.publicYaw = m.RotYaw
 	if (m.collidedH && m.OnGround) || m.inWater {
 		m.jumping = true
 	}

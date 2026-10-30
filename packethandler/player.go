@@ -253,7 +253,7 @@ func handlePlayerPositionAndRotationPacket(connection net.Conn, p packets.Player
 	pl.Pitch = p.Pitch
 	pl.OnGround = p.OnGround
 	updateSkywalk(world, pl)
-	if checkDimensionTransfer(world, pl, prevY) {
+	if catchVoidFall(world, pl) || checkDimensionTransfer(world, pl, prevY) {
 		return
 	}
 	updateChunks(world, x, z, pl)
@@ -315,7 +315,7 @@ func handlePlayerPositionPacket(connection net.Conn, p packets.PlayerPositionPac
 	pl.Stance = p.Stance
 	pl.OnGround = p.OnGround
 	updateSkywalk(world, pl)
-	if checkDimensionTransfer(world, pl, prevY) {
+	if catchVoidFall(world, pl) || checkDimensionTransfer(world, pl, prevY) {
 		return
 	}
 	updateChunks(world, x, z, pl)

@@ -79,6 +79,10 @@ type Mob struct {
 
 	possessedBy    int32
 	possessedTicks int32
+	publicYaw      float32
+	publicPitch    float32
+	stareEnc       [2]int32
+	stareSent      bool
 }
 
 func NewMob(id int32, mobType byte, x, y, z float64, dim int32) *Mob {

@@ -59,6 +59,7 @@ var hauntEvents = []hauntEvent{
 	{"behind", 2, 4, hauntBehind},
 	{"bed", 2, 3, hauntBed},
 	{"possess", 2, 3, hauntPossess},
+	{"void", 2, 2, hauntVoid},
 	{"gift", 2, 2, hauntGift},
 	{"lightning", 2, 2, hauntLightning},
 	{"join", 2, 2, hauntJoin},

@@ -129,14 +129,17 @@ func (et *EntityTracker) Manage(w WorldShared) {
 		// Snapshotting the entity info per this tick
 		msCopy := *ms
 
-		var playerMove, mobMove, mobMeta []byte
+		var playerMove, mobMove, mobMeta, stareLook []byte
+		stareViewer, stareChanged := int32(-1), false
 		if t, ok := target.(*player.Player); ok && targetType == c.Player {
 			x, y, z := t.GetPosition()
 			playerMove = trackMovePacket(w, t, &t.MovementState, x, y, z, t.Yaw, t.Pitch, 1)
 		}
 		if t, ok := target.(*Mob); ok && alive {
-			mobMove = trackMovePacket(w, t, &t.MovementState, t.X, t.Y, t.Z, t.RotYaw, t.RotPitch, mobUpdateEvery)
+			yaw, pitch := t.trackedRotation()
+			mobMove = trackMovePacket(w, t, &t.MovementState, t.X, t.Y, t.Z, yaw, pitch, mobUpdateEvery)
 			mobMeta = t.TakeMetadata()
+			stareViewer, stareLook, stareChanged = t.stareLook(w)
 		}
 
 		for _, viewer := range viewers {
@@ -216,6 +219,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 					if mobMove != nil {
 						viewer.Connection.Write(mobMove)
 					}
+					if viewerID == stareViewer && (mobMove != nil || stareChanged) {
+						viewer.Connection.Write(stareLook)
+					}
 					if velChanged {
 						viewer.Connection.Write(w.NewEntityVelocityPacket(t.GetEntityId(), msCopy))
 					}
@@ -274,6 +280,9 @@ func (et *EntityTracker) Manage(w WorldShared) {
 				case c.Mob:
 					t, _ := target.(*Mob)
 					viewer.Connection.Write(w.SpawnMobPacket(t))
+					if viewerID == stareViewer {
+						viewer.Connection.Write(stareLook)
+					}
 
 				case c.DroppedItem:
 					//log.Printf("Tracker: Spawning %d for %s (%d)", targetID, viewer.Username, viewerID)

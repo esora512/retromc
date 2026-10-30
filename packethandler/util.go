@@ -291,7 +291,7 @@ func applyChunkVisibility(world *level.World, pl *player.Player, cx, cz int32) {
 	for _, off := range viewOffsets {
 		coord := level.ChunkCoord{X: cx + off.X, Z: cz + off.Z}
 
-		if pl.SentChunks.Has(coord.X, coord.Z) {
+		if pl.SentChunks.Has(coord.X, coord.Z) || withheldChunk(pl, coord.X, coord.Z) {
 			continue
 		}
 		if pl.PendingChunks == nil {
@@ -338,6 +338,10 @@ func FlushPendingChunks(world *level.World) {
 		for _, c := range coords {
 			if sent >= maxChunksPerTick || player.Backlog(pl.Connection) >= maxChunkBacklog || pl.ChunkBytesInFlight+bytes >= chunkWindowBytes {
 				return
+			}
+			if withheldChunk(pl, c.X, c.Z) {
+				delete(pl.PendingChunks, c)
+				continue
 			}
 			coord := level.ChunkCoord{X: c.X, Z: c.Z}
 			chunk, ok := world.PeekChunk(c.X, c.Z, pl.Dimension)
