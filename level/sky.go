@@ -24,25 +24,6 @@ const (
 	SkyEntryY = 8
 )
 
-func (w *World) BuildSkyLandingPad(x, z int32) {
-	dirt := constants.NewBlockById(constants.Dirt.Value, 0)
-	for dx := int32(-1); dx <= 1; dx++ {
-		for dz := int32(-1); dz <= 1; dz++ {
-			if w.GetBlock(x+dx, SkyEntryY-1, z+dz, SkyDim).TypeId == 0 {
-				w.SetBlockInQueue(x+dx, SkyEntryY-1, z+dz, dirt, SkyDim)
-			}
-		}
-	}
-}
-
-func (w *World) SurfaceY(x, z, dim int32) int32 {
-	y := int32(CHUNK_SIZE_Y - 1)
-	for y > 0 && w.GetBlock(x, byte(y), z, dim).TypeId == 0 {
-		y--
-	}
-	return y + 1
-}
-
 const (
 	vaultCell  = 48
 	vaultMaxR  = 12

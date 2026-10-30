@@ -56,6 +56,8 @@ const (
 	noodleFreq2      = noodleFreq1 * 1.618 // golden-ratio offset decorrelates the two fields
 	noodleThickness1 = 0.18                // raise for fatter noodles, lower for thinner/sparser
 	noodleThickness2 = 0.18
+	netherVoidTop    = 8
+	netherVoidFade   = 16
 )
 
 // GenerateNoodleWorld fills the chunk based on the two-field intersection
@@ -91,7 +93,11 @@ func (c *Chunk) GenerateNoodleWorld(seed uint32, cx, cz int32, dim int32) {
 		d1 := valueNoise3D(wx*noodleFreq1, wy*noodleFreq1, wz*noodleFreq1, seed)
 		d2 := valueNoise3D(wx*noodleFreq2, wy*noodleFreq2, wz*noodleFreq2, seed+1)
 
-		if math.Abs(d1) < noodleThickness1 && math.Abs(d2) < noodleThickness2 {
+		fade := 1.0
+		if dim == -1 {
+			fade = min(max(float64(y-netherVoidTop)/netherVoidFade, 0), 1)
+		}
+		if math.Abs(d1) < noodleThickness1*fade && math.Abs(d2) < noodleThickness2*fade {
 			blockTypes[i] = idStone
 		} else {
 			blockTypes[i] = idAir

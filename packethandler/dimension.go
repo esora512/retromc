@@ -3,6 +3,7 @@ package packethandler
 import (
 	"math"
 
+	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
 	"github.com/leNicDev/retromc/player"
@@ -23,7 +24,7 @@ func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64
 	case pl.Dimension == 0 && pl.Y < netherEntryY:
 		transferToNether(world, pl)
 	case pl.Dimension == -1 && pl.Y > netherExitY:
-		transferToOverworld(world, pl)
+		transferFromNether(world, pl)
 	case pl.Dimension == 0 && pl.Y > skyEntryY && prevY <= skyEntryY:
 		transferToSky(world, pl)
 	case pl.Dimension == level.SkyDim && pl.Y < skyExitY:
@@ -34,26 +35,104 @@ func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64
 	return true
 }
 
+type landing struct {
+	minY, maxY, padY int32
+	surface          bool
+	floor            constants.WBlock
+}
+
+const landingRadius = 24
+
+var (
+	netherLanding    = landing{minY: 10, maxY: 116, padY: 104, floor: constants.NewBlockById(constants.Netherrack.Value, 0)}
+	skyLanding       = landing{minY: 6, maxY: 64, padY: level.SkyEntryY + 4, floor: constants.NewBlockById(constants.Dirt.Value, 0)}
+	overworldLanding = landing{minY: netherEntryY + 2, maxY: level.CHUNK_SIZE_Y - 2, padY: 64, surface: true, floor: constants.NewBlockById(constants.Dirt.Value, 0)}
+)
+
 func transferToNether(world *level.World, pl *player.Player) {
-	world.BuildNetherLandingPad()
-	transferPlayer(world, pl, -1, level.NetherSpawnX+0.5, level.NetherSpawnY, level.NetherSpawnZ+0.5)
+	transferNear(world, pl, -1, netherLanding)
+}
+
+func transferFromNether(world *level.World, pl *player.Player) {
+	transferNear(world, pl, 0, overworldLanding)
 }
 
 func transferToSky(world *level.World, pl *player.Player) {
-	x, z := math.Floor(pl.X), math.Floor(pl.Z)
-	world.BuildSkyLandingPad(int32(x), int32(z))
-	transferPlayer(world, pl, level.SkyDim, x+0.5, level.SkyEntryY, z+0.5)
+	transferNear(world, pl, level.SkyDim, skyLanding)
 }
 
 func transferFromSky(world *level.World, pl *player.Player) {
-	x, z := math.Floor(pl.X), math.Floor(pl.Z)
-	y := world.SurfaceY(int32(x), int32(z), 0)
-	transferPlayer(world, pl, 0, x+0.5, float64(y), z+0.5)
+	transferNear(world, pl, 0, overworldLanding)
 }
 
 func transferToOverworld(world *level.World, pl *player.Player) {
 	x, y, z := overworldSpawnPoint(world, pl)
 	transferPlayer(world, pl, 0, x, y, z)
+}
+
+func transferNear(world *level.World, pl *player.Player, dim int32, l landing) {
+	x, z := int32(math.Floor(pl.X)), int32(math.Floor(pl.Z))
+	moveToDim(world, pl, dim, float64(x)+0.5, float64(l.padY), float64(z)+0.5, func() (float64, float64, float64) {
+		bx, by, bz, ok := findLanding(world, dim, x, z, l)
+		if !ok {
+			bx, by, bz = x, l.padY, z
+			world.BuildLandingPad(bx, by, bz, dim, l.floor)
+		}
+		return float64(bx) + 0.5, float64(by) + 0.01, float64(bz) + 0.5
+	})
+}
+
+func passable(b constants.WBlock) bool {
+	switch b.TypeId {
+	case byte(constants.Fire.Value), byte(constants.Cactus.Value), byte(constants.Cobweb.Value), byte(constants.NetherPortal.Value):
+		return false
+	}
+	return !entities.IsNormalCube(b) && !b.IsLiquid()
+}
+
+func landingSpots(world *level.World, dim, x, z int32, l landing) []int32 {
+	block := func(y int32) constants.WBlock { return world.GetBlock(x, byte(y), z, dim) }
+	if l.surface {
+		y := int32(level.CHUNK_SIZE_Y - 1)
+		for y > 0 && passable(block(y)) {
+			y--
+		}
+		if y+1 >= l.minY && y+1 <= l.maxY && entities.IsNormalCube(block(y)) {
+			return []int32{y + 1}
+		}
+		return nil
+	}
+	var spots []int32
+	for y := l.minY; y <= l.maxY; y++ {
+		if entities.IsNormalCube(block(y-1)) && passable(block(y)) && passable(block(y+1)) {
+			spots = append(spots, y)
+		}
+	}
+	return spots
+}
+
+func findLanding(world *level.World, dim, x, z int32, l landing) (int32, int32, int32, bool) {
+	var best [3]int32
+	bestScore := int32(math.MaxInt32)
+	for r := int32(0); r <= landingRadius && r*r < bestScore; r++ {
+		for dx := -r; dx <= r; dx++ {
+			for dz := -r; dz <= r; dz++ {
+				if max(abs32(dx), abs32(dz)) != r {
+					continue
+				}
+				for _, y := range landingSpots(world, dim, x+dx, z+dz, l) {
+					score := dx*dx + dz*dz
+					if !l.surface {
+						score += (y - l.padY) * (y - l.padY)
+					}
+					if score < bestScore {
+						best, bestScore = [3]int32{x + dx, y, z + dz}, score
+					}
+				}
+			}
+		}
+	}
+	return best[0], best[1], best[2], bestScore != math.MaxInt32
 }
 
 func overworldSpawnPoint(world *level.World, pl *player.Player) (float64, float64, float64) {
@@ -69,6 +148,12 @@ func overworldSpawnPoint(world *level.World, pl *player.Player) (float64, float6
 }
 
 func transferPlayer(world *level.World, pl *player.Player, dim int32, x, y, z float64) {
+	moveToDim(world, pl, dim, x, y, z, func() (float64, float64, float64) {
+		return x, freeSpawnY(world, dim, x, y, z) + 0.01, z
+	})
+}
+
+func moveToDim(world *level.World, pl *player.Player, dim int32, x, y, z float64, locate func() (float64, float64, float64)) {
 	pl.Transferring = true
 	pl.AwaitingTeleportAck = false
 	pl.Dimension = dim
@@ -93,8 +178,8 @@ func transferPlayer(world *level.World, pl *player.Player, dim int32, x, y, z fl
 		if !world.HasPlayer(pl) || pl.Dimension != dim {
 			return
 		}
-		y := freeSpawnY(world, dim, x, y, z) + 0.01
-		pl.Y = y
+		x, y, z := locate()
+		pl.X, pl.Y, pl.Z = x, y, z
 		pl.Stance = y + playerEyeHeight
 
 		pl.SentChunksMu.Lock()

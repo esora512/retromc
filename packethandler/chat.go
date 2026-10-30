@@ -222,7 +222,7 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 			if pl.Dimension == 0 {
 				transferToNether(world, pl)
 			} else {
-				transferToOverworld(world, pl)
+				transferFromNether(world, pl)
 			}
 		}
 

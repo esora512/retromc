@@ -325,9 +325,6 @@ func (w *World) GetLoadedChunk(x, z, dim int32) *Chunk {
 
 func (w *World) wantedChunks(dim int32, viewDist int) map[ChunkCoord]struct{} {
 	wanted := make(map[ChunkCoord]struct{})
-	if dim == -1 {
-		addNetherSpawnChunks(wanted)
-	}
 	for _, pl := range w.Players {
 		if pl.Dimension != dim {
 			continue
