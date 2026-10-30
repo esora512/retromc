@@ -90,6 +90,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 	if !pl.Offline {
 		world.RegisterAccount(pl.Username)
+		world.RecordIP(pl.Username, remoteIP(connection))
 	}
 
 	data, err := level.LoadPlayerData(world.WorldDir, pl.Username)

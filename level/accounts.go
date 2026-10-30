@@ -84,6 +84,7 @@ type Account struct {
 	Claims   []ClaimBox `json:"claims"`
 	Offline  bool       `json:"offline,omitempty"`
 	Password string     `json:"password,omitempty"`
+	IPs      []string   `json:"IPs"`
 }
 
 func (w *World) accountsPath() string {
@@ -162,6 +163,24 @@ func (w *World) RegisterAccount(name string) {
 	}
 	w.accounts[name] = &Account{Claims: []ClaimBox{}}
 	w.saveAccounts()
+}
+
+func (w *World) RecordIP(name, ip string) {
+	acc, ok := w.accounts[name]
+	if !ok || ip == "" || slices.Contains(acc.IPs, ip) {
+		return
+	}
+	acc.IPs = append(acc.IPs, ip)
+	w.saveAccounts()
+}
+
+func (w *World) IPsOf(name string) []string {
+	for n, acc := range w.accounts {
+		if strings.EqualFold(n, name) {
+			return acc.IPs
+		}
+	}
+	return nil
 }
 
 func (w *World) AllowsOffline(name string) bool {

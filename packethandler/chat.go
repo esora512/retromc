@@ -168,6 +168,9 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 		handleAuthCommand(pl, world, message)
 		return false
 	}
+	if strings.TrimSpace(message) == "" || !allowChat(pl, world) {
+		return false
+	}
 	if strings.HasPrefix(message, "/") {
 		cmdName := strings.Fields(message)[0]
 		if !permitted(world, pl, message) {

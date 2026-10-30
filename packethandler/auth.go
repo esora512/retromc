@@ -138,6 +138,7 @@ func handleAuthCommand(pl *player.Player, world *level.World, message string) {
 					return
 				}
 				pl.AuthPending = false
+				world.RecordIP(pl.Username, remoteIP(pl.Connection))
 				sendDebugMessage(pl, "Logged in.")
 			})
 		}()

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,11 +17,16 @@ import (
 type wsConn struct {
 	ws     *websocket.Conn
 	reader io.Reader
+	remote net.Addr
 	mu     sync.Mutex // guards writes; gorilla only allows one writer at a time
 }
 
-func newWSConn(ws *websocket.Conn) *wsConn {
-	return &wsConn{ws: ws}
+func newWSConn(ws *websocket.Conn, r *http.Request) *wsConn {
+	c := &wsConn{ws: ws, remote: ws.RemoteAddr()}
+	if fwd, _, _ := strings.Cut(r.Header.Get("X-Forwarded-For"), ","); net.ParseIP(strings.TrimSpace(fwd)) != nil {
+		c.remote = &net.TCPAddr{IP: net.ParseIP(strings.TrimSpace(fwd))}
+	}
+	return c
 }
 
 func (c *wsConn) Read(p []byte) (int, error) {
@@ -62,7 +68,7 @@ func (c *wsConn) SetWriteBuffer(bytes int) error {
 
 func (c *wsConn) Close() error         { return c.ws.Close() }
 func (c *wsConn) LocalAddr() net.Addr  { return c.ws.LocalAddr() }
-func (c *wsConn) RemoteAddr() net.Addr { return c.ws.RemoteAddr() }
+func (c *wsConn) RemoteAddr() net.Addr { return c.remote }
 func (c *wsConn) SetDeadline(t time.Time) error {
 	_ = c.ws.SetReadDeadline(t)
 	return c.ws.SetWriteDeadline(t)
@@ -108,7 +114,7 @@ func runOnRender(s *Server, b2 *b2Client) {
 			log.Println("WS upgrade failed:", err)
 			return
 		}
-		go handleConnection(player.NewAsyncConn(newWSConn(conn)), s.World, s.Tracker)
+		go handleConnection(player.NewAsyncConn(newWSConn(conn, r)), s.World, s.Tracker)
 	})
 
 	log.Printf("Render detected: HTTP/WebSocket bridge listening on :%s (game traffic on /ws, PID: %d)", port, os.Getpid())

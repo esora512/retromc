@@ -47,7 +47,9 @@ func (w *World) IsBanned(name, ip string) bool {
 	return w.bannedPlayers[strings.ToLower(name)] || w.bannedIPs[ip]
 }
 
-func (w *World) Ban(name, ip string) {
+func (w *World) Ban(name string, ips []string) {
 	w.addBan(w.bannedPlayers, "banned_players.txt", strings.ToLower(name))
-	w.addBan(w.bannedIPs, "banned_ips.txt", ip)
+	for _, ip := range ips {
+		w.addBan(w.bannedIPs, "banned_ips.txt", ip)
+	}
 }

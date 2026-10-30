@@ -1,7 +1,10 @@
 package packethandler
 
 import (
+	"log"
 	"net"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/leNicDev/retromc/level"
@@ -25,11 +28,23 @@ func handleBanCommand(pl *player.Player, world *level.World, args []string) {
 		sendUsage(pl, "/ban")
 		return
 	}
-	ip := ""
-	if target := world.GetFirstPlayerByName(args[0]); target != nil {
-		ip = remoteIP(target.Connection)
-		kickConnection(target.Connection, "You are banned from this server")
+	name := args[0]
+	ips := slices.Clone(world.IPsOf(name))
+	for _, p := range world.Players {
+		if ip := remoteIP(p.Connection); strings.EqualFold(p.Username, name) && ip != "" && !slices.Contains(ips, ip) {
+			ips = append(ips, ip)
+		}
 	}
-	world.Ban(args[0], ip)
-	sendDebugMessage(pl, "Banned "+args[0])
+	for _, p := range world.Players {
+		if strings.EqualFold(p.Username, name) || slices.Contains(ips, remoteIP(p.Connection)) {
+			kickConnection(p.Connection, "You are banned from this server")
+		}
+	}
+	world.Ban(name, ips)
+	log.Printf("%s banned %s (IPs %v)", pl.Username, name, ips)
+	if len(ips) == 0 {
+		sendDebugMessage(pl, "Banned "+name+" (no known IP, name only)")
+		return
+	}
+	sendDebugMessage(pl, "Banned "+name+" and IPs "+strings.Join(ips, ", "))
 }
