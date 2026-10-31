@@ -387,12 +387,12 @@ func (b *discordBridge) registerCommands() {
 	admin := int64(discordgo.PermissionAdministrator)
 	_, err = b.session.ApplicationCommandCreate(b.session.State.User.ID, ch.GuildID, &discordgo.ApplicationCommand{
 		Name:                     "execute",
-		Description:              "Run a server command (currently only haunt)",
+		Description:              "Run a server command (haunt or ban)",
 		DefaultMemberPermissions: &admin,
 		Options: []*discordgo.ApplicationCommandOption{{
 			Type:        discordgo.ApplicationCommandOptionString,
 			Name:        "command",
-			Description: "e.g. haunt list, haunt Steve appear",
+			Description: "e.g. haunt list, haunt Steve appear, ban Steve",
 			Required:    true,
 		}},
 	})
@@ -410,8 +410,8 @@ func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 	args := strings.Fields(strings.TrimPrefix(strings.TrimSpace(data.Options[0].StringValue()), "/"))
-	if len(args) == 0 || args[0] != "haunt" {
-		b.replyEphemeral(i, []string{"Only haunt commands can be executed from Discord"})
+	if len(args) == 0 || (args[0] != "haunt" && args[0] != "ban") {
+		b.replyEphemeral(i, []string{"Only haunt and ban commands can be executed from Discord"})
 		return
 	}
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -423,7 +423,12 @@ func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 	b.world.Enqueue(func() {
-		lines := packethandler.HauntCommand(b.world, args[1:])
+		var lines []string
+		if args[0] == "ban" {
+			lines = packethandler.BanCommand(b.world, "Discord user "+discordUser(i), args[1:])
+		} else {
+			lines = packethandler.HauntCommand(b.world, args[1:])
+		}
 		go func() {
 			content := executeReply(lines)
 			if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{Content: &content, AllowedMentions: discordNoMentions}); err != nil {
@@ -431,6 +436,16 @@ func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.Interac
 			}
 		}()
 	})
+}
+
+func discordUser(i *discordgo.InteractionCreate) string {
+	if i.Member != nil && i.Member.User != nil {
+		return i.Member.User.Username
+	}
+	if i.User != nil {
+		return i.User.Username
+	}
+	return "unknown"
 }
 
 func (b *discordBridge) replyEphemeral(i *discordgo.InteractionCreate, lines []string) {

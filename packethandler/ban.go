@@ -24,9 +24,13 @@ func kickConnection(conn net.Conn, reason string) {
 }
 
 func handleBanCommand(pl *player.Player, world *level.World, args []string) {
+	sendDebugMessage(pl, BanCommand(world, pl.Username, args)...)
+}
+
+// BanCommand runs /ban on behalf of by and returns the reply lines
+func BanCommand(world *level.World, by string, args []string) []string {
 	if len(args) != 1 {
-		sendUsage(pl, "/ban")
-		return
+		return []string{"Usage: " + commandUsage("/ban")}
 	}
 	name := args[0]
 	ips := slices.Clone(world.IPsOf(name))
@@ -41,10 +45,9 @@ func handleBanCommand(pl *player.Player, world *level.World, args []string) {
 		}
 	}
 	world.Ban(name, ips)
-	log.Printf("%s banned %s (IPs %v)", pl.Username, name, ips)
+	log.Printf("%s banned %s (IPs %v)", by, name, ips)
 	if len(ips) == 0 {
-		sendDebugMessage(pl, "Banned "+name+" (no known IP, name only)")
-		return
+		return []string{"Banned " + name + " (no known IP, name only)"}
 	}
-	sendDebugMessage(pl, "Banned "+name+" and IPs "+strings.Join(ips, ", "))
+	return []string{"Banned " + name + " and IPs " + strings.Join(ips, ", ")}
 }
