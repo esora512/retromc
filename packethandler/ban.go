@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,7 +53,7 @@ func BanCommand(world *level.World, by string, args []string) []string {
 	if len(ips) == 0 {
 		return []string{"Banned " + name + " (no known IP, name only)"}
 	}
-	return []string{"Banned " + name + " and IPs " + strings.Join(ips, ", ")}
+	return []string{"Banned " + name + " and " + ipCount(len(ips)) + " (see server log)"}
 }
 
 func handleUnbanCommand(pl *player.Player, world *level.World, args []string) {
@@ -66,10 +67,10 @@ func UnbanCommand(world *level.World, by string, args []string) []string {
 	target := args[0]
 	if net.ParseIP(target) != nil {
 		if _, lifted := world.Unban("", []string{target}); len(lifted) == 0 {
-			return []string{target + " was not banned"}
+			return []string{"That IP was not banned"}
 		}
 		log.Printf("%s unbanned IP %s", by, target)
-		return []string{"Unbanned IP " + target}
+		return []string{"Unbanned the IP"}
 	}
 	wasBanned, lifted := world.Unban(target, world.IPsOf(target))
 	if !wasBanned && len(lifted) == 0 {
@@ -79,5 +80,12 @@ func UnbanCommand(world *level.World, by string, args []string) []string {
 	if len(lifted) == 0 {
 		return []string{"Unbanned " + target}
 	}
-	return []string{"Unbanned " + target + " and IPs " + strings.Join(lifted, ", ")}
+	return []string{"Unbanned " + target + " and " + ipCount(len(lifted)) + " (see server log)"}
+}
+
+func ipCount(n int) string {
+	if n == 1 {
+		return "1 IP"
+	}
+	return strconv.Itoa(n) + " IPs"
 }
