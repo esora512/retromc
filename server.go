@@ -217,6 +217,7 @@ func (s *Server) Run() {
 							}
 						}()
 					}
+					packethandler.TickDream(s.World, s.Tracker)
 				}
 				packethandler.TickHaunting(s.World, s.Tracker)
 				s.Tracker.Manage(s.World)

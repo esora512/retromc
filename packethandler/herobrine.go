@@ -279,6 +279,10 @@ func bedSighting(w *level.World, pl *player.Player, unseen bool) bool {
 
 // OnWake sometimes has him waiting at the foot of the bed in the morning
 func OnWake(w *level.World, pl *player.Player) {
+	if pl.Dimension == 0 && rand.Intn(2) == 0 {
+		later(w, 2*time.Second, pl, func() { enterDream(w, pl) })
+		return
+	}
 	if !HauntingEnabled || hauntStage(pl) < 2 || rand.Intn(3) != 0 {
 		return
 	}

@@ -6,6 +6,7 @@ import (
 	"github.com/leNicDev/retromc/constants"
 	"github.com/leNicDev/retromc/entities"
 	"github.com/leNicDev/retromc/level"
+	"github.com/leNicDev/retromc/packet/packets"
 	"github.com/leNicDev/retromc/player"
 )
 
@@ -21,6 +22,8 @@ func checkDimensionTransfer(world *level.World, pl *player.Player, prevY float64
 		return false
 	}
 	switch {
+	case pl.Dimension == level.DreamDim:
+		return dreamStep(world, pl)
 	case pl.Dimension == 0 && pl.Y < netherEntryY && fellThroughWorld(world, pl):
 		rescueToSurface(world, pl)
 	case pl.Dimension == 0 && pl.Y < netherEntryY:
@@ -165,6 +168,8 @@ func transferPlayer(world *level.World, pl *player.Player, dim int32, x, y, z fl
 
 func moveToDim(world *level.World, pl *player.Player, dim int32, x, y, z float64, locate func() (float64, float64, float64)) {
 	delete(voidGlitches, pl)
+	delete(dreamers, pl)
+	sameClientDim := level.ClientDim(pl.Dimension) == level.ClientDim(dim)
 	pl.Transferring = true
 	pl.AwaitingTeleportAck = false
 	pl.Dimension = dim
@@ -175,13 +180,19 @@ func moveToDim(world *level.World, pl *player.Player, dim int32, x, y, z float64
 	pl.FallDistance = 0
 	pl.Immune = 200
 	pl.SentChunksMu.Lock()
+	if sameClientDim {
+		for c := range pl.SentChunks {
+			unload := packets.SetChunkVisibilityPacket{X: c.X, Z: c.Z, Mode: false}
+			pl.Connection.Write(unload.Serialize())
+		}
+	}
 	pl.SentChunks = make(player.ChunkSet)
 	pl.SentChunksMu.Unlock()
 	pl.RequestedChunks = make(player.ChunkSet)
 	pl.PendingChunks = make(player.ChunkSet)
 	pl.HasInitializedChunks = false
 
-	sendRespawn(pl.Connection, byte(dim))
+	sendRespawn(pl.Connection, level.ClientDim(dim))
 
 	cx := level.WorldToChunkCoord(int32(math.Floor(x)))
 	cz := level.WorldToChunkCoord(int32(math.Floor(z)))

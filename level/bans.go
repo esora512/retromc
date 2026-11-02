@@ -53,3 +53,29 @@ func (w *World) Ban(name string, ips []string) {
 		w.addBan(w.bannedIPs, "banned_ips.txt", ip)
 	}
 }
+
+func (w *World) writeBanList(set map[string]bool, file string) {
+	var b strings.Builder
+	for entry := range set {
+		fmt.Fprintln(&b, entry)
+	}
+	if err := os.WriteFile(filepath.Join(w.WorldDir, file), []byte(b.String()), 0o644); err != nil {
+		log.Println("Failed to write", file, err)
+	}
+}
+
+func (w *World) Unban(name string, ips []string) (bool, []string) {
+	name = strings.ToLower(name)
+	wasBanned := w.bannedPlayers[name]
+	delete(w.bannedPlayers, name)
+	var lifted []string
+	for _, ip := range ips {
+		if w.bannedIPs[ip] {
+			delete(w.bannedIPs, ip)
+			lifted = append(lifted, ip)
+		}
+	}
+	w.writeBanList(w.bannedPlayers, "banned_players.txt")
+	w.writeBanList(w.bannedIPs, "banned_ips.txt")
+	return wasBanned, lifted
+}

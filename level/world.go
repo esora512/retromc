@@ -105,6 +105,8 @@ type World struct {
 	oChunks     map[ChunkCoord]*Chunk
 	nChunks     map[ChunkCoord]*Chunk
 	sChunks     map[ChunkCoord]*Chunk
+	dChunks     map[ChunkCoord]*Chunk
+	dream       dreamState
 	Tick        int64
 	TimeTick    int64
 	Players     map[int32]*player.Player
@@ -500,6 +502,7 @@ func NewWorld(commitHash string, seed int64, worldType WorldType) *World {
 		oChunks:     make(map[ChunkCoord]*Chunk),
 		nChunks:     make(map[ChunkCoord]*Chunk),
 		sChunks:     make(map[ChunkCoord]*Chunk),
+		dChunks:     make(map[ChunkCoord]*Chunk),
 		EntityCount: 0,
 		Players:     make(map[int32]*player.Player),
 		Entities:    make(map[int32]constants.Entity),

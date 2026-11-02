@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -387,12 +388,12 @@ func (b *discordBridge) registerCommands() {
 	admin := int64(discordgo.PermissionAdministrator)
 	_, err = b.session.ApplicationCommandCreate(b.session.State.User.ID, ch.GuildID, &discordgo.ApplicationCommand{
 		Name:                     "execute",
-		Description:              "Run a server command (haunt or ban)",
+		Description:              "Run a server command (haunt, ban, unban or dream)",
 		DefaultMemberPermissions: &admin,
 		Options: []*discordgo.ApplicationCommandOption{{
 			Type:        discordgo.ApplicationCommandOptionString,
 			Name:        "command",
-			Description: "e.g. haunt list, haunt Steve appear, ban Steve",
+			Description: "e.g. haunt list, ban Steve, unban Steve, dream Steve",
 			Required:    true,
 		}},
 	})
@@ -410,8 +411,8 @@ func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.Interac
 		return
 	}
 	args := strings.Fields(strings.TrimPrefix(strings.TrimSpace(data.Options[0].StringValue()), "/"))
-	if len(args) == 0 || (args[0] != "haunt" && args[0] != "ban") {
-		b.replyEphemeral(i, []string{"Only haunt and ban commands can be executed from Discord"})
+	if len(args) == 0 || !slices.Contains([]string{"haunt", "ban", "unban", "dream"}, args[0]) {
+		b.replyEphemeral(i, []string{"Only haunt, ban, unban and dream commands can be executed from Discord"})
 		return
 	}
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -424,9 +425,15 @@ func (b *discordBridge) onInteraction(s *discordgo.Session, i *discordgo.Interac
 	}
 	b.world.Enqueue(func() {
 		var lines []string
-		if args[0] == "ban" {
-			lines = packethandler.BanCommand(b.world, "Discord user "+discordUser(i), args[1:])
-		} else {
+		by := "Discord user " + discordUser(i)
+		switch args[0] {
+		case "ban":
+			lines = packethandler.BanCommand(b.world, by, args[1:])
+		case "unban":
+			lines = packethandler.UnbanCommand(b.world, by, args[1:])
+		case "dream":
+			lines = packethandler.DreamCommand(b.world, args[1:])
+		default:
 			lines = packethandler.HauntCommand(b.world, args[1:])
 		}
 		go func() {

@@ -99,6 +99,7 @@ func handleLoginRequestInPacket(connection net.Conn, p packets.LoginPacket, worl
 	}
 	level.ApplyPlayerData(pl, data)
 	world.AddPlayer(pl)
+	placeInDream(world, pl)
 
 	sendLoginResponse(connection, world, pl)
 
@@ -139,7 +140,7 @@ func sendLoginResponse(connection net.Conn, w *level.World, pl *player.Player) {
 	outPacket := packets.LoginPacket{
 		EntityId:  pl.EntityId,
 		MapSeed:   w.Seed,
-		Dimension: byte(pl.Dimension),
+		Dimension: level.ClientDim(pl.Dimension),
 	}
 	outData := outPacket.Serialize()
 	connection.Write(outData)

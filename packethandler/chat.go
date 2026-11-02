@@ -53,6 +53,7 @@ var commandHelp = []struct {
 	{"/hollow", "/hollow | /hollow <block> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/claim", "/claim | /claim <add | remove> [<x1> <y1> <z1> <x2> <y2> <z2>]"},
 	{"/ban", "/ban <player>"},
+	{"/unban", "/unban <player | ip>"},
 	{"/clear", "/clear"},
 	{"/haunt", "/haunt <on | off | list> | /haunt <player> [event | stage [1-3]]"},
 }
@@ -127,7 +128,7 @@ func permitted(world *level.World, pl *player.Player, message string) bool {
 		return perms.CanSummon
 	case strings.HasPrefix(message, "/kill"):
 		return perms.CanKill || strings.TrimPrefix(message, "/kill ") != "entities"
-	case strings.HasPrefix(message, "/ban"):
+	case strings.HasPrefix(message, "/ban"), strings.HasPrefix(message, "/unban"):
 		return perms.CanBan
 	case strings.HasPrefix(message, "/tp"):
 		args := strings.Fields(strings.TrimPrefix(message, "/tp"))
@@ -421,6 +422,11 @@ func handleChatMessageInPacket(p packets.ChatMessagePacket, pl *player.Player, w
 
 		if cmdName == "/ban" {
 			handleBanCommand(pl, world, strings.Fields(message)[1:])
+			return false
+		}
+
+		if cmdName == "/unban" {
+			handleUnbanCommand(pl, world, strings.Fields(message)[1:])
 			return false
 		}
 

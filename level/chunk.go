@@ -40,6 +40,9 @@ type Chunk struct {
 
 	PendingEntities []*mcregion.Tag
 	HadEntities     bool
+
+	dreamTiles []dreamTile
+	dreamScene *DreamScene
 }
 
 func (c *Chunk) Size() int64 {
@@ -313,6 +316,8 @@ func (w *World) chunksFor(dim int32) map[ChunkCoord]*Chunk {
 		return w.nChunks
 	case SkyDim:
 		return w.sChunks
+	case DreamDim:
+		return w.dChunks
 	}
 	return w.oChunks
 }
@@ -459,6 +464,7 @@ func (w *World) GetOrCreateChunk(cx, cz, dim int32) *Chunk {
 		w.initChunkLight(cx, cz, dim, c)
 	}
 	w.spawnPendingEntities(c, dim)
+	w.adoptDreamTiles(c)
 	return c
 }
 
@@ -480,6 +486,7 @@ func (w *World) InsertChunk(cx, cz, dim int32, c *Chunk) *Chunk {
 		w.initChunkLight(cx, cz, dim, c)
 	}
 	w.spawnPendingEntities(c, dim)
+	w.adoptDreamTiles(c)
 	return c
 }
 
@@ -521,6 +528,9 @@ func (w *World) forgetRegionFile(path string) {
 }
 
 func (w *World) loadOrGenerateChunkFromDiskOrGen(cx, cz, dim int32) *Chunk {
+	if dim == DreamDim {
+		return w.generateDreamChunk(cx, cz)
+	}
 	if w.WorldDir != "" {
 		dir := dimDir(w.WorldDir, dim)
 		rx, rz := cx>>5, cz>>5
